@@ -83,6 +83,8 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
     }
     let action = match (view, key.code) {
         (View::Queue, KeyCode::Char('d')) => Action::RemoveSelectedFromQueue,
+        (View::Queue, KeyCode::Char('J')) => Action::MoveSelectedInQueue(1),
+        (View::Queue, KeyCode::Char('K')) => Action::MoveSelectedInQueue(-1),
         (View::Queue, KeyCode::Char('c')) => Action::ClearQueue,
         (View::Queue, KeyCode::Char('w')) => {
             Action::OpenPrompt(crate::app::state::PromptPurpose::SaveQueueAsPlaylist)

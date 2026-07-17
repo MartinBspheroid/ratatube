@@ -188,6 +188,12 @@ fn render_search(
                 return;
             }
 
+            // Approximate the column widths ratatui will compute so cells
+            // can ellipsize instead of hard-cutting mid-word. The "▶ "
+            // highlight symbol and column spacing eat into the total.
+            let usable = (inner.width as usize).saturating_sub(2 + 2 + 7);
+            let title_width = (usable * 55 / 90).max(8);
+            let artist_width = usable.saturating_sub(title_width).max(8);
             let rows: Vec<Row> = tracks
                 .iter()
                 .map(|t| {
@@ -196,8 +202,14 @@ fn render_search(
                         .map(|d| format_time(d as f64))
                         .unwrap_or_else(|| "--:--".to_string());
                     Row::new(vec![
-                        sanitize_terminal_text(&t.title),
-                        sanitize_terminal_text(&t.artist),
+                        crate::ui::widgets::truncate_middle(
+                            &sanitize_terminal_text(&t.title),
+                            title_width,
+                        ),
+                        crate::ui::widgets::truncate_end(
+                            &sanitize_terminal_text(&t.artist),
+                            artist_width,
+                        ),
                         duration,
                     ])
                 })
@@ -548,19 +560,33 @@ fn render_now_playing_view(
     let position = state.playback.position_seconds;
     let duration = state.playback.duration_seconds.unwrap_or(0.0);
 
+    let info_width = cols[0].width as usize;
+    let title_width = info_width.saturating_sub(status_icon.chars().count() + 1);
     let mut lines: Vec<Line> = vec![
         Line::from(""),
         Line::from(vec![
             Span::styled(format!("{status_icon} "), status_style),
-            Span::styled(sanitize_terminal_text(&track.title), theme.header),
+            Span::styled(
+                crate::ui::widgets::truncate_middle(
+                    &sanitize_terminal_text(&track.title),
+                    title_width.max(8),
+                ),
+                theme.header,
+            ),
         ]),
         Line::from(Span::styled(
-            sanitize_terminal_text(&track.artist),
+            crate::ui::widgets::truncate_end(
+                &sanitize_terminal_text(&track.artist),
+                info_width.max(8),
+            ),
             theme.accent,
         )),
         Line::from(""),
         Line::from(Span::styled(
-            sanitize_terminal_text(&track.webpage_url),
+            crate::ui::widgets::truncate_end(
+                &sanitize_terminal_text(&track.webpage_url),
+                info_width.max(8),
+            ),
             theme.dim,
         )),
         Line::from(""),
@@ -693,12 +719,15 @@ fn render_now_playing_view(
         .as_ref()
         .and_then(|d| d.description.as_deref())
         .unwrap_or("No description available.");
+    // Preserve line breaks (tracklists!) and measure the *sanitized* text so
+    // the scrollbar length matches what is actually rendered.
+    let description = crate::ui::icons::sanitize_multiline_text(description);
     let wrap_width = desc_inner.width.max(1) as usize;
     let line_count = description
         .lines()
         .map(|l| l.chars().count().max(1).div_ceil(wrap_width))
         .sum::<usize>();
-    let paragraph = Paragraph::new(sanitize_terminal_text(description))
+    let paragraph = Paragraph::new(description)
         .wrap(ratatui::widgets::Wrap { trim: true })
         .style(theme.dim)
         .scroll((state.now_playing_scroll, 0));
@@ -743,6 +772,7 @@ fn render_help(frame: &mut Frame, area: Rect, theme: &Theme) {
         binding("j / k", "Move selection"),
         binding("Enter", "Play / open"),
         binding("a / A", "Add to queue / play next"),
+        binding("J / K", "Move queue item down / up"),
         section("Playlists"),
         binding("i", "Import from URL"),
         binding("N", "New playlist"),

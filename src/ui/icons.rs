@@ -62,12 +62,34 @@ const ASCII: Icons = Icons {
 
 /// Select the active icon set from the configured mode.
 ///
-/// `auto` cannot reliably detect Nerd Fonts, so it uses the conservative
-/// ASCII default; users override with `nerd-font` (PRD 10.12).
+/// `Auto` must be resolved to a concrete mode first (see
+/// [`resolve_icon_mode`]); unresolved it falls back to ASCII.
 pub fn icons_for(mode: IconMode) -> Icons {
     match mode {
         IconMode::NerdFont => NERD,
         IconMode::Auto | IconMode::Ascii => ASCII,
+    }
+}
+
+/// Resolve `Auto` to a concrete icon mode by sniffing the terminal.
+///
+/// Terminals that ship with capable font fallback (Ghostty, Kitty, WezTerm,
+/// iTerm2) get Nerd Font glyphs; everything else keeps the conservative
+/// ASCII markers. Explicit config values pass through untouched.
+pub fn resolve_icon_mode(configured: IconMode) -> IconMode {
+    if configured != IconMode::Auto {
+        return configured;
+    }
+    let term_program = std::env::var("TERM_PROGRAM").unwrap_or_default();
+    let term = std::env::var("TERM").unwrap_or_default();
+    let known_good = matches!(term_program.as_str(), "ghostty" | "WezTerm" | "iTerm.app")
+        || term.contains("kitty")
+        || term.contains("ghostty")
+        || std::env::var("KITTY_WINDOW_ID").is_ok();
+    if known_good {
+        IconMode::NerdFont
+    } else {
+        IconMode::Ascii
     }
 }
 
@@ -76,6 +98,15 @@ pub fn sanitize_terminal_text(input: &str) -> String {
     input
         .chars()
         .filter(|c| !c.is_control() || *c == ' ')
+        .collect()
+}
+
+/// Like [`sanitize_terminal_text`] but preserves line breaks, for multi-line
+/// content such as video descriptions. `\r\n` collapses to `\n`.
+pub fn sanitize_multiline_text(input: &str) -> String {
+    input
+        .chars()
+        .filter(|c| !c.is_control() || *c == ' ' || *c == '\n')
         .collect()
 }
 

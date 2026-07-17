@@ -182,6 +182,12 @@ pub fn render_now_playing(
         ])
         .split(rows[0]);
 
+    // Ellipsize instead of letting ratatui hard-cut mid-word: the artist
+    // gets up to a third of the row, the title the rest.
+    let avail = (cols[0].width as usize).saturating_sub(status_icon.chars().count() + 1);
+    let artist = truncate_end(&artist, (avail / 3).max(10).min(avail));
+    let title_width = avail.saturating_sub(artist.chars().count() + 3);
+    let title = truncate_middle(&title, title_width.max(8));
     let info = Line::from(vec![
         Span::styled(format!("{status_icon} "), status_style),
         Span::styled(artist, theme.accent),
@@ -233,6 +239,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
         ],
         View::Queue => &[
             ("Enter", "play"),
+            ("J/K", "move"),
             ("d", "remove"),
             ("c", "clear"),
             ("w", "save"),
@@ -265,6 +272,41 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
+/// Truncate `text` to `max_width` chars, replacing the overflow with a
+/// trailing ellipsis. Used for URLs and secondary text.
+pub fn truncate_end(text: &str, max_width: usize) -> String {
+    let len = text.chars().count();
+    if len <= max_width {
+        return text.to_string();
+    }
+    if max_width == 0 {
+        return String::new();
+    }
+    let mut out: String = text.chars().take(max_width.saturating_sub(1)).collect();
+    out.push('…');
+    out
+}
+
+/// Truncate `text` to `max_width` chars with a middle ellipsis, keeping the
+/// start and end visible. Used for titles, where the tail often carries
+/// meaning ("… Essential Mix (15th May 2021)").
+pub fn truncate_middle(text: &str, max_width: usize) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    if chars.len() <= max_width {
+        return text.to_string();
+    }
+    if max_width < 5 {
+        return truncate_end(text, max_width);
+    }
+    let keep = max_width - 1;
+    let head = keep.div_ceil(2);
+    let tail = keep - head;
+    let mut out: String = chars[..head].iter().collect();
+    out.push('…');
+    out.extend(chars[chars.len() - tail..].iter());
+    out
+}
+
 /// Format seconds as m:ss (or h:mm:ss for long durations).
 pub fn format_time(seconds: f64) -> String {
     let total = seconds.max(0.0) as u64;
@@ -280,7 +322,7 @@ pub fn format_time(seconds: f64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::format_time;
+    use super::{format_time, truncate_end, truncate_middle};
 
     #[test]
     fn formats_durations() {
@@ -288,5 +330,23 @@ mod tests {
         assert_eq!(format_time(65.4), "01:05");
         assert_eq!(format_time(3600.0), "1:00:00");
         assert_eq!(format_time(-5.0), "00:00");
+    }
+
+    #[test]
+    fn truncate_end_adds_ellipsis() {
+        assert_eq!(truncate_end("short", 10), "short");
+        assert_eq!(truncate_end("a longer string", 8), "a longe…");
+        assert_eq!(truncate_end("abc", 0), "");
+    }
+
+    #[test]
+    fn truncate_middle_keeps_both_ends() {
+        assert_eq!(truncate_middle("short", 10), "short");
+        let out = truncate_middle("Essential Mix (15th May 2021)", 20);
+        assert_eq!(out.chars().count(), 20);
+        assert!(out.starts_with("Essential"));
+        assert!(out.ends_with("2021)"));
+        // Below the useful minimum it degrades to end truncation.
+        assert_eq!(truncate_middle("abcdefgh", 4), "abc…");
     }
 }

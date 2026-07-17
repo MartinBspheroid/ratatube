@@ -61,7 +61,11 @@ where
                 );
                 return;
             }
-            let regions = AppLayout::new(area, state.has_now_playing(), true);
+            // The Playing view renders its own full playback panel, so the
+            // compact bar would duplicate it; suppress it there.
+            let has_bar = state.has_now_playing()
+                && state.view != crate::app::state::View::NowPlaying;
+            let regions = AppLayout::new(area, has_bar, true);
             widgets::render_header(frame, regions.header, state, &icons, &theme);
             views::render_main(frame, regions.main, state, history, &icons, &theme);
             widgets::render_now_playing(frame, regions.now_playing, state, &icons, &theme);

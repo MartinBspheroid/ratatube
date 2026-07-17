@@ -49,9 +49,10 @@ impl App {
     pub fn new(
         config: Config,
         paths: AppPaths,
-        state: AppState,
+        mut state: AppState,
         picker: ratatui_image::picker::Picker,
     ) -> Self {
+        state.icon_mode = crate::ui::icons::resolve_icon_mode(config.ui.icons);
         let yt_dlp = YtDlp::new(config.paths.yt_dlp.clone());
         let playlists = PlaylistService::new(paths.playlists_dir());
         let history = if config.history.enabled {
@@ -200,8 +201,9 @@ impl App {
                     }
                     return;
                 }
-                // Now-playing panel: click the progress row to seek.
-                if self.state.has_now_playing() {
+                // Now-playing panel: click the progress row to seek. The bar
+                // is suppressed on the Playing view (it has its own gauge).
+                if self.state.has_now_playing() && self.state.view != View::NowPlaying {
                     let layout =
                         crate::ui::layout::AppLayout::new(self.state.screen_area, true, true);
                     let bar = layout.now_playing;

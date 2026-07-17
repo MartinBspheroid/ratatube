@@ -153,6 +153,19 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
                 return vec![Effect::PersistQueue];
             }
         }
+        Action::MoveSelectedInQueue(delta) => {
+            let len = state.queue.order.len();
+            if state.view == View::Queue && len > 1 {
+                let from = state.selected_index;
+                let to = from.saturating_add_signed(delta as isize).min(len - 1);
+                if from != to {
+                    state.queue.reorder(from, to);
+                    // Keep the cursor on the item that moved.
+                    state.selected_index = to;
+                    return vec![Effect::PersistQueue];
+                }
+            }
+        }
         Action::ClearQueue => {
             state.queue.clear();
             state.selected_index = 0;
@@ -447,6 +460,26 @@ mod tests {
                 .iter()
                 .any(|e| matches!(e, Effect::ResolveAndPlay { .. }))
         );
+    }
+
+    #[test]
+    fn move_selected_reorders_and_follows() {
+        let mut state = AppState::new();
+        state.view = View::Queue;
+        state.queue.push(track("a"));
+        state.queue.push(track("b"));
+        state.queue.push(track("c"));
+        state.queue.position = Some(0);
+        state.selected_index = 0;
+        let effects = reduce(&mut state, Action::MoveSelectedInQueue(1));
+        assert_eq!(state.queue.order, vec![1, 0, 2]);
+        assert_eq!(state.selected_index, 1);
+        assert_eq!(state.queue.position, Some(1));
+        assert!(effects.contains(&Effect::PersistQueue));
+        // Moving past the end is a no-op.
+        state.selected_index = 2;
+        let effects = reduce(&mut state, Action::MoveSelectedInQueue(1));
+        assert!(effects.is_empty());
     }
 
     #[test]

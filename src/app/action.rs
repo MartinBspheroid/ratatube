@@ -68,6 +68,8 @@ pub enum Action {
     AddToQueue(Track),
     AddNext(Track),
     RemoveSelectedFromQueue,
+    /// Move the selected queue item up (-1) or down (+1) in play order.
+    MoveSelectedInQueue(i32),
     ClearQueue,
     QueueLoaded(Track),
     QueueExhausted,
