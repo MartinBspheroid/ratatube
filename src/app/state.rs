@@ -195,6 +195,9 @@ pub struct AppState {
     pub thumbnail: Option<ratatui_image::protocol::StatefulProtocol>,
     /// Scroll offset of the now-playing description panel.
     pub now_playing_scroll: u16,
+    /// Show the description instead of chapters in the Playing view's
+    /// right pane (only meaningful when chapters exist).
+    pub now_playing_show_description: bool,
 
     // Home dashboard
     /// Which Home section holds the selection.
@@ -237,6 +240,18 @@ impl AppState {
     /// Whether the now-playing bar should render (PRD section 8).
     pub fn has_now_playing(&self) -> bool {
         self.current_track.is_some()
+    }
+
+    /// Chapters of the current track (uploader-set or parsed tracklist).
+    pub fn chapters(&self) -> &[crate::media::Chapter] {
+        self.current_details
+            .as_ref()
+            .map_or(&[], |d| d.chapters.as_slice())
+    }
+
+    /// Index of the chapter the playhead is currently inside.
+    pub fn current_chapter_index(&self) -> Option<usize> {
+        crate::media::chapter_at(self.chapters(), self.playback.position_seconds)
     }
 
     /// Clamp selection to the length of the active list.

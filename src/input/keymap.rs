@@ -36,6 +36,8 @@ pub fn global_action(key: &KeyEvent) -> Option<Action> {
         KeyCode::Char('l') => Action::SeekForward,
         KeyCode::Char('H') => Action::SeekBackwardLarge,
         KeyCode::Char('L') => Action::SeekForwardLarge,
+        KeyCode::Char('.') => Action::NextChapter,
+        KeyCode::Char(',') => Action::PreviousChapter,
         KeyCode::Char('?') => Action::Navigate(View::Help),
         KeyCode::Char('q') => Action::Quit,
         KeyCode::Char('j') | KeyCode::Down => Action::SelectNext,
@@ -127,6 +129,7 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
         (View::NowPlaying, KeyCode::Char('u')) | (View::NowPlaying, KeyCode::PageUp) => {
             Action::ScrollNowPlaying(-15)
         }
+        (View::NowPlaying, KeyCode::Char('v')) => Action::ToggleNowPlayingPane,
         (View::Search, KeyCode::Char('a')) => Action::AddSelectedToQueue,
         (View::Search, KeyCode::Char('A')) => Action::AddSelectedAsNext,
         (View::History, KeyCode::Char('a')) => Action::AddSelectedToQueue,

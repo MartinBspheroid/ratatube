@@ -78,6 +78,12 @@ pub enum Action {
     },
     /// Scroll the now-playing description panel.
     ScrollNowPlaying(i32),
+    /// Jump to the next chapter of the current track (DJ-mix tracklists).
+    NextChapter,
+    /// Jump back: chapter start first, then the previous chapter.
+    PreviousChapter,
+    /// Toggle the Playing view's right pane between chapters/description.
+    ToggleNowPlayingPane,
 
     // Queue
     AddToQueue(Track),

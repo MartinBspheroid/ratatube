@@ -36,6 +36,15 @@ struct YtDlpEntry {
     upload_date: Option<String>,
     #[serde(default)]
     categories: Vec<Option<String>>,
+    #[serde(default)]
+    chapters: Option<Vec<YtDlpChapter>>,
+}
+
+/// Raw yt-dlp chapter entry.
+#[derive(Debug, Deserialize)]
+struct YtDlpChapter {
+    start_time: Option<f64>,
+    title: Option<String>,
 }
 
 impl YtDlpEntry {
@@ -133,10 +142,28 @@ impl YtDlp {
             .ok_or_else(|| AppError::Resolve(format!("missing metadata for {url}")))
     }
 
-    /// Fetch extended metadata (description, stats) for the detail panel.
+    /// Fetch extended metadata (description, stats, chapters) for the
+    /// detail panel. When the uploader set no chapters, a tracklist parsed
+    /// from the description fills in (DJ mixes).
     pub async fn fetch_details(&self, url: &str) -> Result<crate::media::TrackDetails> {
         let output = self.run(&["-J", "--no-download", url]).await?;
         let entry: YtDlpEntry = serde_json::from_str(&output)?;
+        let mut chapters: Vec<crate::media::Chapter> = entry
+            .chapters
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|c| {
+                Some(crate::media::Chapter {
+                    start_seconds: c.start_time?,
+                    title: c.title.unwrap_or_default(),
+                })
+            })
+            .collect();
+        if chapters.is_empty()
+            && let Some(description) = entry.description.as_deref()
+        {
+            chapters = crate::media::parse_chapters_from_description(description);
+        }
         Ok(crate::media::TrackDetails {
             description: entry.description,
             view_count: entry.view_count,
@@ -144,6 +171,7 @@ impl YtDlp {
             upload_date: entry.upload_date,
             uploader: entry.uploader.or(entry.channel),
             categories: entry.categories.into_iter().flatten().collect(),
+            chapters,
         })
     }
 

@@ -209,7 +209,7 @@ pub fn render_now_playing(
     } else {
         0.0
     };
-    let label = format!(
+    let mut label = format!(
         "{} / {}",
         format_time(position),
         state
@@ -218,6 +218,18 @@ pub fn render_now_playing(
             .map(format_time)
             .unwrap_or_else(|| "--:--".to_string())
     );
+    // Inside a mix with a known tracklist, show which track is on.
+    if let Some(index) = state.current_chapter_index()
+        && let Some(chapter) = state.chapters().get(index)
+    {
+        let max = (inner.width as usize / 2).saturating_sub(label.len() + 3);
+        if max >= 8 {
+            label.push_str(&format!(
+                " · {}",
+                truncate_end(&sanitize_terminal_text(&chapter.title), max)
+            ));
+        }
+    }
     let gauge = LineGauge::default()
         .filled_style(theme.gauge_filled)
         .filled_symbol(symbols::line::THICK.horizontal)
@@ -268,8 +280,10 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
         View::NowPlaying => &[
             ("Space", "pause"),
             ("h/l", "seek"),
+            ("./,", "chapter"),
             ("+/-", "volume"),
             ("n/b", "next/prev"),
+            ("v", "pane"),
         ],
         View::Help => &[("q", "quit"), ("1-6", "views")],
     };

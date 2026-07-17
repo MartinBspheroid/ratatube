@@ -748,14 +748,14 @@ fn render_now_playing_view(
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let Some(track) = &state.current_track else {
+    let Some(track) = state.current_track.clone() else {
         frame.render_widget(
             Paragraph::new(vec![
                 Line::from(""),
                 Line::from(Span::styled("Nothing is playing", theme.dim)),
                 Line::from(""),
                 Line::from(Span::styled(
-                    "Search (1) and press Enter on a result",
+                    "Search (2) and press Enter on a result",
                     theme.dim,
                 )),
             ]),
@@ -764,12 +764,45 @@ fn render_now_playing_view(
         return;
     };
 
-    let cols = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+    // --- Hero: artwork cell + track info --------------------------------
+    // A fixed-size artwork cell instead of a half-screen pane: thumbnails
+    // are small 16:9 images, a big box just letterboxes them in border.
+    let narrow = inner.width < 90;
+    let hero_height = 8u16.min(inner.height);
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(hero_height), Constraint::Min(0)])
         .split(inner);
 
-    // --- Left: playback info, stats, progress ---------------------------
+    let art_width = if narrow { 0 } else { 26 };
+    let hero = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Length(art_width), Constraint::Min(20)])
+        .split(rows[0]);
+
+    if art_width > 0 {
+        let art_block = Block::bordered()
+            .border_type(BorderType::Rounded)
+            .border_style(theme.border);
+        let art_inner = art_block.inner(hero[0]);
+        frame.render_widget(art_block, hero[0]);
+        if let Some(protocol) = state.thumbnail.as_mut() {
+            let image_widget =
+                ratatui_image::StatefulImage::<ratatui_image::protocol::StatefulProtocol>::new();
+            frame.render_stateful_widget(image_widget, art_inner, protocol);
+        } else {
+            let placeholder = Paragraph::new(vec![
+                Line::from(""),
+                Line::from(Span::styled(icons.music, theme.dim)).centered(),
+            ]);
+            frame.render_widget(placeholder, art_inner);
+        }
+    }
+
+    let info_area = hero[1].inner(Margin {
+        vertical: 0,
+        horizontal: 1,
+    });
     let (status_icon, status_style) = match state.playback.status {
         crate::playback::PlaybackStatus::Playing => (icons.playing, theme.playing),
         crate::playback::PlaybackStatus::Paused => (icons.paused, theme.warning),
@@ -777,11 +810,10 @@ fn render_now_playing_view(
     };
     let position = state.playback.position_seconds;
     let duration = state.playback.duration_seconds.unwrap_or(0.0);
-
-    let info_width = cols[0].width as usize;
+    let info_width = info_area.width as usize;
     let title_width = info_width.saturating_sub(status_icon.chars().count() + 1);
-    let mut lines: Vec<Line> = vec![
-        Line::from(""),
+
+    let mut info_lines: Vec<Line> = vec![
         Line::from(vec![
             Span::styled(format!("{status_icon} "), status_style),
             Span::styled(
@@ -799,15 +831,6 @@ fn render_now_playing_view(
             ),
             theme.accent,
         )),
-        Line::from(""),
-        Line::from(Span::styled(
-            crate::ui::widgets::truncate_end(
-                &sanitize_terminal_text(&track.webpage_url),
-                info_width.max(8),
-            ),
-            theme.dim,
-        )),
-        Line::from(""),
     ];
 
     // Stats from extended metadata (fetched in the background).
@@ -834,103 +857,251 @@ fn render_now_playing_view(
             }
             stats.push(Span::styled(date, theme.base));
         }
-        if !stats.is_empty() {
-            lines.push(Line::from(stats));
-            lines.push(Line::from(""));
-        }
         if !details.categories.is_empty() {
-            lines.push(Line::from(Span::styled(
+            if !stats.is_empty() {
+                stats.push(Span::styled("  \u{2022}  ", theme.dim));
+            }
+            stats.push(Span::styled(
                 details
                     .categories
                     .iter()
                     .map(|c| sanitize_terminal_text(c))
                     .collect::<Vec<_>>()
-                    .join("  "),
+                    .join(" "),
                 theme.accent_alt,
-            )));
-            lines.push(Line::from(""));
+            ));
         }
+        info_lines.push(Line::from(stats));
     } else {
-        lines.push(Line::from(Span::styled(
+        info_lines.push(Line::from(Span::styled(
             format!("{} Loading details...", spinner(state.spinner_frame)),
             theme.dim,
         )));
-        lines.push(Line::from(""));
     }
+    info_lines.push(Line::from(""));
+    frame.render_widget(Paragraph::new(info_lines), info_area);
 
-    lines.push(Line::from(Span::styled(
-        format!(
-            "{} / {}   \u{2022}   vol {}%{}",
-            format_time(position),
-            state
-                .playback
-                .duration_seconds
-                .map(format_time)
-                .unwrap_or_else(|| "--:--".to_string()),
+    // Progress gauge with inline times, right under the metadata.
+    if info_area.height >= 6 {
+        let gauge_area = Rect {
+            x: info_area.x,
+            y: info_area.y + 4,
+            width: info_area.width,
+            height: 1,
+        };
+        let ratio = if duration > 0.0 {
+            (position / duration).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let gauge = ratatui::widgets::LineGauge::default()
+            .filled_style(theme.gauge_filled)
+            .filled_symbol(ratatui::symbols::line::THICK.horizontal)
+            .style(theme.border)
+            .ratio(ratio)
+            .label(Span::styled(
+                format!(
+                    "{} / {}",
+                    format_time(position),
+                    state
+                        .playback
+                        .duration_seconds
+                        .map(format_time)
+                        .unwrap_or_else(|| "--:--".to_string())
+                ),
+                theme.base,
+            ));
+        frame.render_widget(gauge, gauge_area);
+
+        // Status line: volume, modes, queue position.
+        let mut status_parts = vec![format!(
+            "vol {}%{}",
             state.playback.volume,
             if state.playback.muted { " (muted)" } else { "" }
-        ),
-        theme.base,
-    )));
-    frame.render_widget(Paragraph::new(lines), cols[0]);
-
-    // Full-width progress gauge pinned to the bottom of the info column.
-    let ratio = if duration > 0.0 {
-        (position / duration).clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-    let gauge_area = Rect {
-        x: cols[0].x,
-        y: cols[0].y + cols[0].height.saturating_sub(2),
-        width: cols[0].width,
-        height: 1,
-    };
-    let gauge = ratatui::widgets::LineGauge::default()
-        .filled_style(theme.gauge_filled)
-        .filled_symbol(ratatui::symbols::line::THICK.horizontal)
-        .style(theme.border)
-        .ratio(ratio)
-        .label(Span::styled(format!("{:.0}%", ratio * 100.0), theme.dim));
-    frame.render_widget(gauge, gauge_area);
-
-    // --- Right: thumbnail on top, scrollable description below ------------
-    let has_image = state.thumbnail.is_some();
-    let right_chunks = if has_image {
-        Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
-            .split(cols[1])
-    } else {
-        Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(100)])
-            .split(cols[1])
-    };
-
-    let desc_index = if has_image {
-        let img_block = Block::bordered()
-            .border_type(BorderType::Rounded)
-            .border_style(theme.border)
-            .title(Span::styled(" Artwork ", theme.dim));
-        let img_inner = img_block.inner(right_chunks[0]);
-        frame.render_widget(img_block, right_chunks[0]);
-        if let Some(protocol) = state.thumbnail.as_mut() {
-            let image_widget =
-                ratatui_image::StatefulImage::<ratatui_image::protocol::StatefulProtocol>::new();
-            frame.render_stateful_widget(image_widget, img_inner, protocol);
+        )];
+        if state.queue.shuffle {
+            status_parts.push("shuffle".to_string());
         }
-        1
-    } else {
-        0
-    };
+        match state.queue.repeat {
+            crate::queue::RepeatMode::Track => status_parts.push("repeat track".to_string()),
+            crate::queue::RepeatMode::Queue => status_parts.push("repeat queue".to_string()),
+            crate::queue::RepeatMode::Off => {}
+        }
+        if let Some(pos) = state.queue.position {
+            status_parts.push(format!("queue {}/{}", pos + 1, state.queue.order.len()));
+        }
+        let status_area = Rect {
+            x: info_area.x,
+            y: info_area.y + 5,
+            width: info_area.width,
+            height: 1,
+        };
+        frame.render_widget(
+            Paragraph::new(Span::styled(
+                status_parts.join("  \u{2022}  "),
+                theme.dim,
+            )),
+            status_area,
+        );
+    }
 
+    if rows[1].height < 3 {
+        return;
+    }
+
+    // --- Bottom: Up Next + chapters/description -------------------------
+    let bottom = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(if narrow {
+            [Constraint::Percentage(0), Constraint::Percentage(100)]
+        } else {
+            [Constraint::Percentage(38), Constraint::Percentage(62)]
+        })
+        .split(rows[1]);
+
+    if !narrow {
+        render_up_next(frame, bottom[0], state, theme);
+    }
+
+    let chapters = state.chapters().to_vec();
+    let show_chapters = !chapters.is_empty() && !state.now_playing_show_description;
+    if show_chapters {
+        render_chapters(frame, bottom[1], state, &chapters, theme);
+    } else {
+        render_description(frame, bottom[1], state, !chapters.is_empty(), theme);
+    }
+}
+
+/// A window of the queue after the current track.
+fn render_up_next(frame: &mut Frame, area: Rect, state: &AppState, theme: &Theme) {
+    let block = Block::bordered()
+        .border_type(BorderType::Rounded)
+        .border_style(theme.border)
+        .title(Span::styled(" Up Next ", theme.dim));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let Some(position) = state.queue.position else {
+        frame.render_widget(
+            Paragraph::new(Span::styled("Queue is empty", theme.dim)),
+            inner,
+        );
+        return;
+    };
+    let upcoming: Vec<Line> = state
+        .queue
+        .order
+        .iter()
+        .enumerate()
+        .skip(position + 1)
+        .take(inner.height as usize)
+        .map(|(pos, &i)| {
+            let track = &state.queue.tracks[i];
+            Line::from(vec![
+                Span::styled(format!("{:>3}  ", pos + 1), theme.dim),
+                Span::styled(
+                    crate::ui::widgets::truncate_end(
+                        &format!(
+                            "{} — {}",
+                            sanitize_terminal_text(&track.artist),
+                            sanitize_terminal_text(&track.title)
+                        ),
+                        (inner.width as usize).saturating_sub(5).max(8),
+                    ),
+                    theme.base,
+                ),
+            ])
+        })
+        .collect();
+    if upcoming.is_empty() {
+        let hint = match state.queue.repeat {
+            crate::queue::RepeatMode::Queue => "Queue repeats from the top",
+            _ => "Queue ends after this track",
+        };
+        frame.render_widget(Paragraph::new(Span::styled(hint, theme.dim)), inner);
+    } else {
+        frame.render_widget(Paragraph::new(upcoming), inner);
+    }
+}
+
+/// Chapter list with the playing chapter highlighted and kept in view.
+fn render_chapters(
+    frame: &mut Frame,
+    area: Rect,
+    state: &AppState,
+    chapters: &[crate::media::Chapter],
+    theme: &Theme,
+) {
+    let current = state.current_chapter_index();
+    let title = format!(
+        " Chapters ({}/{}) — ./, jump · v description ",
+        current.map(|i| i + 1).unwrap_or(0),
+        chapters.len()
+    );
+    let block = Block::bordered()
+        .border_type(BorderType::Rounded)
+        .border_style(theme.border)
+        .title(Span::styled(title, theme.dim));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    // Keep the current chapter vertically centered.
+    let visible = inner.height as usize;
+    let offset = current
+        .unwrap_or(0)
+        .saturating_sub(visible.saturating_sub(1) / 2)
+        .min(chapters.len().saturating_sub(visible));
+
+    let width = inner.width as usize;
+    let lines: Vec<Line> = chapters
+        .iter()
+        .enumerate()
+        .skip(offset)
+        .take(visible)
+        .map(|(i, chapter)| {
+            let is_current = Some(i) == current;
+            let marker = if is_current { "▶" } else { " " };
+            let timestamp = format_time(chapter.start_seconds);
+            Line::from(vec![
+                Span::styled(
+                    format!("{marker} {timestamp:>7}  "),
+                    if is_current { theme.playing } else { theme.dim },
+                ),
+                Span::styled(
+                    crate::ui::widgets::truncate_end(
+                        &sanitize_terminal_text(&chapter.title),
+                        width.saturating_sub(11).max(8),
+                    ),
+                    if is_current { theme.accent } else { theme.base },
+                ),
+            ])
+        })
+        .collect();
+    frame.render_widget(Paragraph::new(lines), inner);
+    if chapters.len() > visible {
+        render_scrollbar(frame, area, chapters.len(), offset);
+    }
+}
+
+/// Scrollable description panel (line breaks preserved).
+fn render_description(
+    frame: &mut Frame,
+    area: Rect,
+    state: &AppState,
+    has_chapters: bool,
+    theme: &Theme,
+) {
+    let title = if has_chapters {
+        " Description (j/k scroll · v chapters) "
+    } else {
+        " Description (j/k scroll) "
+    };
     let desc_block = Block::bordered()
         .border_type(BorderType::Rounded)
         .border_style(theme.border)
-        .title(Span::styled(" Description (j/k scroll) ", theme.dim));
-    let desc_inner = desc_block.inner(right_chunks[desc_index]);
-    frame.render_widget(desc_block, right_chunks[desc_index]);
+        .title(Span::styled(title, theme.dim));
+    let desc_inner = desc_block.inner(area);
+    frame.render_widget(desc_block, area);
 
     let description = state
         .current_details
@@ -951,12 +1122,7 @@ fn render_now_playing_view(
         .scroll((state.now_playing_scroll, 0));
     frame.render_widget(paragraph, desc_inner);
     if line_count > desc_inner.height as usize {
-        render_scrollbar(
-            frame,
-            right_chunks[desc_index],
-            line_count,
-            state.now_playing_scroll as usize,
-        );
+        render_scrollbar(frame, area, line_count, state.now_playing_scroll as usize);
     }
 }
 

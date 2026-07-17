@@ -253,6 +253,34 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             let next = i32::from(state.now_playing_scroll) + delta;
             state.now_playing_scroll = next.max(0) as u16;
         }
+        Action::NextChapter => {
+            let position = state.playback.position_seconds;
+            if let Some(chapter) = state
+                .chapters()
+                .iter()
+                .find(|c| c.start_seconds > position + 1.0)
+            {
+                return vec![Effect::SeekTo(chapter.start_seconds)];
+            }
+        }
+        Action::PreviousChapter => {
+            let chapters = state.chapters();
+            if let Some(current) = state.current_chapter_index() {
+                let start = chapters[current].start_seconds;
+                // Like PreviousTrack: restart the current chapter first,
+                // then step back to the one before it.
+                let target = if state.playback.position_seconds > start + 3.0 || current == 0 {
+                    start
+                } else {
+                    chapters[current - 1].start_seconds
+                };
+                return vec![Effect::SeekTo(target)];
+            }
+        }
+        Action::ToggleNowPlayingPane => {
+            state.now_playing_show_description = !state.now_playing_show_description;
+            state.now_playing_scroll = 0;
+        }
         Action::QueueExhausted => {
             state.current_track = None;
             state.notify("Queue finished", false);
@@ -498,6 +526,39 @@ mod tests {
         state.selected_index = 2;
         let effects = reduce(&mut state, Action::MoveSelectedInQueue(1));
         assert!(effects.is_empty());
+    }
+
+    #[test]
+    fn chapter_jumps_seek_to_starts() {
+        let mut state = AppState::new();
+        state.current_track = Some(track("mix"));
+        state.current_details = Some(crate::media::TrackDetails {
+            chapters: vec![
+                crate::media::Chapter { title: "a".into(), start_seconds: 0.0 },
+                crate::media::Chapter { title: "b".into(), start_seconds: 100.0 },
+                crate::media::Chapter { title: "c".into(), start_seconds: 200.0 },
+            ],
+            ..Default::default()
+        });
+        state.playback.position_seconds = 120.0;
+        assert_eq!(
+            reduce(&mut state, Action::NextChapter),
+            vec![Effect::SeekTo(200.0)]
+        );
+        // More than 3s into a chapter: restart it first.
+        assert_eq!(
+            reduce(&mut state, Action::PreviousChapter),
+            vec![Effect::SeekTo(100.0)]
+        );
+        // Near the chapter start: go to the previous one.
+        state.playback.position_seconds = 101.0;
+        assert_eq!(
+            reduce(&mut state, Action::PreviousChapter),
+            vec![Effect::SeekTo(0.0)]
+        );
+        // No chapters: no effects.
+        state.current_details = None;
+        assert!(reduce(&mut state, Action::NextChapter).is_empty());
     }
 
     #[test]

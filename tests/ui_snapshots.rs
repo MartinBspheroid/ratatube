@@ -227,6 +227,37 @@ fn visual_dump_queue_and_playlists() {
 }
 
 #[test]
+fn playing_view_shows_chapters_and_up_next() {
+    let mut state = AppState::new();
+    state.view = ytm_tui::app::state::View::NowPlaying;
+    let mut track = Track::new("mix1", "Essential Mix", "Skee Mask");
+    track.duration_seconds = Some(7115);
+    state.current_track = Some(track.clone());
+    state.queue.push(track);
+    state.queue.push(Track::new("next1", "Next Song", "Other Artist"));
+    state.queue.position = Some(0);
+    state.playback.status = ytm_tui::playback::PlaybackStatus::Playing;
+    state.playback.position_seconds = 240.0;
+    state.playback.duration_seconds = Some(7115.0);
+    state.current_details = Some(ytm_tui::media::TrackDetails {
+        description: Some("Tracklist:\n0:00 Intro\n3:45 Second Tune\n10:00 Third Tune".to_string()),
+        chapters: ytm_tui::media::parse_chapters_from_description(
+            "0:00 Intro\n3:45 Second Tune\n10:00 Third Tune",
+        ),
+        ..Default::default()
+    });
+    let out = render_to_string(&mut state, None, 120, 34);
+    println!("\n{out}");
+    assert!(out.contains("Chapters (2/3)"), "chapter counter:\n{out}");
+    assert!(out.contains("Second Tune"), "chapter titles:\n{out}");
+    assert!(out.contains("Up Next"), "up next pane:\n{out}");
+    assert!(out.contains("Next Song"), "upcoming track:\n{out}");
+    assert!(out.contains("queue 1/2"), "queue position:\n{out}");
+    // The duplicate bottom bar is suppressed on the Playing view.
+    assert_eq!(out.matches("04:00 / 1:58:35").count(), 1, "single gauge:\n{out}");
+}
+
+#[test]
 fn visual_dump_help_and_modal() {
     let mut state = AppState::new();
     state.view = ytm_tui::app::state::View::Help;
