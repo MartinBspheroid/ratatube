@@ -29,6 +29,7 @@ pub fn render_main(
 ) {
     state.main_area = area;
     match state.view {
+        View::Home => render_home(frame, area, state, history, icons, theme),
         View::Search => render_search(frame, area, state, icons, theme),
         View::Queue => render_queue(frame, area, state, theme),
         View::Playlists => render_playlists(frame, area, state, theme),
@@ -60,6 +61,223 @@ fn render_scrollbar(frame: &mut Frame, area: Rect, content_len: usize, position:
         }),
         &mut scrollbar_state,
     );
+}
+
+/// Home dashboard: resume card on top, recent tracks and playlists below.
+fn render_home(
+    frame: &mut Frame,
+    area: Rect,
+    state: &mut AppState,
+    history: Option<&HistoryService>,
+    icons: &Icons,
+    theme: &Theme,
+) {
+    use crate::app::state::HomeSection;
+
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(4), Constraint::Min(3)])
+        .split(area);
+
+    // --- Resume card ----------------------------------------------------
+    let focused = state.home_section;
+    let section_block = |title: &str, section: HomeSection| {
+        Block::bordered()
+            .border_type(BorderType::Rounded)
+            .border_style(if focused == section {
+                theme.border_active
+            } else {
+                theme.border
+            })
+            .title(Span::styled(
+                format!(" {title} "),
+                if focused == section {
+                    theme.accent
+                } else {
+                    theme.dim
+                },
+            ))
+    };
+
+    let resume_block = section_block("Resume", HomeSection::Resume);
+    let resume_inner = resume_block.inner(rows[0]);
+    frame.render_widget(resume_block, rows[0]);
+
+    let resume_lines: Vec<Line> = if let Some(pending) = &state.pending_resume {
+        let width = resume_inner.width as usize;
+        let title_line = Line::from(vec![
+            Span::styled(format!("{} ", icons.paused), theme.warning),
+            Span::styled(
+                crate::ui::widgets::truncate_end(
+                    &sanitize_terminal_text(&pending.track.artist),
+                    (width / 3).max(10),
+                ),
+                theme.accent,
+            ),
+            Span::styled(" — ", theme.dim),
+            Span::styled(
+                crate::ui::widgets::truncate_middle(
+                    &sanitize_terminal_text(&pending.track.title),
+                    (width * 2 / 3).max(10),
+                ),
+                theme.header,
+            ),
+        ]);
+        let position = format_time(pending.position_seconds);
+        let total = pending
+            .track
+            .duration_seconds
+            .map(|d| format_time(d as f64))
+            .unwrap_or_else(|| "--:--".to_string());
+        let status = if pending.armed {
+            Span::styled("Space resume", theme.playing)
+        } else if pending.play_on_load {
+            Span::styled(
+                format!("{} starting as soon as it's ready...", spinner(state.spinner_frame)),
+                theme.accent,
+            )
+        } else {
+            Span::styled(
+                format!("{} resolving... (Space plays when ready)", spinner(state.spinner_frame)),
+                theme.dim,
+            )
+        };
+        vec![
+            title_line,
+            Line::from(vec![
+                Span::styled(format!("at {position} / {total}   "), theme.base),
+                status,
+            ]),
+        ]
+    } else if let Some(track) = &state.current_track {
+        let width = resume_inner.width as usize;
+        let playing = state.playback.status == crate::playback::PlaybackStatus::Playing;
+        vec![
+            Line::from(vec![
+                Span::styled(
+                    format!("{} ", if playing { icons.playing } else { icons.paused }),
+                    if playing { theme.playing } else { theme.warning },
+                ),
+                Span::styled(
+                    crate::ui::widgets::truncate_end(
+                        &sanitize_terminal_text(&track.artist),
+                        (width / 3).max(10),
+                    ),
+                    theme.accent,
+                ),
+                Span::styled(" — ", theme.dim),
+                Span::styled(
+                    crate::ui::widgets::truncate_middle(
+                        &sanitize_terminal_text(&track.title),
+                        (width * 2 / 3).max(10),
+                    ),
+                    theme.header,
+                ),
+            ]),
+            Line::from(Span::styled(
+                format!(
+                    "{} / {}   Space {}   6 open Playing",
+                    format_time(state.playback.position_seconds),
+                    state
+                        .playback
+                        .duration_seconds
+                        .map(format_time)
+                        .unwrap_or_else(|| "--:--".to_string()),
+                    if playing { "pause" } else { "resume" },
+                ),
+                theme.dim,
+            )),
+        ]
+    } else {
+        vec![
+            Line::from(Span::styled("Nothing to resume yet", theme.dim)),
+            Line::from(Span::styled(
+                "Press / to search, or pick something below",
+                theme.dim,
+            )),
+        ]
+    };
+    frame.render_widget(Paragraph::new(resume_lines), resume_inner);
+
+    // --- Recent and Playlists panes -------------------------------------
+    let panes = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+        .split(rows[1]);
+
+    let recent_cap = (panes[0].height.saturating_sub(2) as usize).min(30);
+    let recent = history
+        .map(|h| h.recent_unique(recent_cap.max(1)))
+        .unwrap_or_default();
+    state.home_recent_len = recent.len();
+
+    let recent_block = section_block("Recent", HomeSection::Recent);
+    let recent_inner = recent_block.inner(panes[0]);
+    frame.render_widget(recent_block, panes[0]);
+    if recent.is_empty() {
+        frame.render_widget(
+            Paragraph::new(Span::styled("No listening history yet", theme.dim)),
+            recent_inner,
+        );
+    } else {
+        let width = recent_inner.width as usize;
+        let items: Vec<ListItem> = recent
+            .iter()
+            .map(|t| {
+                ListItem::new(Line::from(vec![
+                    Span::styled(
+                        crate::ui::widgets::truncate_end(
+                            &format!(
+                                "{} — {}",
+                                sanitize_terminal_text(&t.artist),
+                                sanitize_terminal_text(&t.title)
+                            ),
+                            width.saturating_sub(2).max(8),
+                        ),
+                        theme.base,
+                    ),
+                ]))
+            })
+            .collect();
+        let list = List::new(items)
+            .highlight_style(theme.selected)
+            .highlight_symbol("▶ ");
+        let mut list_state = ratatui::widgets::ListState::default();
+        if focused == HomeSection::Recent {
+            list_state.select(Some(state.selected_index));
+        }
+        frame.render_stateful_widget(list, recent_inner, &mut list_state);
+    }
+
+    let playlists_block = section_block("Playlists", HomeSection::Playlists);
+    let playlists_inner = playlists_block.inner(panes[1]);
+    frame.render_widget(playlists_block, panes[1]);
+    if state.playlists.is_empty() {
+        frame.render_widget(
+            Paragraph::new(Span::styled("No playlists yet — N to create", theme.dim)),
+            playlists_inner,
+        );
+    } else {
+        let items: Vec<ListItem> = state
+            .playlists
+            .iter()
+            .map(|p| {
+                let imported = if p.source.is_some() { " ↓" } else { "" };
+                ListItem::new(Line::from(vec![
+                    Span::raw(sanitize_terminal_text(&p.name)),
+                    Span::styled(format!(" ({}){imported}", p.tracks.len()), theme.dim),
+                ]))
+            })
+            .collect();
+        let list = List::new(items)
+            .highlight_style(theme.selected)
+            .highlight_symbol("▶ ");
+        let mut list_state = ratatui::widgets::ListState::default();
+        if focused == HomeSection::Playlists {
+            list_state.select(Some(state.selected_index));
+        }
+        frame.render_stateful_widget(list, playlists_inner, &mut list_state);
+    }
 }
 
 fn render_search(
@@ -754,11 +972,12 @@ fn render_help(frame: &mut Frame, area: Rect, theme: &Theme) {
     };
     let rows = vec![
         section("Views"),
-        binding("1", "Search"),
-        binding("2", "Queue"),
-        binding("3", "Playlists"),
-        binding("4", "History"),
-        binding("5", "Now Playing"),
+        binding("1", "Home"),
+        binding("2", "Search"),
+        binding("3", "Queue"),
+        binding("4", "Playlists"),
+        binding("5", "History"),
+        binding("6", "Now Playing"),
         section("Playback"),
         binding("Space", "Play / pause"),
         binding("n / b", "Next / previous track"),

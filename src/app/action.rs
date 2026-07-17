@@ -12,7 +12,22 @@ pub enum Action {
     Navigate(View),
     NextView,
     PreviousView,
+    /// Move Home section focus forward/backward.
+    CycleHomeSection(i32),
     Quit,
+
+    // Session resume (instant play)
+    /// Stream URL for the previous session's track arrived; load it into
+    /// mpv paused (or playing, when requested) at the saved position.
+    SessionStreamResolved {
+        track_id: String,
+        url: String,
+    },
+    /// Resolution failed; drop the resume card.
+    SessionResolveFailed {
+        track_id: String,
+        message: String,
+    },
 
     // Search
     SearchInput(char),

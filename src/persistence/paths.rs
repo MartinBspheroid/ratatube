@@ -52,6 +52,11 @@ impl AppPaths {
         self.data_dir.join("history.json")
     }
 
+    /// Last-session snapshot for resume-on-launch.
+    pub fn session_file(&self) -> PathBuf {
+        self.data_dir.join("session.json")
+    }
+
     /// Directory holding one JSON file per playlist (PRD 11.1).
     pub fn playlists_dir(&self) -> PathBuf {
         self.data_dir.join("playlists")

@@ -16,11 +16,12 @@ pub fn global_action(key: &KeyEvent) -> Option<Action> {
         return None;
     }
     let action = match key.code {
-        KeyCode::Char('1') => Action::Navigate(View::Search),
-        KeyCode::Char('2') => Action::Navigate(View::Queue),
-        KeyCode::Char('3') => Action::Navigate(View::Playlists),
-        KeyCode::Char('4') => Action::Navigate(View::History),
-        KeyCode::Char('5') => Action::Navigate(View::NowPlaying),
+        KeyCode::Char('1') => Action::Navigate(View::Home),
+        KeyCode::Char('2') => Action::Navigate(View::Search),
+        KeyCode::Char('3') => Action::Navigate(View::Queue),
+        KeyCode::Char('4') => Action::Navigate(View::Playlists),
+        KeyCode::Char('5') => Action::Navigate(View::History),
+        KeyCode::Char('6') => Action::Navigate(View::NowPlaying),
         KeyCode::Tab => Action::NextView,
         KeyCode::BackTab => Action::PreviousView,
         KeyCode::Char(' ') => Action::PlayPause,
@@ -82,6 +83,16 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
         return None;
     }
     let action = match (view, key.code) {
+        // Home: h/l move between sections instead of seeking; seeking from
+        // the dashboard is a non-goal.
+        (View::Home, KeyCode::Char('h')) | (View::Home, KeyCode::Left) => {
+            Action::CycleHomeSection(-1)
+        }
+        (View::Home, KeyCode::Char('l')) | (View::Home, KeyCode::Right) => {
+            Action::CycleHomeSection(1)
+        }
+        (View::Home, KeyCode::Char('a')) => Action::AddSelectedToQueue,
+        (View::Home, KeyCode::Char('p')) => Action::LoadSelectedPlaylistIntoQueue,
         (View::Queue, KeyCode::Char('d')) => Action::RemoveSelectedFromQueue,
         (View::Queue, KeyCode::Char('J')) => Action::MoveSelectedInQueue(1),
         (View::Queue, KeyCode::Char('K')) => Action::MoveSelectedInQueue(-1),

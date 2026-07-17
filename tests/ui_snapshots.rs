@@ -39,8 +39,36 @@ fn buffer_to_string(buffer: &ratatui::buffer::Buffer) -> String {
 }
 
 #[test]
+fn home_is_the_landing_view() {
+    let mut state = AppState::new();
+    let out = render_to_string(&mut state, None, 100, 30);
+    assert!(out.contains("Nothing to resume yet"), "resume card:\n{out}");
+    assert!(out.contains("Recent"), "recent section:\n{out}");
+    assert!(out.contains("Playlists"), "playlists section:\n{out}");
+}
+
+#[test]
+fn home_shows_armed_resume_card() {
+    let mut state = AppState::new();
+    let mut track = Track::new("abc", "BBC Essential Mix", "Skee Mask");
+    track.duration_seconds = Some(7115);
+    state.current_track = Some(track.clone());
+    state.pending_resume = Some(ytm_tui::app::state::PendingResume {
+        track,
+        position_seconds: 3731.0,
+        armed: true,
+        play_on_load: false,
+    });
+    let out = render_to_string(&mut state, None, 100, 30);
+    assert!(out.contains("Skee Mask"), "artist:\n{out}");
+    assert!(out.contains("at 1:02:11 / 1:58:35"), "position:\n{out}");
+    assert!(out.contains("Space resume"), "armed hint:\n{out}");
+}
+
+#[test]
 fn empty_search_state_shows_prompt() {
     let mut state = AppState::new();
+    state.view = ytm_tui::app::state::View::Search;
     let out = render_to_string(&mut state, None, 100, 30);
     assert!(
         out.contains("Type a query and press Enter"),
@@ -61,6 +89,7 @@ fn empty_queue_state() {
 #[test]
 fn search_results_render_sanitized() {
     let mut state = AppState::new();
+    state.view = ytm_tui::app::state::View::Search;
     let mut track = Track::new("abc123", "Nice Song", "Good Artist");
     track.title = "Bad\u{1b}[2JTitle".to_string();
     state.search = SearchState::Results {
@@ -126,6 +155,7 @@ fn history_view_lists_entries() {
 #[test]
 fn visual_dump_full_screen() {
     let mut state = AppState::new();
+    state.view = ytm_tui::app::state::View::Search;
     state.mpv_ready = true;
     state.yt_dlp_ready = true;
     state.search = SearchState::Results {

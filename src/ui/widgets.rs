@@ -26,6 +26,7 @@ pub fn spinner(frame: usize) -> &'static str {
 pub fn tab_titles(icons: &Icons) -> Vec<(View, String)> {
     let ascii_mode = icons.playing == "[PLAY]";
     let views = [
+        (View::Home, icons.home, "Home"),
         (View::Search, icons.search, "Search"),
         (View::Queue, icons.queue, "Queue"),
         (View::Playlists, icons.playlist, "Playlists"),
@@ -229,6 +230,14 @@ pub fn render_now_playing(
 /// Render context-sensitive keyboard hints as styled chips (PRD 8).
 pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Theme) {
     let hints: &[(&str, &str)] = match state.view {
+        View::Home => &[
+            ("Space", "resume"),
+            ("h/l", "section"),
+            ("Enter", "play"),
+            ("a", "queue"),
+            ("/", "search"),
+            ("?", "help"),
+        ],
         View::Search => &[
             ("Enter", "play"),
             ("a", "queue"),
@@ -262,7 +271,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             ("+/-", "volume"),
             ("n/b", "next/prev"),
         ],
-        View::Help => &[("q", "quit"), ("1-5", "views")],
+        View::Help => &[("q", "quit"), ("1-6", "views")],
     };
     let mut spans = Vec::new();
     for (key, label) in hints {

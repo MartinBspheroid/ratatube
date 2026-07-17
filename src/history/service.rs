@@ -60,6 +60,19 @@ impl HistoryService {
         self.document.entries.clear();
     }
 
+    /// The most recent distinct tracks (newest first, deduplicated by
+    /// track ID), for the Home dashboard's Recent section.
+    pub fn recent_unique(&self, limit: usize) -> Vec<crate::media::Track> {
+        let mut seen = std::collections::HashSet::new();
+        self.document
+            .entries
+            .iter()
+            .filter(|e| seen.insert(e.track_id.clone()))
+            .take(limit)
+            .map(HistoryEntry::to_track)
+            .collect()
+    }
+
     /// Persist history atomically.
     pub fn save(&self) -> Result<()> {
         json_store::atomic_write(&self.path, &self.document)

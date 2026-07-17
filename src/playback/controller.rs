@@ -80,13 +80,36 @@ impl PlaybackController {
 
     /// Load and play a resolved stream URL with a display title.
     pub async fn load(&mut self, stream_url: &str, title: &str) -> Result<()> {
+        self.load_at(stream_url, title, None, false).await
+    }
+
+    /// Load a stream with optional start position and paused state applied
+    /// atomically via `loadfile` options — no seek/pause race after load.
+    pub async fn load_at(
+        &mut self,
+        stream_url: &str,
+        title: &str,
+        start_seconds: Option<f64>,
+        paused: bool,
+    ) -> Result<()> {
+        let mut options = serde_json::Map::new();
+        options.insert("force-media-title".to_string(), json!(title));
+        if let Some(start) = start_seconds
+            && start > 0.0
+        {
+            options.insert("start".to_string(), json!(format!("{start:.1}")));
+        }
+        options.insert(
+            "pause".to_string(),
+            json!(if paused { "yes" } else { "no" }),
+        );
         self.ipc
             .command(vec![
                 json!("loadfile"),
                 json!(stream_url),
                 json!("replace"),
                 json!(-1),
-                json!({ "force-media-title": title }),
+                json!(options),
             ])
             .await?;
         Ok(())

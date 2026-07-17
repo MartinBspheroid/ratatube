@@ -10,7 +10,9 @@ use crate::queue::Queue;
 /// Primary views (PRD section 9).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum View {
+    /// Landing dashboard: resume card, recent tracks, playlists.
     #[default]
+    Home,
     Search,
     Queue,
     Playlists,
@@ -24,6 +26,7 @@ impl View {
     /// Display label for the header.
     pub fn title(self) -> &'static str {
         match self {
+            View::Home => "Home",
             View::Search => "Search",
             View::Queue => "Queue",
             View::Playlists => "Playlists",
@@ -35,7 +38,8 @@ impl View {
     }
 
     /// Tab order shown in the header (excludes detail/help views).
-    pub const TABS: [View; 5] = [
+    pub const TABS: [View; 6] = [
+        View::Home,
         View::Search,
         View::Queue,
         View::Playlists,
@@ -54,6 +58,41 @@ impl View {
         let pos = View::TABS.iter().position(|v| *v == self).unwrap_or(0);
         View::TABS[(pos + View::TABS.len() - 1) % View::TABS.len()]
     }
+}
+
+/// Focusable sections of the Home dashboard.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum HomeSection {
+    #[default]
+    Resume,
+    Recent,
+    Playlists,
+}
+
+impl HomeSection {
+    /// Cycle focus forward (+1) or backward (-1).
+    pub fn cycled(self, delta: i32) -> HomeSection {
+        const ORDER: [HomeSection; 3] = [
+            HomeSection::Resume,
+            HomeSection::Recent,
+            HomeSection::Playlists,
+        ];
+        let pos = ORDER.iter().position(|s| *s == self).unwrap_or(0) as i32;
+        let next = (pos + delta).rem_euclid(ORDER.len() as i32);
+        ORDER[next as usize]
+    }
+}
+
+/// A track preloaded from the previous session, armed for one-key resume.
+#[derive(Debug, Clone)]
+pub struct PendingResume {
+    pub track: crate::media::Track,
+    pub position_seconds: f64,
+    /// True once the stream URL arrived and mpv holds the track paused.
+    pub armed: bool,
+    /// The user already pressed play while we were still resolving; start
+    /// playback as soon as the stream loads.
+    pub play_on_load: bool,
 }
 
 /// A transient user-facing notification (PRD section 16).
@@ -157,6 +196,18 @@ pub struct AppState {
     /// Scroll offset of the now-playing description panel.
     pub now_playing_scroll: u16,
 
+    // Home dashboard
+    /// Which Home section holds the selection.
+    pub home_section: HomeSection,
+    /// Number of deduplicated recent tracks shown on Home (set at render).
+    pub home_recent_len: usize,
+    /// Previous-session track preloaded for one-key resume.
+    pub pending_resume: Option<PendingResume>,
+
+    /// History entry count, mirrored from the service each loop iteration so
+    /// selection movement works (the state cannot see the service itself).
+    pub history_len: usize,
+
     // Status
     pub mpv_ready: bool,
     pub yt_dlp_ready: bool,
@@ -213,6 +264,11 @@ impl AppState {
     /// Length of the list backing the current view.
     pub fn active_list_len(&self) -> usize {
         match self.view {
+            View::Home => match self.home_section {
+                HomeSection::Resume => 0,
+                HomeSection::Recent => self.home_recent_len,
+                HomeSection::Playlists => self.playlists.len(),
+            },
             View::Search => match &self.search {
                 SearchState::Results { tracks, .. } => tracks.len(),
                 _ => 0,
@@ -223,7 +279,7 @@ impl AppState {
                 .selected_playlist
                 .and_then(|i| self.playlists.get(i))
                 .map_or(0, |p| p.tracks.len()),
-            View::History => 0, // Populated from HistoryService at render time.
+            View::History => self.history_len,
             View::NowPlaying | View::Help => 0,
         }
     }

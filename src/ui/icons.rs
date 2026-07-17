@@ -5,6 +5,7 @@ use crate::config::IconMode;
 /// Semantic icon slots used across the interface.
 #[derive(Debug, Clone, Copy)]
 pub struct Icons {
+    pub home: &'static str,
     pub playing: &'static str,
     pub paused: &'static str,
     pub stopped: &'static str,
@@ -24,6 +25,7 @@ pub struct Icons {
 
 /// Nerd Font glyphs.
 const NERD: Icons = Icons {
+    home: "\u{f015}",
     playing: "\u{f04b}",
     paused: "\u{f04c}",
     stopped: "\u{f04d}",
@@ -43,6 +45,7 @@ const NERD: Icons = Icons {
 
 /// ASCII fallbacks; the UI must stay fully understandable in this mode.
 const ASCII: Icons = Icons {
+    home: "[HOME]",
     playing: "[PLAY]",
     paused: "[PAUSE]",
     stopped: "[STOP]",

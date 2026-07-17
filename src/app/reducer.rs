@@ -42,6 +42,13 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
         Action::PreviousView => {
             return reduce(state, Action::Navigate(state.view.prev_tab()));
         }
+        Action::CycleHomeSection(delta) => {
+            if state.view == View::Home {
+                state.home_section = state.home_section.cycled(delta);
+                state.selected_index = 0;
+                state.reset_list();
+            }
+        }
         Action::Quit => {
             state.running = false;
             return vec![Effect::PersistQueue, Effect::QuitMpv, Effect::Exit];
@@ -108,7 +115,18 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
         }
 
         // --- Playback -----------------------------------------------------
-        Action::PlayPause => return vec![Effect::TogglePause],
+        Action::PlayPause => {
+            // While a session resume is in flight, Space means "play it as
+            // soon as it's ready" instead of toggling an idle player.
+            if let Some(pending) = &mut state.pending_resume
+                && !pending.armed
+            {
+                pending.play_on_load = true;
+                return Vec::new();
+            }
+            state.pending_resume = None;
+            return vec![Effect::TogglePause];
+        }
         Action::Stop => return vec![Effect::StopPlayback],
         Action::SeekForward => return vec![Effect::SeekBy(5)],
         Action::SeekBackward => return vec![Effect::SeekBy(-5)],

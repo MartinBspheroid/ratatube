@@ -3,5 +3,6 @@
 pub mod json_store;
 pub mod migrations;
 pub mod paths;
+pub mod session;
 
 pub use paths::AppPaths;

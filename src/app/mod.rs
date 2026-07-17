@@ -26,6 +26,15 @@ use crate::playback::{MpvProcess, PlaybackController, PlaybackEvent};
 use crate::playlists::Playlist;
 use crate::playlists::service::PlaylistService;
 
+/// What the CLI asked the app to do right after startup.
+#[derive(Debug, Clone)]
+pub enum StartupIntent {
+    /// Restore the previous session and start playing immediately.
+    Resume,
+    /// Search for a query and play the first result.
+    PlayQuery(String),
+}
+
 /// The running application. Owns state, services, and the event loop.
 pub struct App {
     state: AppState,
@@ -42,6 +51,12 @@ pub struct App {
     last_click: Option<Instant>,
     /// Terminal graphics picker (Kitty on Ghostty, halfblocks fallback).
     picker: ratatui_image::picker::Picker,
+    /// Throttle for session snapshot writes during playback.
+    last_session_save: Option<Instant>,
+    /// CLI-provided startup behavior (--resume / play <query>).
+    startup_intent: Option<StartupIntent>,
+    /// Auto-play the first result of the next completed search.
+    autoplay_first_search: bool,
 }
 
 impl App {
@@ -74,7 +89,15 @@ impl App {
             track_started_at: None,
             last_click: None,
             picker,
+            last_session_save: None,
+            startup_intent: None,
+            autoplay_first_search: false,
         }
+    }
+
+    /// Set the CLI-provided startup behavior; call before `run`.
+    pub fn set_startup_intent(&mut self, intent: Option<StartupIntent>) {
+        self.startup_intent = intent;
     }
 
     /// Load initial data (playlists) into state. Call before `run`.
@@ -117,6 +140,8 @@ impl App {
             self.state.notify(&format!("mpv unavailable: {err}"), true);
         }
 
+        self.init_session(&action_tx).await;
+
         let mut events = EventStream::new();
         let mut tick = tokio::time::interval(Duration::from_millis(
             self.config.ui.progress_refresh_ms.max(100),
@@ -152,9 +177,110 @@ impl App {
                     }
                 }
             }
+            // Mirror the history length into state so selection movement in
+            // the History view (and Home's Recent section) works.
+            self.state.history_len = self.history.as_ref().map_or(0, |h| h.entries().len());
             crate::ui::render_with(terminal, &mut self.state, self.history.as_ref())?;
         }
         Ok(())
+    }
+
+    /// Restore the previous session (armed resume) and apply any CLI
+    /// startup intent. Called once, right after mpv startup.
+    async fn init_session(&mut self, action_tx: &mpsc::Sender<Action>) {
+        use crate::config::ResumeMode;
+
+        let mode = match self.startup_intent {
+            Some(StartupIntent::Resume) => ResumeMode::Playing,
+            _ => self.config.playback.resume_on_launch,
+        };
+
+        if let Some(StartupIntent::PlayQuery(query)) = self.startup_intent.clone() {
+            self.state.view = View::Search;
+            self.autoplay_first_search = true;
+            self.submit_text_query(query, action_tx).await;
+            return;
+        }
+
+        if mode == ResumeMode::Off || self.playback.is_none() {
+            return;
+        }
+        let Some(doc) = crate::persistence::session::load(&self.paths.session_file()) else {
+            return;
+        };
+        let Some(track) = doc.track else {
+            return;
+        };
+
+        if let Some(p) = self.playback.as_mut()
+            && doc.volume > 0
+            && doc.volume != self.config.playback.default_volume
+        {
+            let _ = p.set_volume(doc.volume).await;
+        }
+
+        // Align the restored queue's cursor with the session track so
+        // next/previous continue from the right place.
+        if let Some(pos) = self
+            .state
+            .queue
+            .order
+            .iter()
+            .position(|&i| self.state.queue.tracks[i].id == track.id)
+        {
+            self.state.queue.position = Some(pos);
+        }
+
+        self.state.current_track = Some(track.clone());
+        self.state.playback.position_seconds = doc.position_seconds;
+        self.state.playback.duration_seconds = track.duration_seconds.map(|d| d as f64);
+        self.state.pending_resume = Some(crate::app::state::PendingResume {
+            track: track.clone(),
+            position_seconds: doc.position_seconds,
+            armed: false,
+            play_on_load: mode == ResumeMode::Playing,
+        });
+
+        // Resolve the stream in the background; the UI stays responsive and
+        // shows the resume card as "resolving".
+        let yt_dlp = self.yt_dlp.clone();
+        let tx = action_tx.clone();
+        tokio::spawn(async move {
+            let action = match yt_dlp.resolve_stream(&track.webpage_url).await {
+                Ok(url) => Action::SessionStreamResolved {
+                    track_id: track.id.clone(),
+                    url,
+                },
+                Err(err) => Action::SessionResolveFailed {
+                    track_id: track.id.clone(),
+                    message: err.to_string(),
+                },
+            };
+            let _ = tx.send(action).await;
+        });
+    }
+
+    /// Persist the session snapshot, throttled to one write per interval.
+    fn maybe_save_session(&mut self, position_seconds: f64, force: bool) {
+        const SESSION_SAVE_INTERVAL: Duration = Duration::from_secs(5);
+        if self.state.current_track.is_none() {
+            return;
+        }
+        let due = self
+            .last_session_save
+            .is_none_or(|t| t.elapsed() >= SESSION_SAVE_INTERVAL);
+        if !force && !due {
+            return;
+        }
+        self.last_session_save = Some(Instant::now());
+        let doc = crate::persistence::session::SessionDocument::new(
+            self.state.current_track.clone(),
+            position_seconds,
+            self.state.playback.volume,
+        );
+        if let Err(err) = crate::persistence::session::save(&self.paths.session_file(), &doc) {
+            tracing::warn!(?err, "session save failed");
+        }
     }
 
     /// Mouse input: wheel scrolls the list, click selects, double-click plays.
@@ -434,6 +560,82 @@ impl App {
     /// Actions that need services (playlist storage, history) or full state.
     async fn handle_service_action(&mut self, action: Action, action_tx: &mpsc::Sender<Action>) {
         match action {
+            Action::SessionStreamResolved { track_id, url } => {
+                let Some(pending) = self.state.pending_resume.as_mut() else {
+                    return;
+                };
+                if pending.track.id != track_id {
+                    return;
+                }
+                let paused = !pending.play_on_load;
+                let title = pending.track.title.clone();
+                let position = pending.position_seconds;
+                let track = pending.track.clone();
+                let loaded = match self.playback.as_mut() {
+                    Some(p) => p.load_at(&url, &title, Some(position), paused).await,
+                    None => return,
+                };
+                match loaded {
+                    Ok(()) => {
+                        if paused {
+                            if let Some(pending) = self.state.pending_resume.as_mut() {
+                                pending.armed = true;
+                            }
+                        } else {
+                            self.state.pending_resume = None;
+                        }
+                        self.spawn_details_fetch(&track, action_tx);
+                        self.spawn_thumbnail_fetch(&track, action_tx);
+                    }
+                    Err(err) => {
+                        self.state.pending_resume = None;
+                        self.state.notify(&format!("Resume failed: {err}"), true);
+                    }
+                }
+            }
+            Action::SessionResolveFailed { track_id, message } => {
+                if self
+                    .state
+                    .pending_resume
+                    .as_ref()
+                    .is_some_and(|p| p.track.id == track_id)
+                {
+                    self.state.pending_resume = None;
+                    if self.state.current_track.as_ref().map(|t| t.id.as_str())
+                        == Some(track_id.as_str())
+                    {
+                        self.state.current_track = None;
+                    }
+                    tracing::warn!(%message, "session resume resolve failed");
+                    self.state
+                        .notify("Couldn't resume the last session", true);
+                }
+            }
+            Action::SearchCompleted { .. } if self.autoplay_first_search => {
+                self.autoplay_first_search = false;
+                if self.state.active_list_len() > 0 {
+                    self.state.selected_index = 0;
+                    let _ = action_tx.send(Action::PlaySelected).await;
+                }
+            }
+            Action::PlaySelected if self.state.view == View::Home => {
+                use crate::app::state::HomeSection;
+                match self.state.home_section {
+                    HomeSection::Resume => {
+                        let _ = action_tx.send(Action::PlayPause).await;
+                    }
+                    HomeSection::Recent => {
+                        if let Some(track) = self.resolve_selected_track() {
+                            let _ = action_tx.send(Action::PlayTrack(track)).await;
+                        }
+                    }
+                    HomeSection::Playlists => {
+                        if let Some(id) = self.selected_playlist_id() {
+                            let _ = action_tx.send(Action::LoadPlaylistIntoQueue(id)).await;
+                        }
+                    }
+                }
+            }
             Action::AddSelectedToQueue | Action::AddSelectedAsNext => {
                 if let Some(track) = self.resolve_selected_track() {
                     let next = if matches!(action, Action::AddSelectedAsNext) {
@@ -561,6 +763,14 @@ impl App {
     /// Resolve the currently selected track across track-listing views.
     fn resolve_selected_track(&self) -> Option<Track> {
         match self.state.view {
+            View::Home => match self.state.home_section {
+                crate::app::state::HomeSection::Recent => self.history.as_ref().and_then(|h| {
+                    h.recent_unique(self.state.selected_index + 1)
+                        .into_iter()
+                        .nth(self.state.selected_index)
+                }),
+                _ => None,
+            },
             View::History => self
                 .history
                 .as_ref()
@@ -597,6 +807,12 @@ impl App {
     /// Playlist ID relevant to the current view and selection.
     fn selected_playlist_id(&self) -> Option<String> {
         match self.state.view {
+            View::Home if self.state.home_section == crate::app::state::HomeSection::Playlists => {
+                self.state
+                    .playlists
+                    .get(self.state.selected_index)
+                    .map(|p| p.id.clone())
+            }
             View::Playlists => self
                 .state
                 .playlists
@@ -704,11 +920,16 @@ impl App {
         });
     }
 
-    /// Track playback lifecycle for history recording (PRD 10.11).
+    /// Track playback lifecycle for history recording (PRD 10.11) and the
+    /// resume-session snapshot.
     fn on_playback_event(&mut self, event: &PlaybackEvent) {
         match event {
             PlaybackEvent::Started => {
                 self.track_started_at = Some(Instant::now());
+                self.maybe_save_session(0.0, true);
+            }
+            PlaybackEvent::PositionChanged(position) => {
+                self.maybe_save_session(*position, false);
             }
             PlaybackEvent::EndFile { reason } => {
                 let outcome = if reason == "error" {
@@ -871,6 +1092,7 @@ impl App {
 
     /// Graceful shutdown: persist state and stop mpv (PRD section 14).
     pub async fn shutdown(&mut self) {
+        self.maybe_save_session(self.state.playback.position_seconds, true);
         self.record_current(PlaybackOutcome::Stopped);
         if let Err(err) = crate::queue::service::save(&self.paths.queue_file(), &self.state.queue) {
             tracing::warn!(?err, "queue save on shutdown failed");

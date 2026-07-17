@@ -8,6 +8,9 @@ use ytm_tui::{app, config, persistence, process, queue};
 #[derive(Debug, Parser)]
 #[command(name = "ytm-tui", version, about)]
 struct Cli {
+    /// Restore the previous session and start playing immediately.
+    #[arg(long)]
+    resume: bool,
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -16,6 +19,11 @@ struct Cli {
 enum Command {
     /// Verify dependencies, paths, and configuration.
     Doctor,
+    /// Search for a query (or URL) and play the first result.
+    Play {
+        /// Search terms or a YouTube URL.
+        query: Vec<String>,
+    },
 }
 
 #[tokio::main]
@@ -27,7 +35,19 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Some(Command::Doctor) => run_doctor(&paths),
-        None => run_tui(paths).await,
+        Some(Command::Play { query }) => {
+            let query = query.join(" ");
+            if query.trim().is_empty() {
+                return Err(ytm_tui::error::AppError::Config(
+                    "play needs a query or URL".to_string(),
+                ));
+            }
+            run_tui(paths, Some(app::StartupIntent::PlayQuery(query))).await
+        }
+        None => {
+            let intent = cli.resume.then_some(app::StartupIntent::Resume);
+            run_tui(paths, intent).await
+        }
     }
 }
 
@@ -95,7 +115,10 @@ fn run_doctor(paths: &persistence::AppPaths) -> Result<()> {
 }
 
 /// Launch the terminal UI.
-async fn run_tui(paths: persistence::AppPaths) -> Result<()> {
+async fn run_tui(
+    paths: persistence::AppPaths,
+    intent: Option<app::StartupIntent>,
+) -> Result<()> {
     // Malformed config must not lock the user out: report it and continue
     // with defaults (PRD 11.4); the original file is preserved with a .bak.
     let config = match config::load(&paths.config_file()) {
@@ -116,6 +139,7 @@ async fn run_tui(paths: persistence::AppPaths) -> Result<()> {
     state.yt_dlp_ready = process::require(&config.paths.yt_dlp).is_ok();
 
     let mut app = app::App::new(config, paths, state, create_picker());
+    app.set_startup_intent(intent);
     app.load_initial_data();
 
     // Panic hook restores the terminal even on unexpected failure (PRD 26.12).

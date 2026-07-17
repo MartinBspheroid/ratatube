@@ -18,6 +18,21 @@ pub enum IconMode {
     Ascii,
 }
 
+/// What to do with the previous session's track on launch (PRD-next:
+/// instant play). `Paused` preloads the last track at its saved position so
+/// a single Space resumes it; `Playing` starts audio immediately.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ResumeMode {
+    /// Do not restore the previous session.
+    Off,
+    /// Preload the last track paused at its saved position (default).
+    #[default]
+    Paused,
+    /// Restore and start playing immediately.
+    Playing,
+}
+
 /// Root configuration document.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -39,6 +54,8 @@ pub struct PlaybackConfig {
     pub continue_on_error: bool,
     /// Resolve the stream URL shortly before playback (PRD 10.4).
     pub resolve_before_playback: bool,
+    /// Session restore behavior on launch.
+    pub resume_on_launch: ResumeMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,6 +109,7 @@ impl Default for PlaybackConfig {
             audio_only: true,
             continue_on_error: true,
             resolve_before_playback: true,
+            resume_on_launch: ResumeMode::default(),
         }
     }
 }
