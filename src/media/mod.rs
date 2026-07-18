@@ -180,6 +180,12 @@ pub struct Track {
     pub title: String,
     /// Channel or artist name.
     pub artist: String,
+    /// Stable YouTube channel identifier, when available.
+    #[serde(default)]
+    pub channel_id: Option<String>,
+    /// Canonical YouTube channel URL, when available.
+    #[serde(default)]
+    pub channel_url: Option<String>,
     pub webpage_url: String,
     pub duration_seconds: Option<u64>,
     pub thumbnail_url: Option<String>,
@@ -196,6 +202,8 @@ impl Track {
             id,
             title: title.into(),
             artist: artist.into(),
+            channel_id: None,
+            channel_url: None,
             duration_seconds: None,
             thumbnail_url: None,
             availability: Availability::Unknown,

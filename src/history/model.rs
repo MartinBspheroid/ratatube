@@ -147,6 +147,8 @@ impl HistoryEntry {
             id: self.track_id.clone(),
             title: self.title.clone(),
             artist: self.artist.clone(),
+            channel_id: None,
+            channel_url: None,
             webpage_url: self.webpage_url.clone(),
             duration_seconds: None,
             thumbnail_url: None,

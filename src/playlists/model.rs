@@ -27,6 +27,12 @@ pub struct PlaylistTrack {
     pub id: String,
     pub title: String,
     pub artist: String,
+    /// Stable YouTube channel identifier, when available.
+    #[serde(default)]
+    pub channel_id: Option<String>,
+    /// Canonical YouTube channel URL, when available.
+    #[serde(default)]
+    pub channel_url: Option<String>,
     pub webpage_url: String,
     pub duration_seconds: Option<u64>,
     pub thumbnail_url: Option<String>,
@@ -41,6 +47,8 @@ impl From<&Track> for PlaylistTrack {
             id: track.id.clone(),
             title: track.title.clone(),
             artist: track.artist.clone(),
+            channel_id: track.channel_id.clone(),
+            channel_url: track.channel_url.clone(),
             webpage_url: track.webpage_url.clone(),
             duration_seconds: track.duration_seconds,
             thumbnail_url: track.thumbnail_url.clone(),
@@ -56,6 +64,8 @@ impl From<&PlaylistTrack> for Track {
             id: track.id.clone(),
             title: track.title.clone(),
             artist: track.artist.clone(),
+            channel_id: track.channel_id.clone(),
+            channel_url: track.channel_url.clone(),
             webpage_url: track.webpage_url.clone(),
             duration_seconds: track.duration_seconds,
             thumbnail_url: track.thumbnail_url.clone(),
@@ -111,15 +121,30 @@ mod tests {
     #[test]
     fn playlist_roundtrips_without_stream_urls() {
         let mut playlist = Playlist::new("Late Night Coding");
-        playlist.tracks.push(PlaylistTrack::from(&Track::new(
-            "dQw4w9WgXcQ",
-            "Track title",
-            "Channel",
-        )));
+        let mut track = Track::new("dQw4w9WgXcQ", "Track title", "Channel");
+        track.channel_id = Some("UC123".to_string());
+        track.channel_url = Some("https://www.youtube.com/channel/UC123".to_string());
+        playlist.tracks.push(PlaylistTrack::from(&track));
         let json = serde_json::to_string_pretty(&playlist).expect("serialize");
         assert!(!json.contains("googlevideo"), "no stream URLs persisted");
         let parsed: Playlist = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(parsed.schema_version, PLAYLIST_SCHEMA_VERSION);
         assert_eq!(parsed.tracks.len(), 1);
+        let roundtripped = Track::from(&parsed.tracks[0]);
+        assert_eq!(roundtripped.channel_id.as_deref(), Some("UC123"));
+        assert_eq!(
+            roundtripped.channel_url.as_deref(),
+            Some("https://www.youtube.com/channel/UC123")
+        );
+    }
+
+    #[test]
+    fn legacy_track_defaults_channel_identity() {
+        let track: Track = serde_json::from_str(
+            r#"{"id":"v","title":"Video","artist":"Channel","webpageUrl":"https://www.youtube.com/watch?v=v","durationSeconds":null,"thumbnailUrl":null,"availability":"unknown"}"#,
+        )
+        .expect("legacy track");
+        assert_eq!(track.channel_id, None);
+        assert_eq!(track.channel_url, None);
     }
 }

@@ -63,6 +63,18 @@ async fn search_parses_ndjson_lines() {
 }
 
 #[tokio::test]
+async fn search_preserves_channel_identity() {
+    let body = r#"echo '{"id":"video","title":"Title","channel":"Channel","channel_id":"UC123","channel_url":"https://www.youtube.com/channel/UC123"}'"#;
+    let (_dir, client) = mock_yt_dlp(body);
+    let tracks = client.search("anything", 1).await.expect("search");
+    assert_eq!(tracks[0].channel_id.as_deref(), Some("UC123"));
+    assert_eq!(
+        tracks[0].channel_url.as_deref(),
+        Some("https://www.youtube.com/channel/UC123")
+    );
+}
+
+#[tokio::test]
 async fn search_skips_deleted_and_private_entries() {
     let body = "echo '{\"id\":\"a\",\"title\":\"[Deleted video]\"}'\necho '{\"id\":\"b\",\"title\":\"Real Song\",\"uploader\":\"X\"}'";
     let (_dir, client) = mock_yt_dlp(body);

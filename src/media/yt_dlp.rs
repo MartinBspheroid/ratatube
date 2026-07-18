@@ -26,6 +26,8 @@ struct YtDlpEntry {
     /// yt-dlp emits both `uploader` and `channel`; coalesce on use.
     uploader: Option<String>,
     channel: Option<String>,
+    channel_id: Option<String>,
+    channel_url: Option<String>,
     webpage_url: Option<String>,
     duration: Option<f64>,
     thumbnail: Option<String>,
@@ -114,6 +116,8 @@ impl YtDlpEntry {
                 .uploader
                 .or(self.channel)
                 .unwrap_or_else(|| "Unknown".to_string()),
+            channel_id: self.channel_id,
+            channel_url: self.channel_url,
             duration_seconds: self.duration.map(|d| d.max(0.0) as u64),
             thumbnail_url: self.thumbnail,
             availability,
@@ -397,6 +401,20 @@ mod parse_tests {
         assert_eq!(track.id, "u7K72X4eo_s");
         assert_eq!(track.artist, "Massive Attack");
         assert_eq!(track.duration_seconds, Some(285));
+    }
+
+    #[test]
+    fn parses_stable_channel_identity() {
+        let entry: YtDlpEntry = serde_json::from_str(
+            r#"{"id":"v","title":"Video","channel":"Channel","channel_id":"UC123","channel_url":"https://www.youtube.com/channel/UC123"}"#,
+        )
+        .expect("entry");
+        let track = entry.into_track().expect("track");
+        assert_eq!(track.channel_id.as_deref(), Some("UC123"));
+        assert_eq!(
+            track.channel_url.as_deref(),
+            Some("https://www.youtube.com/channel/UC123")
+        );
     }
 
     #[test]
