@@ -164,6 +164,22 @@ pub struct Track {
     pub availability: Availability,
 }
 
+impl Track {
+    /// Construct a track with unknown availability and duration.
+    pub fn new(id: impl Into<String>, title: impl Into<String>, artist: impl Into<String>) -> Self {
+        let id = id.into();
+        Self {
+            webpage_url: format!("https://www.youtube.com/watch?v={id}"),
+            id,
+            title: title.into(),
+            artist: artist.into(),
+            duration_seconds: None,
+            thumbnail_url: None,
+            availability: Availability::Unknown,
+        }
+    }
+}
+
 #[cfg(test)]
 mod chapter_tests {
     use super::*;
@@ -202,21 +218,5 @@ mod chapter_tests {
         assert_eq!(chapter_at(&chapters, 150.0), Some(1));
         assert_eq!(chapter_at(&chapters, 999.0), Some(2));
         assert_eq!(chapter_at(&[], 10.0), None);
-    }
-}
-
-impl Track {
-    /// Construct a track with unknown availability and duration.
-    pub fn new(id: impl Into<String>, title: impl Into<String>, artist: impl Into<String>) -> Self {
-        let id = id.into();
-        Self {
-            webpage_url: format!("https://www.youtube.com/watch?v={id}"),
-            id,
-            title: title.into(),
-            artist: artist.into(),
-            duration_seconds: None,
-            thumbnail_url: None,
-            availability: Availability::Unknown,
-        }
     }
 }

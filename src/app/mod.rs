@@ -495,11 +495,11 @@ impl App {
                         self.state.focus = Focus::Content;
                     }
                     KeyCode::Backspace => {
-                        if let Some(filter) = &mut self.state.list_filter {
-                            if filter.pop().is_none() {
-                                self.state.list_filter = None;
-                                self.state.focus = Focus::Content;
-                            }
+                        if let Some(filter) = &mut self.state.list_filter
+                            && filter.pop().is_none()
+                        {
+                            self.state.list_filter = None;
+                            self.state.focus = Focus::Content;
                         }
                         self.state.selected_index = 0;
                     }
