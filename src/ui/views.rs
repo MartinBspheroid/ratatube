@@ -1038,6 +1038,15 @@ fn render_now_playing_view(
             crate::queue::RepeatMode::Queue => status_parts.push("repeat queue".to_string()),
             crate::queue::RepeatMode::Off => {}
         }
+        if state.radio {
+            status_parts.push("radio".to_string());
+        }
+        if (state.playback.speed - 1.0).abs() > f64::EPSILON {
+            status_parts.push(format!("{:.2}x", state.playback.speed));
+        }
+        if let Some(timer) = state.sleep_timer {
+            status_parts.push(format!("sleep {}m", timer.remaining_minutes()));
+        }
         if let Some(pos) = state.queue.position {
             status_parts.push(format!("queue {}/{}", pos + 1, state.queue.order.len()));
         }
@@ -1256,27 +1265,38 @@ fn render_help(frame: &mut Frame, area: Rect, theme: &Theme) {
         binding("5", "History"),
         binding("6", "Now Playing"),
         section("Playback"),
-        binding("Space", "Play / pause"),
+        binding("Space", "Play / pause (resume on Home)"),
         binding("n / b", "Next / previous track"),
+        binding(". / ,", "Next / previous chapter"),
         binding("h / l", "Seek 5 seconds"),
         binding("H / L", "Seek 30 seconds"),
         binding("+ / -", "Volume"),
         binding("m", "Mute"),
         binding("s", "Shuffle"),
         binding("r", "Repeat mode"),
+        binding("t", "Radio mode (auto-refill queue)"),
+        binding("< / >", "Playback speed (= resets)"),
+        binding("Z", "Sleep timer 15/30/60 min"),
         section("Lists"),
         binding("j / k", "Move selection"),
         binding("Enter", "Play / open"),
         binding("a / A", "Add to queue / play next"),
-        binding("J / K", "Move queue item down / up"),
+        binding("J / K", "Move item down / up"),
+        binding("P", "Add to playlist..."),
+        binding("/", "Filter the list"),
         section("Playlists"),
         binding("i", "Import from URL"),
         binding("N", "New playlist"),
         binding("R", "Rename"),
         binding("x", "Delete (asks first)"),
         binding("w", "Save queue as playlist"),
+        section("History"),
+        binding("g", "Toggle recent / top"),
+        binding("x", "Delete entry"),
         section("Other"),
-        binding("/", "Focus search"),
+        binding("/", "Search (outside lists)"),
+        binding("!", "Message log"),
+        binding("v", "Chapters / description pane"),
         binding("?", "This help"),
         binding("q", "Quit"),
     ];

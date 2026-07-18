@@ -142,6 +142,9 @@ fn parse_frame(line: &str) -> Option<PlaybackEvent> {
                 n.as_f64().map(PlaybackEvent::VolumeChanged)
             }
             (Some("mute"), Some(Value::Bool(b))) => Some(PlaybackEvent::MuteChanged(b)),
+            (Some("speed"), Some(Value::Number(n))) => {
+                n.as_f64().map(PlaybackEvent::SpeedChanged)
+            }
             _ => None,
         },
         _ => None,
@@ -168,6 +171,13 @@ mod tests {
         let event =
             parse_frame(r#"{"event":"property-change","name":"time-pos","data":12.5}"#).expect("e");
         assert_eq!(event, PlaybackEvent::PositionChanged(12.5));
+    }
+
+    #[test]
+    fn parses_speed_change() {
+        let event =
+            parse_frame(r#"{"event":"property-change","name":"speed","data":1.5}"#).expect("e");
+        assert_eq!(event, PlaybackEvent::SpeedChanged(1.5));
     }
 
     #[test]

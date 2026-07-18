@@ -195,6 +195,13 @@ impl YtDlp {
         })
     }
 
+    /// Fetch YouTube's auto-generated mix ("radio") for a seed video,
+    /// metadata only. Used for radio mode and RD* mix URLs.
+    pub async fn fetch_mix(&self, video_id: &str) -> Result<PlaylistFetch> {
+        let url = format!("https://www.youtube.com/watch?v={video_id}&list=RD{video_id}");
+        self.fetch_playlist(&url).await
+    }
+
     /// Resolve a temporary audio stream URL for playback (PRD 10.4).
     ///
     /// The returned URL is runtime-only state and must never be persisted.

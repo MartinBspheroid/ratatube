@@ -16,13 +16,28 @@ pub const SEEK_LARGE: Duration = Duration::from_secs(30);
 pub const PREVIOUS_RESTART_THRESHOLD: Duration = Duration::from_secs(5);
 
 /// Observable playback state snapshot for the UI.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct PlaybackSnapshot {
     pub status: PlaybackStatus,
     pub position_seconds: f64,
     pub duration_seconds: Option<f64>,
     pub volume: u8,
     pub muted: bool,
+    /// Playback speed multiplier (1.0 = normal).
+    pub speed: f64,
+}
+
+impl Default for PlaybackSnapshot {
+    fn default() -> Self {
+        Self {
+            status: PlaybackStatus::default(),
+            position_seconds: 0.0,
+            duration_seconds: None,
+            volume: 0,
+            muted: false,
+            speed: 1.0,
+        }
+    }
 }
 
 /// Facade over [`MpvIpc`] exposing the required playback actions.
@@ -60,6 +75,7 @@ impl PlaybackController {
                 self.snapshot.volume = (*v).clamp(0.0, 100.0) as u8;
             }
             PlaybackEvent::MuteChanged(m) => self.snapshot.muted = *m,
+            PlaybackEvent::SpeedChanged(s) => self.snapshot.speed = *s,
             PlaybackEvent::EndFile { .. } => self.snapshot.status = PlaybackStatus::Stopped,
             PlaybackEvent::PlaybackError(_) | PlaybackEvent::Shutdown => {
                 self.snapshot.status = PlaybackStatus::Idle;
@@ -75,7 +91,15 @@ impl PlaybackController {
         self.ipc.observe_property(3, "pause").await?;
         self.ipc.observe_property(4, "volume").await?;
         self.ipc.observe_property(5, "mute").await?;
+        self.ipc.observe_property(6, "speed").await?;
         Ok(())
+    }
+
+    /// Set the playback speed multiplier.
+    pub async fn set_speed(&mut self, speed: f64) -> Result<()> {
+        self.ipc
+            .set_property("speed", json!(speed.clamp(0.25, 4.0)))
+            .await
     }
 
     /// Load and play a resolved stream URL with a display title.

@@ -152,6 +152,21 @@ pub fn render_now_playing(
     let artist = sanitize_terminal_text(&track.artist);
 
     let mut right = Vec::new();
+    if state.radio {
+        right.push(Span::styled("RADIO ", theme.accent_alt));
+    }
+    if (state.playback.speed - 1.0).abs() > f64::EPSILON {
+        right.push(Span::styled(
+            format!("{:.2}x ", state.playback.speed),
+            theme.warning,
+        ));
+    }
+    if let Some(timer) = state.sleep_timer {
+        right.push(Span::styled(
+            format!("Zz {}m ", timer.remaining_minutes()),
+            theme.warning,
+        ));
+    }
     if state.queue.shuffle {
         right.push(Span::styled(format!("{} ", icons.shuffle), theme.accent));
     }

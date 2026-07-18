@@ -102,6 +102,25 @@ pub struct Notification {
     pub is_error: bool,
 }
 
+/// An armed sleep timer.
+#[derive(Debug, Clone, Copy)]
+pub struct SleepTimer {
+    pub deadline: std::time::Instant,
+    /// The duration originally chosen, for cycling and display.
+    pub minutes: u16,
+}
+
+impl SleepTimer {
+    /// Whole minutes left, rounded up; 0 when due.
+    pub fn remaining_minutes(&self) -> u64 {
+        let now = std::time::Instant::now();
+        self.deadline
+            .saturating_duration_since(now)
+            .as_secs()
+            .div_ceil(60)
+    }
+}
+
 /// Which pane currently holds keyboard focus.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Focus {
@@ -221,6 +240,16 @@ pub struct AppState {
 
     /// Presentation mode of the History view.
     pub history_view_mode: HistoryViewMode,
+
+    /// Radio mode: when the queue runs low, append tracks from YouTube's
+    /// mix for the last played track.
+    pub radio: bool,
+    /// Sleep timer: stop playback at the deadline.
+    pub sleep_timer: Option<SleepTimer>,
+    /// Recent notifications, newest first (bounded ring).
+    pub notification_log: std::collections::VecDeque<Notification>,
+    /// Whether the notification log overlay is open.
+    pub show_notification_log: bool,
 
     // Playback
     pub playback: PlaybackSnapshot,

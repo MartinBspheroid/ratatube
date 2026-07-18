@@ -163,9 +163,35 @@ pub enum Action {
     /// Toggle Recent <-> Top (aggregated) presentation.
     ToggleHistoryViewMode,
 
+    // Playback feel
+    /// Adjust playback speed by ±0.25 (clamped 0.5–2.0).
+    SpeedUp,
+    SpeedDown,
+    SpeedReset,
+    /// Cycle the sleep timer: off -> 15 -> 30 -> 60 -> off minutes.
+    CycleSleepTimer,
+    /// Toggle radio mode (auto-refill the queue from YouTube mixes).
+    ToggleRadio,
+    /// A background prefetch of the next track's stream URL finished.
+    PrefetchResolved {
+        track_id: String,
+        url: String,
+    },
+    /// Radio refill fetched more tracks for the queue.
+    RadioTracksLoaded {
+        tracks: Vec<Track>,
+    },
+    /// A pasted mix/radio URL was fetched; replace the queue and play.
+    MixLoaded {
+        title: String,
+        tracks: Vec<Track>,
+    },
+
     // Notifications
     Notify(String),
     DismissNotification,
+    /// Toggle the notification log overlay (`!`).
+    ToggleNotificationLog,
 
     // Repeat/shuffle changes coming from elsewhere
     RepeatChanged(RepeatMode),

@@ -58,6 +58,11 @@ pub struct App {
     startup_intent: Option<StartupIntent>,
     /// Auto-play the first result of the next completed search.
     autoplay_first_search: bool,
+    /// Pre-resolved stream URL for the next queue track: (track id, url,
+    /// resolved at). Kills the dead air between tracks.
+    prefetched: Option<(String, String, Instant)>,
+    /// A radio refill request is in flight.
+    radio_fetching: bool,
 }
 
 impl App {
@@ -93,6 +98,8 @@ impl App {
             last_session_save: None,
             startup_intent: None,
             autoplay_first_search: false,
+            prefetched: None,
+            radio_fetching: false,
         }
     }
 
@@ -175,6 +182,14 @@ impl App {
                     // Dismiss transient notifications after a few ticks.
                     if self.state.notification.is_some() && self.state.spinner_frame.is_multiple_of(20) {
                         self.state.notification = None;
+                    }
+                    // Sleep timer: stop playback once the deadline passes.
+                    if let Some(timer) = self.state.sleep_timer
+                        && timer.deadline <= Instant::now()
+                    {
+                        self.state.sleep_timer = None;
+                        self.state.notify("Sleep timer: stopping playback", false);
+                        let _ = action_tx.send(Action::Stop).await;
                     }
                 }
             }
@@ -405,6 +420,16 @@ impl App {
         key: crossterm::event::KeyEvent,
         action_tx: &mpsc::Sender<Action>,
     ) {
+        // Notification log overlay: any dismiss key closes it.
+        if self.state.show_notification_log {
+            if matches!(
+                key.code,
+                KeyCode::Esc | KeyCode::Char('!') | KeyCode::Char('q') | KeyCode::Enter
+            ) {
+                self.state.show_notification_log = false;
+            }
+            return;
+        }
         // Import review modal: Enter confirms, Esc cancels.
         if matches!(self.state.import, Some(ImportState::Review { .. })) {
             let action = match key.code {
@@ -652,10 +677,21 @@ impl App {
                 let _ = action_tx.send(Action::StartImport(query)).await;
                 self.state.focus = Focus::Content;
             }
-            InputKind::Mix(_) => {
-                self.state
-                    .notify("Mix/radio URLs are not supported yet", false);
+            InputKind::Mix(video_id) => {
+                self.state.notify("Loading mix...", false);
                 self.state.focus = Focus::Content;
+                let yt_dlp = self.yt_dlp.clone();
+                let tx = action_tx.clone();
+                tokio::spawn(async move {
+                    let action = match yt_dlp.fetch_mix(&video_id).await {
+                        Ok(fetch) => Action::MixLoaded {
+                            title: fetch.title,
+                            tracks: fetch.tracks,
+                        },
+                        Err(err) => Action::Notify(format!("Mix failed: {err}")),
+                    };
+                    let _ = tx.send(action).await;
+                });
             }
         }
     }
@@ -700,6 +736,11 @@ impl App {
                         let _ = p.toggle_mute().await;
                     }
                 }
+                Effect::SetSpeed(speed) => {
+                    if let Some(p) = self.playback.as_mut() {
+                        let _ = p.set_speed(speed).await;
+                    }
+                }
                 Effect::StopPlayback => {
                     self.record_current(PlaybackOutcome::Stopped);
                     if let Some(p) = self.playback.as_mut() {
@@ -726,6 +767,46 @@ impl App {
     /// Actions that need services (playlist storage, history) or full state.
     async fn handle_service_action(&mut self, action: Action, action_tx: &mpsc::Sender<Action>) {
         match action {
+            Action::PlaybackEvent(PlaybackEvent::Started) => {
+                self.after_track_started(action_tx);
+            }
+            Action::PrefetchResolved { track_id, url } => {
+                self.prefetched = Some((track_id, url, Instant::now()));
+            }
+            Action::RadioTracksLoaded { .. } => {
+                self.radio_fetching = false;
+                // The reducer already appended; prefetch the fresh next track.
+                self.after_track_started(action_tx);
+            }
+            Action::ToggleRadio if self.state.radio => {
+                // Radio switched on with a finished queue: refill right away.
+                if self.state.queue.position.is_none() || self.state.current_track.is_none() {
+                    let seed = self
+                        .state
+                        .current_track
+                        .as_ref()
+                        .map(|t| t.id.clone())
+                        .or_else(|| {
+                            self.state
+                                .queue
+                                .order
+                                .last()
+                                .map(|&i| self.state.queue.tracks[i].id.clone())
+                        })
+                        .or_else(|| {
+                            self.history
+                                .as_ref()
+                                .and_then(|h| h.entries().first())
+                                .map(|e| e.track_id.clone())
+                        });
+                    if let Some(seed) = seed {
+                        self.spawn_radio_refill(seed, action_tx);
+                    } else {
+                        self.state
+                            .notify("Radio needs a seed — play something first", false);
+                    }
+                }
+            }
             Action::SessionStreamResolved { track_id, url } => {
                 let Some(pending) = self.state.pending_resume.as_mut() else {
                     return;
@@ -1187,6 +1268,81 @@ impl App {
         }
     }
 
+    /// After a track starts: prefetch the next track's stream URL, and in
+    /// radio mode top the queue up when playing the last queued track.
+    fn after_track_started(&mut self, action_tx: &mpsc::Sender<Action>) {
+        let len = self.state.queue.order.len();
+        let Some(pos) = self.state.queue.position else {
+            return;
+        };
+
+        if self.state.radio
+            && pos + 1 >= len
+            && !self.radio_fetching
+            && let Some(track) = self.state.current_track.clone()
+        {
+            self.spawn_radio_refill(track.id, action_tx);
+        }
+
+        // Prefetch the next track (pointless when repeating the current one).
+        if self.state.queue.repeat == crate::queue::RepeatMode::Track {
+            return;
+        }
+        let next_pos = if pos + 1 < len {
+            Some(pos + 1)
+        } else if self.state.queue.repeat == crate::queue::RepeatMode::Queue && len > 0 {
+            Some(0)
+        } else {
+            None
+        };
+        let Some(next_track) = next_pos
+            .and_then(|p| self.state.queue.order.get(p))
+            .map(|&i| self.state.queue.tracks[i].clone())
+        else {
+            return;
+        };
+        if self
+            .prefetched
+            .as_ref()
+            .is_some_and(|(id, _, _)| *id == next_track.id)
+        {
+            return;
+        }
+        let yt_dlp = self.yt_dlp.clone();
+        let tx = action_tx.clone();
+        tokio::spawn(async move {
+            // Failures are silent: playback falls back to resolving on demand.
+            if let Ok(url) = yt_dlp.resolve_stream(&next_track.webpage_url).await {
+                let _ = tx
+                    .send(Action::PrefetchResolved {
+                        track_id: next_track.id,
+                        url,
+                    })
+                    .await;
+            }
+        });
+    }
+
+    /// Fetch more tracks from YouTube's mix for `seed_id` (radio mode).
+    fn spawn_radio_refill(&mut self, seed_id: String, action_tx: &mpsc::Sender<Action>) {
+        self.radio_fetching = true;
+        let yt_dlp = self.yt_dlp.clone();
+        let tx = action_tx.clone();
+        tokio::spawn(async move {
+            let action = match yt_dlp.fetch_mix(&seed_id).await {
+                Ok(fetch) => Action::RadioTracksLoaded {
+                    tracks: fetch.tracks,
+                },
+                Err(err) => {
+                    tracing::warn!(?err, "radio refill failed");
+                    // Empty payload still resets the in-flight flag.
+                    Action::RadioTracksLoaded { tracks: Vec::new() }
+                }
+            };
+            let _ = tx.send(action).await;
+        });
+    }
+
     /// Fire an async yt-dlp search; completion arrives as an action.
     fn spawn_search(&self, query: String, generation: u64, action_tx: mpsc::Sender<Action>) {
         let yt_dlp = self.yt_dlp.clone();
@@ -1281,10 +1437,27 @@ impl App {
             };
             let track = self.state.queue.tracks[track_index].clone();
             self.state.current_track = Some(track.clone());
-            self.state
-                .notify(&format!("Resolving: {}", track.title), false);
 
-            let stream = self.yt_dlp.resolve_stream(&track.webpage_url).await;
+            // A prefetched stream URL skips yt-dlp entirely (no dead air).
+            // YouTube stream URLs expire after a few hours; be conservative.
+            let mut prefetched_url = None;
+            if let Some((id, url, at)) = &self.prefetched
+                && *id == track.id
+                && at.elapsed() < Duration::from_secs(2 * 3600)
+            {
+                prefetched_url = Some(url.clone());
+            }
+            let stream = match prefetched_url {
+                Some(url) => {
+                    self.prefetched = None;
+                    Ok(url)
+                }
+                None => {
+                    self.state
+                        .notify(&format!("Resolving: {}", track.title), false);
+                    self.yt_dlp.resolve_stream(&track.webpage_url).await
+                }
+            };
             let url = match stream {
                 Ok(url) => url,
                 Err(first_err) => {

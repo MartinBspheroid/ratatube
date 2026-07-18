@@ -133,6 +133,32 @@ fn render_overlays(
             .title(format!(" {title} "))
     };
 
+    if state.show_notification_log {
+        let height = (state.notification_log.len() as u16 + 3).clamp(5, area.height);
+        let log_area = centered_rect(area, 76, height);
+        let mut lines: Vec<Line> = state
+            .notification_log
+            .iter()
+            .take(height.saturating_sub(3) as usize)
+            .map(|n| {
+                Line::from(Span::styled(
+                    icons::sanitize_terminal_text(&n.message),
+                    if n.is_error { theme.error } else { theme.base },
+                ))
+            })
+            .collect();
+        if lines.is_empty() {
+            lines.push(Line::from(Span::styled("No messages yet", theme.dim)));
+        }
+        lines.push(Line::from(Span::styled("Esc close", theme.dim)));
+        frame.render_widget(Clear, log_area);
+        frame.render_widget(
+            Paragraph::new(lines).block(modal_block("Messages (newest first)")),
+            log_area,
+        );
+        return;
+    }
+
     if let Some(import) = &state.import {
         let lines: Vec<Line> = match import {
             ImportState::Fetching { url } => vec![

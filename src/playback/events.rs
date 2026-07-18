@@ -17,6 +17,8 @@ pub enum PlaybackEvent {
     VolumeChanged(f64),
     /// Mute state changed.
     MuteChanged(bool),
+    /// Playback speed changed (1.0 = normal).
+    SpeedChanged(f64),
     /// End of file reached; carries the stop reason ("eof", "error", ...).
     EndFile { reason: String },
     /// mpv reported a playback error.

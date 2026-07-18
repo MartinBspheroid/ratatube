@@ -20,6 +20,7 @@ pub enum Effect {
     TogglePause,
     AdjustVolume(i8),
     ToggleMute,
+    SetSpeed(f64),
     StopPlayback,
     QuitMpv,
     PersistQueue,
@@ -143,6 +144,45 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
         Action::VolumeUp => return vec![Effect::AdjustVolume(2)],
         Action::VolumeDown => return vec![Effect::AdjustVolume(-2)],
         Action::ToggleMute => return vec![Effect::ToggleMute],
+        Action::SpeedUp => return speed_step(state, 0.25),
+        Action::SpeedDown => return speed_step(state, -0.25),
+        Action::SpeedReset => {
+            if (state.playback.speed - 1.0).abs() > f64::EPSILON {
+                state.notify("Speed 1.00x", false);
+                return vec![Effect::SetSpeed(1.0)];
+            }
+        }
+        Action::CycleSleepTimer => {
+            use crate::app::state::SleepTimer;
+            let minutes = match state.sleep_timer.map(|t| t.minutes) {
+                None => Some(15),
+                Some(15) => Some(30),
+                Some(30) => Some(60),
+                Some(_) => None,
+            };
+            state.sleep_timer = minutes.map(|m| SleepTimer {
+                deadline: std::time::Instant::now() + std::time::Duration::from_secs(u64::from(m) * 60),
+                minutes: m,
+            });
+            match minutes {
+                Some(m) => state.notify(&format!("Sleep timer: {m} min"), false),
+                None => state.notify("Sleep timer off", false),
+            }
+        }
+        Action::ToggleRadio => {
+            state.radio = !state.radio;
+            state.notify(
+                if state.radio {
+                    "Radio on: the queue will keep itself filled"
+                } else {
+                    "Radio off"
+                },
+                false,
+            );
+        }
+        Action::ToggleNotificationLog => {
+            state.show_notification_log = !state.show_notification_log;
+        }
         Action::ToggleShuffle => {
             state.queue.set_shuffle(!state.queue.shuffle);
             return vec![Effect::PersistQueue];
@@ -304,6 +344,59 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             state.current_track = None;
             state.notify("Queue finished", false);
         }
+        Action::MixLoaded { title, tracks } => {
+            if tracks.is_empty() {
+                state.notify("Mix came back empty", true);
+                return Vec::new();
+            }
+            state.queue.load_tracks(tracks);
+            state.queue.position = Some(0);
+            state.current_track = state.queue.current().cloned();
+            state.current_details = None;
+            state.thumbnail = None;
+            state.now_playing_scroll = 0;
+            state.radio = true;
+            state.notify(&format!("Playing mix: {title}"), false);
+            return vec![
+                Effect::ResolveAndPlay {
+                    track_index_in_queue: 0,
+                },
+                Effect::PersistQueue,
+            ];
+        }
+        Action::RadioTracksLoaded { tracks } => {
+            let known: std::collections::HashSet<String> =
+                state.queue.tracks.iter().map(|t| t.id.clone()).collect();
+            let fresh: Vec<_> = tracks
+                .into_iter()
+                .filter(|t| !known.contains(&t.id))
+                .take(10)
+                .collect();
+            if fresh.is_empty() {
+                return Vec::new();
+            }
+            let first_new = state.queue.order.len();
+            let count = fresh.len();
+            for track in fresh {
+                state.queue.push(track);
+            }
+            state.notify(&format!("Radio: added {count} tracks"), false);
+            // If playback had already run dry, start on the new tracks.
+            if state.queue.position.is_none() || state.current_track.is_none() {
+                state.queue.position = Some(first_new);
+                state.current_track = state.queue.current().cloned();
+                state.current_details = None;
+                state.thumbnail = None;
+                state.now_playing_scroll = 0;
+                return vec![
+                    Effect::ResolveAndPlay {
+                        track_index_in_queue: first_new,
+                    },
+                    Effect::PersistQueue,
+                ];
+            }
+            return vec![Effect::PersistQueue];
+        }
 
         // --- Add-to-playlist picker ----------------------------------------
         Action::PickerInput(c) => {
@@ -453,6 +546,16 @@ fn reduce_playback_event(state: &mut AppState, event: PlaybackEvent) -> Vec<Effe
     }
 }
 
+/// Step the playback speed by `delta`, clamped to 0.5–2.0.
+fn speed_step(state: &mut AppState, delta: f64) -> Vec<Effect> {
+    let target = (state.playback.speed + delta).clamp(0.5, 2.0);
+    if (target - state.playback.speed).abs() > f64::EPSILON {
+        state.notify(&format!("Speed {target:.2}x"), false);
+        return vec![Effect::SetSpeed(target)];
+    }
+    Vec::new()
+}
+
 /// Move the picker selection through its candidate list, wrapping.
 fn picker_move(state: &mut AppState, delta: i32) {
     let Some(picker) = &state.picker else {
@@ -492,12 +595,15 @@ fn selected_track(state: &AppState) -> Option<crate::media::Track> {
 }
 
 impl AppState {
-    /// Record a transient notification.
+    /// Record a transient notification (also kept in the `!` log).
     pub fn notify(&mut self, message: &str, is_error: bool) {
-        self.notification = Some(Notification {
+        let notification = Notification {
             message: message.to_string(),
             is_error,
-        });
+        };
+        self.notification_log.push_front(notification.clone());
+        self.notification_log.truncate(50);
+        self.notification = Some(notification);
     }
 
     /// Mirror a playback event into the snapshot (subset of controller logic).
@@ -518,6 +624,7 @@ impl AppState {
                 self.playback.volume = (*v).clamp(0.0, 100.0) as u8;
             }
             PlaybackEvent::MuteChanged(m) => self.playback.muted = *m,
+            PlaybackEvent::SpeedChanged(s) => self.playback.speed = *s,
             PlaybackEvent::EndFile { .. } => self.playback.status = PlaybackStatus::Stopped,
             PlaybackEvent::PlaybackError(_) | PlaybackEvent::Shutdown => {
                 self.playback.status = PlaybackStatus::Idle;
@@ -628,6 +735,84 @@ mod tests {
         // No chapters: no effects.
         state.current_details = None;
         assert!(reduce(&mut state, Action::NextChapter).is_empty());
+    }
+
+    #[test]
+    fn speed_steps_clamp() {
+        let mut state = AppState::new();
+        assert_eq!(
+            reduce(&mut state, Action::SpeedUp),
+            vec![Effect::SetSpeed(1.25)]
+        );
+        state.playback.speed = 2.0;
+        assert!(reduce(&mut state, Action::SpeedUp).is_empty());
+        state.playback.speed = 0.5;
+        assert!(reduce(&mut state, Action::SpeedDown).is_empty());
+        state.playback.speed = 1.5;
+        assert_eq!(
+            reduce(&mut state, Action::SpeedReset),
+            vec![Effect::SetSpeed(1.0)]
+        );
+    }
+
+    #[test]
+    fn sleep_timer_cycles_through_durations() {
+        let mut state = AppState::new();
+        reduce(&mut state, Action::CycleSleepTimer);
+        assert_eq!(state.sleep_timer.map(|t| t.minutes), Some(15));
+        reduce(&mut state, Action::CycleSleepTimer);
+        assert_eq!(state.sleep_timer.map(|t| t.minutes), Some(30));
+        reduce(&mut state, Action::CycleSleepTimer);
+        assert_eq!(state.sleep_timer.map(|t| t.minutes), Some(60));
+        reduce(&mut state, Action::CycleSleepTimer);
+        assert!(state.sleep_timer.is_none());
+    }
+
+    #[test]
+    fn radio_tracks_dedup_and_restart_playback() {
+        let mut state = AppState::new();
+        state.radio = true;
+        state.queue.push(track("known"));
+        // Queue already exhausted: nothing playing, no position.
+        state.queue.position = None;
+        let effects = reduce(
+            &mut state,
+            Action::RadioTracksLoaded {
+                tracks: vec![track("known"), track("fresh1"), track("fresh2")],
+            },
+        );
+        assert_eq!(state.queue.tracks.len(), 3, "known track deduplicated");
+        assert_eq!(state.queue.position, Some(1), "starts on first fresh track");
+        assert_eq!(
+            state.current_track.as_ref().map(|t| t.id.as_str()),
+            Some("fresh1")
+        );
+        assert!(
+            effects
+                .iter()
+                .any(|e| matches!(e, Effect::ResolveAndPlay { .. }))
+        );
+    }
+
+    #[test]
+    fn mix_loaded_replaces_queue_and_enables_radio() {
+        let mut state = AppState::new();
+        state.queue.push(track("old"));
+        let effects = reduce(
+            &mut state,
+            Action::MixLoaded {
+                title: "My Mix".to_string(),
+                tracks: vec![track("m1"), track("m2")],
+            },
+        );
+        assert!(state.radio);
+        assert_eq!(state.queue.tracks.len(), 2);
+        assert_eq!(state.queue.position, Some(0));
+        assert!(
+            effects
+                .iter()
+                .any(|e| matches!(e, Effect::ResolveAndPlay { .. }))
+        );
     }
 
     #[test]
