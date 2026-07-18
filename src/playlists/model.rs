@@ -147,4 +147,14 @@ mod tests {
         assert_eq!(track.channel_id, None);
         assert_eq!(track.channel_url, None);
     }
+
+    #[test]
+    fn legacy_playlist_track_defaults_channel_identity() {
+        let playlist: Playlist = serde_json::from_str(
+            r#"{"schemaVersion":1,"id":"01J00000000000000000000000","name":"Legacy","description":"","createdAt":"2025-01-01T00:00:00Z","updatedAt":"2025-01-01T00:00:00Z","tracks":[{"id":"v","title":"Video","artist":"Channel","webpageUrl":"https://www.youtube.com/watch?v=v","durationSeconds":null,"thumbnailUrl":null,"addedAt":"2025-01-01T00:00:00Z","availability":"unknown"}]}"#,
+        )
+        .expect("legacy playlist");
+        assert_eq!(playlist.tracks[0].channel_id, None);
+        assert_eq!(playlist.tracks[0].channel_url, None);
+    }
 }
