@@ -19,6 +19,15 @@ pub struct HistoryDocument {
     pub entries: Vec<HistoryEntry>,
 }
 
+/// Per-track aggregation of the history log ("Top" view).
+#[derive(Debug, Clone)]
+pub struct TrackStats {
+    /// Most recent entry for the track (carries id, title, artist, URL).
+    pub entry: HistoryEntry,
+    pub plays: usize,
+    pub total_listened_seconds: u64,
+}
+
 /// Append-only history store with a maximum entry count.
 pub struct HistoryService {
     path: std::path::PathBuf,
@@ -58,6 +67,44 @@ impl HistoryService {
     /// Remove all entries.
     pub fn clear(&mut self) {
         self.document.entries.clear();
+    }
+
+    /// Remove one entry by index (newest-first order).
+    pub fn remove(&mut self, index: usize) {
+        if index < self.document.entries.len() {
+            self.document.entries.remove(index);
+        }
+    }
+
+    /// Aggregate the log per track: play counts and total listened time,
+    /// most-played first (ties broken by most recent play).
+    pub fn aggregate(&self) -> Vec<TrackStats> {
+        let mut by_track: Vec<TrackStats> = Vec::new();
+        let mut index: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+        for entry in &self.document.entries {
+            match index.get(entry.track_id.as_str()) {
+                Some(&i) => {
+                    by_track[i].plays += 1;
+                    by_track[i].total_listened_seconds += entry.listened_seconds;
+                }
+                None => {
+                    index.insert(entry.track_id.as_str(), by_track.len());
+                    by_track.push(TrackStats {
+                        entry: entry.clone(),
+                        plays: 1,
+                        total_listened_seconds: entry.listened_seconds,
+                    });
+                }
+            }
+        }
+        // Entries are newest-first, so each group's representative entry is
+        // already its most recent play.
+        by_track.sort_by(|a, b| {
+            b.plays
+                .cmp(&a.plays)
+                .then(b.entry.played_at.cmp(&a.entry.played_at))
+        });
+        by_track
     }
 
     /// The most recent distinct tracks (newest first, deduplicated by
@@ -100,6 +147,54 @@ mod tests {
         }
         assert_eq!(service.entries().len(), 3);
         assert_eq!(service.entries()[0].track_id, "t4");
+    }
+
+    #[test]
+    fn aggregate_counts_plays_per_track() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut service =
+            HistoryService::load(&dir.path().join("h.json"), 500).expect("load");
+        for _ in 0..3 {
+            service.record(HistoryEntry::from_track(
+                &Track::new("a", "Song A", "X"),
+                None,
+                PlaybackOutcome::Completed,
+                100,
+            ));
+        }
+        service.record(HistoryEntry::from_track(
+            &Track::new("b", "Song B", "Y"),
+            None,
+            PlaybackOutcome::Skipped,
+            10,
+        ));
+        let stats = service.aggregate();
+        assert_eq!(stats.len(), 2);
+        assert_eq!(stats[0].entry.track_id, "a");
+        assert_eq!(stats[0].plays, 3);
+        assert_eq!(stats[0].total_listened_seconds, 300);
+        assert_eq!(stats[1].plays, 1);
+    }
+
+    #[test]
+    fn remove_deletes_one_entry() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut service =
+            HistoryService::load(&dir.path().join("h.json"), 500).expect("load");
+        for i in 0..3 {
+            service.record(HistoryEntry::from_track(
+                &Track::new(format!("t{i}"), "t", "a"),
+                None,
+                PlaybackOutcome::Completed,
+                1,
+            ));
+        }
+        service.remove(1);
+        assert_eq!(service.entries().len(), 2);
+        assert_eq!(service.entries()[0].track_id, "t2");
+        assert_eq!(service.entries()[1].track_id, "t0");
+        service.remove(99); // out of range is a no-op
+        assert_eq!(service.entries().len(), 2);
     }
 
     #[test]

@@ -140,8 +140,28 @@ pub enum Action {
     ConfirmYes,
     ConfirmNo,
 
+    // Add-to-playlist picker (P in track lists)
+    OpenPlaylistPicker,
+    PickerInput(char),
+    PickerBackspace,
+    PickerNext,
+    PickerPrevious,
+    /// Resolved by the app layer: adds the track (creating a playlist if
+    /// the "new" entry is selected) and closes the picker.
+    PickerSubmit,
+    PickerCancel,
+
+    // Playlist detail editing
+    RemoveSelectedFromPlaylist,
+    /// Move the selected playlist track up (-1) or down (+1).
+    MoveSelectedInPlaylist(i32),
+
     // History
     ClearHistory,
+    /// Delete one history entry (Recent mode).
+    DeleteSelectedHistoryEntry,
+    /// Toggle Recent <-> Top (aggregated) presentation.
+    ToggleHistoryViewMode,
 
     // Notifications
     Notify(String),

@@ -107,9 +107,33 @@ pub struct Notification {
 pub enum Focus {
     /// The search input field is capturing text.
     SearchInput,
+    /// The in-list filter bar is capturing text (`/` in list views).
+    ListFilter,
     /// The main content list.
     #[default]
     Content,
+}
+
+/// How the History view presents its entries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum HistoryViewMode {
+    /// Chronological log, newest first.
+    #[default]
+    Recent,
+    /// Aggregated per track: play counts and total listened time.
+    Top,
+}
+
+/// State of the add-to-playlist picker modal.
+#[derive(Debug, Clone)]
+pub struct PickerState {
+    /// Track(s) to add on submit.
+    pub track: crate::media::Track,
+    /// Typed filter over playlist names; a non-matching name becomes a
+    /// "create new playlist" entry.
+    pub filter: String,
+    /// Selection within the visible candidate list (0 may be "create new").
+    pub selected: usize,
 }
 
 /// Purpose of a single-line text prompt.
@@ -185,6 +209,18 @@ pub struct AppState {
     pub prompt: Option<PromptState>,
     pub confirm: Option<ConfirmState>,
     pub import: Option<ImportState>,
+    /// Add-to-playlist picker (`P` in track lists).
+    pub picker: Option<PickerState>,
+
+    // In-list filtering (`/` in list views)
+    /// Active filter text; `None` when no filter is applied.
+    pub list_filter: Option<String>,
+    /// Indices of the underlying list that pass the filter, when one is
+    /// active. Kept in sync by the app layer each loop iteration.
+    pub visible_indices: Option<Vec<usize>>,
+
+    /// Presentation mode of the History view.
+    pub history_view_mode: HistoryViewMode,
 
     // Playback
     pub playback: PlaybackSnapshot,
@@ -276,8 +312,20 @@ impl AppState {
         self.spinner_frame = self.spinner_frame.wrapping_add(1);
     }
 
+    /// Map a position in the (possibly filtered) visible list back to an
+    /// index into the underlying list.
+    pub fn resolve_index(&self, visible: usize) -> usize {
+        match &self.visible_indices {
+            Some(indices) => indices.get(visible).copied().unwrap_or(visible),
+            None => visible,
+        }
+    }
+
     /// Length of the list backing the current view.
     pub fn active_list_len(&self) -> usize {
+        if let Some(indices) = &self.visible_indices {
+            return indices.len();
+        }
         match self.view {
             View::Home => match self.home_section {
                 HomeSection::Resume => 0,

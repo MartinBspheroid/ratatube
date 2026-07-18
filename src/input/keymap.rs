@@ -95,9 +95,11 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
         }
         (View::Home, KeyCode::Char('a')) => Action::AddSelectedToQueue,
         (View::Home, KeyCode::Char('p')) => Action::LoadSelectedPlaylistIntoQueue,
+        (View::Home, KeyCode::Char('P')) => Action::OpenPlaylistPicker,
         (View::Queue, KeyCode::Char('d')) => Action::RemoveSelectedFromQueue,
         (View::Queue, KeyCode::Char('J')) => Action::MoveSelectedInQueue(1),
         (View::Queue, KeyCode::Char('K')) => Action::MoveSelectedInQueue(-1),
+        (View::Queue, KeyCode::Char('P')) => Action::OpenPlaylistPicker,
         (View::Queue, KeyCode::Char('c')) => Action::ClearQueue,
         (View::Queue, KeyCode::Char('w')) => {
             Action::OpenPrompt(crate::app::state::PromptPurpose::SaveQueueAsPlaylist)
@@ -116,6 +118,12 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
             Action::OpenPrompt(crate::app::state::PromptPurpose::RenamePlaylist)
         }
         (View::PlaylistDetail, KeyCode::Char('p')) => Action::LoadSelectedPlaylistIntoQueue,
+        (View::PlaylistDetail, KeyCode::Char('a')) => Action::AddSelectedToQueue,
+        (View::PlaylistDetail, KeyCode::Char('A')) => Action::AddSelectedAsNext,
+        (View::PlaylistDetail, KeyCode::Char('d')) => Action::RemoveSelectedFromPlaylist,
+        (View::PlaylistDetail, KeyCode::Char('J')) => Action::MoveSelectedInPlaylist(1),
+        (View::PlaylistDetail, KeyCode::Char('K')) => Action::MoveSelectedInPlaylist(-1),
+        (View::PlaylistDetail, KeyCode::Char('P')) => Action::OpenPlaylistPicker,
         (View::PlaylistDetail, KeyCode::Backspace) => Action::Navigate(View::Playlists),
         (View::NowPlaying, KeyCode::Char('j')) | (View::NowPlaying, KeyCode::Down) => {
             Action::ScrollNowPlaying(3)
@@ -132,7 +140,12 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
         (View::NowPlaying, KeyCode::Char('v')) => Action::ToggleNowPlayingPane,
         (View::Search, KeyCode::Char('a')) => Action::AddSelectedToQueue,
         (View::Search, KeyCode::Char('A')) => Action::AddSelectedAsNext,
+        (View::Search, KeyCode::Char('P')) => Action::OpenPlaylistPicker,
         (View::History, KeyCode::Char('a')) => Action::AddSelectedToQueue,
+        (View::History, KeyCode::Char('A')) => Action::AddSelectedAsNext,
+        (View::History, KeyCode::Char('P')) => Action::OpenPlaylistPicker,
+        (View::History, KeyCode::Char('x')) => Action::DeleteSelectedHistoryEntry,
+        (View::History, KeyCode::Char('g')) => Action::ToggleHistoryViewMode,
         (View::History, KeyCode::Char('c')) => Action::ClearHistory,
         _ => return None,
     };
@@ -143,6 +156,8 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
 pub fn route(key: &KeyEvent, focus: Focus, view: View) -> Option<Action> {
     match focus {
         Focus::SearchInput => search_input_action(key),
+        // The in-list filter bar is handled directly by the app layer.
+        Focus::ListFilter => None,
         Focus::Content => view_action(key, view).or_else(|| global_action(key)),
     }
 }

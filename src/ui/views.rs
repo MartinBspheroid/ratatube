@@ -48,6 +48,60 @@ fn view_block<'a>(title: Line<'a>, theme: &Theme) -> Block<'a> {
         .title(title)
 }
 
+/// Render the in-list filter bar (`/`) when active and return the area left
+/// for the list itself.
+fn render_filter_bar(
+    frame: &mut Frame,
+    inner: Rect,
+    state: &AppState,
+    total: usize,
+    theme: &Theme,
+) -> Rect {
+    let Some(filter) = &state.list_filter else {
+        return inner;
+    };
+    if inner.height == 0 {
+        return inner;
+    }
+    let editing = state.focus == Focus::ListFilter;
+    let shown = state.visible_indices.as_ref().map_or(total, Vec::len);
+    let line = Line::from(vec![
+        Span::styled("/", theme.accent),
+        Span::raw(sanitize_terminal_text(filter)),
+        Span::styled(if editing { "▏" } else { "" }, theme.accent),
+        Span::styled(format!("   {shown} of {total}"), theme.dim),
+        Span::styled(
+            if editing {
+                "   Enter lock · Esc clear"
+            } else {
+                "   Esc clear"
+            },
+            theme.dim,
+        ),
+    ]);
+    frame.render_widget(
+        Paragraph::new(line),
+        Rect {
+            height: 1,
+            ..inner
+        },
+    );
+    Rect {
+        y: inner.y + 1,
+        height: inner.height.saturating_sub(1),
+        ..inner
+    }
+}
+
+/// Visible positions of a list under the active filter (identity when no
+/// filter applies).
+fn visible_positions(state: &AppState, total: usize) -> Vec<usize> {
+    match &state.visible_indices {
+        Some(indices) => indices.clone(),
+        None => (0..total).collect(),
+    }
+}
+
 /// Render a vertical scrollbar for a list inside a bordered area.
 fn render_scrollbar(frame: &mut Frame, area: Rect, content_len: usize, position: usize) {
     let mut scrollbar_state = ScrollbarState::new(content_len).position(position);
@@ -475,6 +529,7 @@ fn render_queue(frame: &mut Frame, area: Rect, state: &mut AppState, theme: &The
     let block = view_block(Line::from(format!(" Queue ({total}){modes} ")), theme);
     let inner = block.inner(area);
     frame.render_widget(block, area);
+    let inner = render_filter_bar(frame, inner, state, total, theme);
 
     if total == 0 {
         frame.render_widget(
@@ -492,12 +547,10 @@ fn render_queue(frame: &mut Frame, area: Rect, state: &mut AppState, theme: &The
         return;
     }
 
-    let items: Vec<ListItem> = state
-        .queue
-        .order
-        .iter()
-        .enumerate()
-        .map(|(pos, &i)| {
+    let items: Vec<ListItem> = visible_positions(state, total)
+        .into_iter()
+        .filter_map(|pos| state.queue.order.get(pos).map(|&i| (pos, i)))
+        .map(|(pos, i)| {
             let track = &state.queue.tracks[i];
             let is_current = Some(pos) == state.queue.position;
             let marker = if is_current { "♪" } else { " " };
@@ -523,12 +576,13 @@ fn render_queue(frame: &mut Frame, area: Rect, state: &mut AppState, theme: &The
             ]))
         })
         .collect();
+    let shown = items.len();
     let list = List::new(items)
         .highlight_style(theme.selected)
         .highlight_symbol("▶ ");
     state.list_state.select(Some(state.selected_index));
     frame.render_stateful_widget(list, inner, &mut state.list_state);
-    render_scrollbar(frame, area, total, state.list_state.offset());
+    render_scrollbar(frame, area, shown, state.list_state.offset());
 }
 
 fn render_playlists(frame: &mut Frame, area: Rect, state: &mut AppState, theme: &Theme) {
@@ -538,6 +592,7 @@ fn render_playlists(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
     );
     let inner = block.inner(area);
     frame.render_widget(block, area);
+    let inner = render_filter_bar(frame, inner, state, state.playlists.len(), theme);
 
     if state.playlists.is_empty() {
         frame.render_widget(
@@ -566,9 +621,9 @@ fn render_playlists(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
         .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
         .split(inner);
 
-    let items: Vec<ListItem> = state
-        .playlists
-        .iter()
+    let items: Vec<ListItem> = visible_positions(state, state.playlists.len())
+        .into_iter()
+        .filter_map(|i| state.playlists.get(i))
         .map(|p| {
             let imported = if p.source.is_some() { " ↓" } else { "" };
             ListItem::new(Line::from(vec![
@@ -577,6 +632,7 @@ fn render_playlists(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
             ]))
         })
         .collect();
+    let shown = items.len();
     let list = List::new(items)
         .highlight_style(theme.selected)
         .highlight_symbol("▶ ");
@@ -591,11 +647,15 @@ fn render_playlists(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
     let preview_inner = preview_block.inner(panes[1]);
     frame.render_widget(preview_block, panes[1]);
 
-    if let Some(playlist) = state.playlists.get(state.selected_index) {
+    let preview_cap = (preview_inner.height as usize).saturating_sub(3).max(4);
+    if let Some(playlist) = state
+        .playlists
+        .get(state.resolve_index(state.selected_index))
+    {
         let mut lines: Vec<Line> = playlist
             .tracks
             .iter()
-            .take(12)
+            .take(preview_cap)
             .map(|t| {
                 Line::from(Span::styled(
                     format!(
@@ -607,9 +667,9 @@ fn render_playlists(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
                 ))
             })
             .collect();
-        if playlist.tracks.len() > 12 {
+        if playlist.tracks.len() > preview_cap {
             lines.push(Line::from(Span::styled(
-                format!("... and {} more", playlist.tracks.len() - 12),
+                format!("... and {} more", playlist.tracks.len() - preview_cap),
                 theme.dim,
             )));
         }
@@ -622,12 +682,7 @@ fn render_playlists(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
         }
         frame.render_widget(Paragraph::new(lines), preview_inner);
     }
-    render_scrollbar(
-        frame,
-        area,
-        state.playlists.len(),
-        state.list_state.offset(),
-    );
+    render_scrollbar(frame, area, shown, state.list_state.offset());
 }
 
 fn render_playlist_detail(frame: &mut Frame, area: Rect, state: &mut AppState, theme: &Theme) {
@@ -644,8 +699,11 @@ fn render_playlist_detail(frame: &mut Frame, area: Rect, state: &mut AppState, t
     let block = view_block(Line::from(title), theme);
     let inner = block.inner(area);
     frame.render_widget(block, area);
+    let total = playlist.tracks.len();
+    let tracks = playlist.tracks.clone();
+    let inner = render_filter_bar(frame, inner, state, total, theme);
 
-    if playlist.tracks.is_empty() {
+    if tracks.is_empty() {
         frame.render_widget(
             Paragraph::new(Span::styled("Playlist is empty", theme.dim)),
             inner,
@@ -653,9 +711,9 @@ fn render_playlist_detail(frame: &mut Frame, area: Rect, state: &mut AppState, t
         return;
     }
 
-    let items: Vec<ListItem> = playlist
-        .tracks
-        .iter()
+    let items: Vec<ListItem> = visible_positions(state, total)
+        .into_iter()
+        .filter_map(|i| tracks.get(i))
         .map(|t| {
             let duration = t
                 .duration_seconds
@@ -671,17 +729,13 @@ fn render_playlist_detail(frame: &mut Frame, area: Rect, state: &mut AppState, t
             ]))
         })
         .collect();
+    let shown = items.len();
     let list = List::new(items)
         .highlight_style(theme.selected)
         .highlight_symbol("▶ ");
     state.list_state.select(Some(state.selected_index));
     frame.render_stateful_widget(list, inner, &mut state.list_state);
-    render_scrollbar(
-        frame,
-        area,
-        playlist.tracks.len(),
-        state.list_state.offset(),
-    );
+    render_scrollbar(frame, area, shown, state.list_state.offset());
 }
 
 fn render_history(
@@ -691,8 +745,20 @@ fn render_history(
     history: Option<&HistoryService>,
     theme: &Theme,
 ) {
+    use crate::app::state::HistoryViewMode;
+
     let entries = history.map(|h| h.entries()).unwrap_or(&[]);
-    let block = view_block(Line::from(format!(" History ({}) ", entries.len())), theme);
+    let mode_label = match state.history_view_mode {
+        HistoryViewMode::Recent => "recent",
+        HistoryViewMode::Top => "top",
+    };
+    let block = view_block(
+        Line::from(format!(
+            " History ({}) · {mode_label} — g toggles · / filters ",
+            entries.len()
+        )),
+        theme,
+    );
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -704,37 +770,82 @@ fn render_history(
         return;
     }
 
-    let items: Vec<ListItem> = entries
-        .iter()
-        .map(|e| {
-            let outcome_style = match e.outcome {
-                crate::history::model::PlaybackOutcome::Completed => theme.playing,
-                crate::history::model::PlaybackOutcome::Skipped => theme.dim,
-                crate::history::model::PlaybackOutcome::Failed => theme.error,
-                crate::history::model::PlaybackOutcome::Stopped => theme.warning,
-            };
-            ListItem::new(Line::from(vec![
-                Span::styled(format!("{:?}", e.outcome), outcome_style),
-                Span::styled("  ", theme.dim),
-                Span::raw(format!(
-                    "{} — {}",
-                    sanitize_terminal_text(&e.artist),
-                    sanitize_terminal_text(&e.title)
-                )),
-                Span::styled(
-                    format!("  {}", e.played_at.format("%Y-%m-%d %H:%M")),
-                    theme.dim,
-                ),
-            ]))
-        })
-        .collect();
-    let count = items.len();
-    let list = List::new(items)
-        .highlight_style(theme.selected)
-        .highlight_symbol("▶ ");
-    state.list_state.select(Some(state.selected_index));
-    frame.render_stateful_widget(list, inner, &mut state.list_state);
-    render_scrollbar(frame, area, count, state.list_state.offset());
+    match state.history_view_mode {
+        HistoryViewMode::Recent => {
+            let inner_total = entries.len();
+            let visible = visible_positions(state, inner_total);
+            let inner = render_filter_bar(frame, inner, state, inner_total, theme);
+            let items: Vec<ListItem> = visible
+                .into_iter()
+                .filter_map(|i| entries.get(i))
+                .map(|e| {
+                    let outcome_style = match e.outcome {
+                        crate::history::model::PlaybackOutcome::Completed => theme.playing,
+                        crate::history::model::PlaybackOutcome::Skipped => theme.dim,
+                        crate::history::model::PlaybackOutcome::Failed => theme.error,
+                        crate::history::model::PlaybackOutcome::Stopped => theme.warning,
+                    };
+                    ListItem::new(Line::from(vec![
+                        Span::styled(format!("{:<9}", format!("{:?}", e.outcome)), outcome_style),
+                        Span::raw(format!(
+                            "  {} — {}",
+                            sanitize_terminal_text(&e.artist),
+                            sanitize_terminal_text(&e.title)
+                        )),
+                        Span::styled(
+                            format!("  · {} listened", format_time(e.listened_seconds as f64)),
+                            theme.dim,
+                        ),
+                        Span::styled(
+                            format!("  {}", e.played_at.format("%Y-%m-%d %H:%M")),
+                            theme.dim,
+                        ),
+                    ]))
+                })
+                .collect();
+            let shown = items.len();
+            let list = List::new(items)
+                .highlight_style(theme.selected)
+                .highlight_symbol("▶ ");
+            state.list_state.select(Some(state.selected_index));
+            frame.render_stateful_widget(list, inner, &mut state.list_state);
+            render_scrollbar(frame, area, shown, state.list_state.offset());
+        }
+        HistoryViewMode::Top => {
+            let stats = history.map(|h| h.aggregate()).unwrap_or_default();
+            let inner_total = stats.len();
+            let visible = visible_positions(state, inner_total);
+            let inner = render_filter_bar(frame, inner, state, inner_total, theme);
+            let items: Vec<ListItem> = visible
+                .into_iter()
+                .filter_map(|i| stats.get(i))
+                .map(|s| {
+                    ListItem::new(Line::from(vec![
+                        Span::styled(format!("{:>4}×  ", s.plays), theme.accent),
+                        Span::raw(format!(
+                            "{} — {}",
+                            sanitize_terminal_text(&s.entry.artist),
+                            sanitize_terminal_text(&s.entry.title)
+                        )),
+                        Span::styled(
+                            format!(
+                                "  · {} total",
+                                format_time(s.total_listened_seconds as f64)
+                            ),
+                            theme.dim,
+                        ),
+                    ]))
+                })
+                .collect();
+            let shown = items.len();
+            let list = List::new(items)
+                .highlight_style(theme.selected)
+                .highlight_symbol("▶ ");
+            state.list_state.select(Some(state.selected_index));
+            frame.render_stateful_widget(list, inner, &mut state.list_state);
+            render_scrollbar(frame, area, shown, state.list_state.offset());
+        }
+    }
 }
 
 fn render_now_playing_view(

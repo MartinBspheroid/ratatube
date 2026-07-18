@@ -2,6 +2,7 @@
 //! and yt-dlp tasks into actions and effects (PRD sections 13 and 15).
 
 pub mod action;
+pub mod filter;
 pub mod reducer;
 pub mod state;
 
@@ -177,9 +178,9 @@ impl App {
                     }
                 }
             }
-            // Mirror the history length into state so selection movement in
-            // the History view (and Home's Recent section) works.
-            self.state.history_len = self.history.as_ref().map_or(0, |h| h.entries().len());
+            // Refresh filtered indices and the mirrored history length so
+            // selection movement matches what is rendered.
+            self.sync_list_view();
             crate::ui::render_with(terminal, &mut self.state, self.history.as_ref())?;
         }
         Ok(())
@@ -293,6 +294,7 @@ impl App {
         if self.state.prompt.is_some()
             || self.state.confirm.is_some()
             || self.state.import.is_some()
+            || self.state.picker.is_some()
         {
             return;
         }
@@ -441,6 +443,22 @@ impl App {
             }
             return;
         }
+        // Add-to-playlist picker modal.
+        if self.state.picker.is_some() {
+            let action = match key.code {
+                KeyCode::Enter => Some(Action::PickerSubmit),
+                KeyCode::Esc => Some(Action::PickerCancel),
+                KeyCode::Backspace => Some(Action::PickerBackspace),
+                KeyCode::Down => Some(Action::PickerNext),
+                KeyCode::Up => Some(Action::PickerPrevious),
+                KeyCode::Char(c) => Some(Action::PickerInput(c)),
+                _ => None,
+            };
+            if let Some(action) = action {
+                let _ = action_tx.send(action).await;
+            }
+            return;
+        }
 
         match self.state.focus {
             Focus::SearchInput => {
@@ -457,10 +475,73 @@ impl App {
                     let _ = action_tx.send(action).await;
                 }
             }
+            Focus::ListFilter => {
+                match key.code {
+                    // Enter locks the filter (list keys work on the matches);
+                    // Esc clears it entirely.
+                    KeyCode::Enter => {
+                        if self
+                            .state
+                            .list_filter
+                            .as_deref()
+                            .is_none_or(|f| f.trim().is_empty())
+                        {
+                            self.state.list_filter = None;
+                        }
+                        self.state.focus = Focus::Content;
+                    }
+                    KeyCode::Esc => {
+                        self.state.list_filter = None;
+                        self.state.focus = Focus::Content;
+                    }
+                    KeyCode::Backspace => {
+                        if let Some(filter) = &mut self.state.list_filter {
+                            if filter.pop().is_none() {
+                                self.state.list_filter = None;
+                                self.state.focus = Focus::Content;
+                            }
+                        }
+                        self.state.selected_index = 0;
+                    }
+                    KeyCode::Char(c) => {
+                        if let Some(filter) = &mut self.state.list_filter {
+                            filter.push(c);
+                        }
+                        self.state.selected_index = 0;
+                    }
+                    // Let j/k-style movement through so filter-then-pick
+                    // works without leaving the bar.
+                    KeyCode::Down => {
+                        let _ = action_tx.send(Action::SelectNext).await;
+                    }
+                    KeyCode::Up => {
+                        let _ = action_tx.send(Action::SelectPrevious).await;
+                    }
+                    _ => {}
+                }
+            }
             Focus::Content => {
                 if keymap::focuses_search(&key) {
-                    self.state.view = View::Search;
-                    self.state.focus = Focus::SearchInput;
+                    // In list views `/` filters in place; elsewhere it jumps
+                    // to the Search tab.
+                    if matches!(
+                        self.state.view,
+                        View::Queue | View::History | View::Playlists | View::PlaylistDetail
+                    ) {
+                        self.state.list_filter = Some(String::new());
+                        self.state.focus = Focus::ListFilter;
+                        self.state.selected_index = 0;
+                    } else {
+                        self.state.view = View::Search;
+                        self.state.focus = Focus::SearchInput;
+                    }
+                    return;
+                }
+                // Esc clears a locked list filter.
+                if key.code == KeyCode::Esc && self.state.list_filter.is_some() {
+                    self.state.list_filter = None;
+                    self.state.visible_indices = None;
+                    self.state.clamp_selection();
                     return;
                 }
                 if let Some(action) = keymap::route(&key, Focus::Content, self.state.view) {
@@ -468,6 +549,91 @@ impl App {
                 }
             }
         }
+    }
+
+    /// Recompute the filtered view of the active list, and mirror the
+    /// History length for the current presentation mode. Runs every loop
+    /// iteration before render.
+    fn sync_list_view(&mut self) {
+        use crate::app::state::HistoryViewMode;
+
+        self.state.history_len = match self.state.history_view_mode {
+            HistoryViewMode::Recent => self.history.as_ref().map_or(0, |h| h.entries().len()),
+            HistoryViewMode::Top => self.history.as_ref().map_or(0, |h| h.aggregate().len()),
+        };
+
+        let filter = self
+            .state
+            .list_filter
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .to_lowercase();
+        if filter.is_empty() {
+            self.state.visible_indices = None;
+            return;
+        }
+        let rows: Vec<(String, Option<String>)> = match self.state.view {
+            View::Queue => self
+                .state
+                .queue
+                .order
+                .iter()
+                .map(|&i| {
+                    let t = &self.state.queue.tracks[i];
+                    (format!("{} {}", t.artist, t.title), None)
+                })
+                .collect(),
+            View::Playlists => self
+                .state
+                .playlists
+                .iter()
+                .map(|p| (p.name.clone(), None))
+                .collect(),
+            View::PlaylistDetail => self
+                .state
+                .selected_playlist
+                .and_then(|i| self.state.playlists.get(i))
+                .map(|p| {
+                    p.tracks
+                        .iter()
+                        .map(|t| (format!("{} {}", t.artist, t.title), None))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            View::History => match (&self.history, self.state.history_view_mode) {
+                (Some(history), HistoryViewMode::Recent) => history
+                    .entries()
+                    .iter()
+                    .map(|e| {
+                        (
+                            format!("{} {}", e.artist, e.title),
+                            Some(format!("{:?}", e.outcome)),
+                        )
+                    })
+                    .collect(),
+                (Some(history), HistoryViewMode::Top) => history
+                    .aggregate()
+                    .iter()
+                    .map(|s| {
+                        (
+                            format!("{} {}", s.entry.artist, s.entry.title),
+                            Some(format!("{:?}", s.entry.outcome)),
+                        )
+                    })
+                    .collect(),
+                (None, _) => Vec::new(),
+            },
+            _ => {
+                self.state.visible_indices = None;
+                return;
+            }
+        };
+        self.state.visible_indices = Some(crate::app::filter::matching_indices(
+            &filter,
+            rows.iter().map(|(text, outcome)| (text.clone(), outcome.as_deref())),
+        ));
+        self.state.clamp_selection();
     }
 
     /// Classify free text vs URL and dispatch accordingly (PRD 10.2).
@@ -647,13 +813,94 @@ impl App {
                 }
             }
             Action::PlaySelected if self.state.view == View::History => {
-                if let Some(entry) = self
-                    .history
-                    .as_ref()
-                    .and_then(|h| h.entries().get(self.state.selected_index))
-                {
-                    let track = entry.to_track();
+                if let Some(track) = self.resolve_selected_track() {
                     let _ = action_tx.send(Action::PlayTrack(track)).await;
+                }
+            }
+            Action::OpenPlaylistPicker => {
+                if let Some(track) = self.resolve_selected_track() {
+                    self.state.picker = Some(crate::app::state::PickerState {
+                        track,
+                        filter: String::new(),
+                        selected: 0,
+                    });
+                }
+            }
+            Action::PickerSubmit => {
+                self.submit_picker().await;
+            }
+            Action::DeleteSelectedHistoryEntry => {
+                use crate::app::state::HistoryViewMode;
+                if self.state.history_view_mode != HistoryViewMode::Recent {
+                    self.state
+                        .notify("Switch to recent (g) to delete entries", false);
+                    return;
+                }
+                let index = self.state.resolve_index(self.state.selected_index);
+                if let Some(history) = self.history.as_mut() {
+                    history.remove(index);
+                    if let Err(err) = history.save() {
+                        tracing::warn!(?err, "history save failed");
+                    }
+                    self.state.history_len = history.entries().len();
+                    self.state.clamp_selection();
+                }
+            }
+            Action::RemoveSelectedFromPlaylist => {
+                if self.state.view != View::PlaylistDetail {
+                    return;
+                }
+                let index = self.state.resolve_index(self.state.selected_index);
+                let Some(playlist) = self
+                    .state
+                    .selected_playlist
+                    .and_then(|i| self.state.playlists.get_mut(i))
+                else {
+                    return;
+                };
+                if index >= playlist.tracks.len() {
+                    return;
+                }
+                playlist.tracks.remove(index);
+                playlist.updated_at = chrono::Utc::now();
+                let snapshot = playlist.clone();
+                match self.playlists.save(&snapshot) {
+                    Ok(()) => self.state.notify("Removed from playlist", false),
+                    Err(err) => self.state.notify(&format!("Save failed: {err}"), true),
+                }
+                self.state.clamp_selection();
+            }
+            Action::MoveSelectedInPlaylist(delta) => {
+                if self.state.view != View::PlaylistDetail {
+                    return;
+                }
+                if self.state.visible_indices.is_some() {
+                    self.state.notify("Clear the filter (Esc) to reorder", false);
+                    return;
+                }
+                let from = self.state.selected_index;
+                let Some(playlist) = self
+                    .state
+                    .selected_playlist
+                    .and_then(|i| self.state.playlists.get_mut(i))
+                else {
+                    return;
+                };
+                let len = playlist.tracks.len();
+                if len < 2 || from >= len {
+                    return;
+                }
+                let to = from.saturating_add_signed(delta as isize).min(len - 1);
+                if from == to {
+                    return;
+                }
+                let track = playlist.tracks.remove(from);
+                playlist.tracks.insert(to, track);
+                playlist.updated_at = chrono::Utc::now();
+                let snapshot = playlist.clone();
+                self.state.selected_index = to;
+                if let Err(err) = self.playlists.save(&snapshot) {
+                    self.state.notify(&format!("Save failed: {err}"), true);
                 }
             }
             Action::LoadSelectedPlaylistIntoQueue | Action::AppendSelectedPlaylistToQueue => {
@@ -760,8 +1007,10 @@ impl App {
         }
     }
 
-    /// Resolve the currently selected track across track-listing views.
+    /// Resolve the currently selected track across track-listing views,
+    /// mapping through the in-list filter and History presentation mode.
     fn resolve_selected_track(&self) -> Option<Track> {
+        let index = self.state.resolve_index(self.state.selected_index);
         match self.state.view {
             View::Home => match self.state.home_section {
                 crate::app::state::HomeSection::Recent => self.history.as_ref().and_then(|h| {
@@ -771,36 +1020,91 @@ impl App {
                 }),
                 _ => None,
             },
-            View::History => self
-                .history
-                .as_ref()
-                .and_then(|h| h.entries().get(self.state.selected_index))
-                .map(|e| e.to_track()),
-            _ => {
-                // Search, Queue, and PlaylistDetail are handled by the reducer
-                // through selected_track; mirror that logic here.
-                match self.state.view {
-                    View::Search => match &self.state.search {
-                        crate::media::search::SearchState::Results { tracks, .. } => {
-                            tracks.get(self.state.selected_index).cloned()
-                        }
-                        _ => None,
-                    },
-                    View::Queue => self
-                        .state
-                        .queue
-                        .order
-                        .get(self.state.selected_index)
-                        .map(|&i| self.state.queue.tracks[i].clone()),
-                    View::PlaylistDetail => self
-                        .state
-                        .selected_playlist
-                        .and_then(|i| self.state.playlists.get(i))
-                        .and_then(|p| p.tracks.get(self.state.selected_index))
-                        .map(Track::from),
-                    _ => None,
+            View::History => match self.state.history_view_mode {
+                crate::app::state::HistoryViewMode::Recent => self
+                    .history
+                    .as_ref()
+                    .and_then(|h| h.entries().get(index).map(|e| e.to_track())),
+                crate::app::state::HistoryViewMode::Top => self
+                    .history
+                    .as_ref()
+                    .and_then(|h| h.aggregate().get(index).map(|s| s.entry.to_track())),
+            },
+            View::Search => match &self.state.search {
+                crate::media::search::SearchState::Results { tracks, .. } => {
+                    tracks.get(index).cloned()
                 }
+                _ => None,
+            },
+            View::Queue => self
+                .state
+                .queue
+                .order
+                .get(index)
+                .map(|&i| self.state.queue.tracks[i].clone()),
+            View::PlaylistDetail => self
+                .state
+                .selected_playlist
+                .and_then(|i| self.state.playlists.get(i))
+                .and_then(|p| p.tracks.get(index))
+                .map(Track::from),
+            _ => None,
+        }
+    }
+
+    /// Apply the add-to-playlist picker: add to the chosen playlist, or
+    /// create one named after the filter text first.
+    async fn submit_picker(&mut self) {
+        let Some(picker) = self.state.picker.take() else {
+            return;
+        };
+        let (create_new, matching) =
+            crate::app::filter::picker_candidates(&self.state.playlists, &picker.filter);
+
+        let target_index = if create_new {
+            if picker.selected == 0 {
+                // Create a playlist named after the typed filter, then add.
+                let playlist = Playlist::new(picker.filter.trim());
+                match self.playlists.save(&playlist) {
+                    Ok(()) => {
+                        self.state.playlists.push(playlist);
+                        Some(self.state.playlists.len() - 1)
+                    }
+                    Err(err) => {
+                        self.state.notify(&format!("Save failed: {err}"), true);
+                        return;
+                    }
+                }
+            } else {
+                matching.get(picker.selected - 1).copied()
             }
+        } else {
+            matching.get(picker.selected).copied()
+        };
+        let Some(target_index) = target_index else {
+            return;
+        };
+        let Some(playlist) = self.state.playlists.get_mut(target_index) else {
+            return;
+        };
+
+        if playlist.tracks.iter().any(|t| t.id == picker.track.id) {
+            let name = playlist.name.clone();
+            self.state
+                .notify(&format!("Already in \"{name}\""), false);
+            return;
+        }
+        playlist
+            .tracks
+            .push(crate::playlists::model::PlaylistTrack::from(&picker.track));
+        playlist.updated_at = chrono::Utc::now();
+        let snapshot = playlist.clone();
+        match self.playlists.save(&snapshot) {
+            Ok(()) => {
+                self.state
+                    .notify(&format!("Added to \"{}\"", snapshot.name), false);
+            }
+            Err(err) => self.state.notify(&format!("Save failed: {err}"), true),
         }
     }
 

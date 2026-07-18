@@ -199,6 +199,74 @@ fn render_overlays(
         return;
     }
 
+    if let Some(picker) = &state.picker {
+        let (create_new, matching) =
+            crate::app::filter::picker_candidates(&state.playlists, &picker.filter);
+        let mut lines: Vec<Line> = vec![Line::from(vec![
+            Span::styled("> ", theme.accent),
+            Span::raw(icons::sanitize_terminal_text(&picker.filter)),
+            Span::styled("▏", theme.accent),
+        ])];
+        let mut row = 0usize;
+        let mut push_candidate = |label: Vec<Span<'static>>, selected: bool| {
+            let mut spans = vec![Span::styled(
+                if selected { "▶ " } else { "  " },
+                theme.accent,
+            )];
+            spans.extend(label);
+            let line = Line::from(spans);
+            lines.push(if selected { line.style(theme.selected) } else { line });
+        };
+        if create_new {
+            push_candidate(
+                vec![Span::styled(
+                    format!("＋ New playlist \"{}\"", picker.filter.trim()),
+                    theme.playing,
+                )],
+                picker.selected == row,
+            );
+            row += 1;
+        }
+        for &i in matching.iter().take(9) {
+            if let Some(playlist) = state.playlists.get(i) {
+                push_candidate(
+                    vec![
+                        Span::styled(
+                            icons::sanitize_terminal_text(&playlist.name),
+                            theme.base,
+                        ),
+                        Span::styled(format!("  ({})", playlist.tracks.len()), theme.dim),
+                    ],
+                    picker.selected == row,
+                );
+                row += 1;
+            }
+        }
+        if row == 0 {
+            lines.push(Line::from(Span::styled(
+                "No matching playlists — type a name to create one",
+                theme.dim,
+            )));
+        }
+        lines.push(Line::from(""));
+        lines.push(Line::from(vec![
+            Span::styled(" Enter ", theme.key_chip),
+            Span::styled("add   ", theme.dim),
+            Span::styled(" ↑/↓ ", theme.key_chip),
+            Span::styled("choose   ", theme.dim),
+            Span::styled(" Esc ", theme.key_chip),
+            Span::styled("cancel", theme.dim),
+        ]));
+        let height = (lines.len() as u16 + 2).min(area.height);
+        let picker_area = centered_rect(area, 56, height);
+        frame.render_widget(Clear, picker_area);
+        frame.render_widget(
+            Paragraph::new(lines).block(modal_block("Add to playlist")),
+            picker_area,
+        );
+        return;
+    }
+
     if let Some(confirm) = &state.confirm {
         let confirm_area = centered_rect(area, 50, 5);
         frame.render_widget(Clear, confirm_area);

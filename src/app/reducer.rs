@@ -34,6 +34,8 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             state.view = view;
             state.selected_index = 0;
             state.focus = Focus::Content;
+            state.list_filter = None;
+            state.visible_indices = None;
             state.reset_list();
         }
         Action::NextView => {
@@ -166,12 +168,29 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
         }
         Action::RemoveSelectedFromQueue => {
             if state.view == View::Queue {
-                state.queue.remove_at(state.selected_index);
+                let real = state.resolve_index(state.selected_index);
+                state.queue.remove_at(real);
+                // The filter indices refresh next loop; drop them now so the
+                // stale mapping can't resolve a second removal wrongly.
+                if let Some(indices) = &mut state.visible_indices {
+                    indices.retain(|&i| i != real);
+                    for i in indices.iter_mut() {
+                        if *i > real {
+                            *i -= 1;
+                        }
+                    }
+                }
                 state.clamp_selection();
                 return vec![Effect::PersistQueue];
             }
         }
         Action::MoveSelectedInQueue(delta) => {
+            // Reordering a filtered view would move hidden neighbors around
+            // invisibly; require the full list.
+            if state.visible_indices.is_some() {
+                state.notify("Clear the filter (Esc) to reorder", false);
+                return Vec::new();
+            }
             let len = state.queue.order.len();
             if state.view == View::Queue && len > 1 {
                 let from = state.selected_index;
@@ -286,6 +305,37 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             state.notify("Queue finished", false);
         }
 
+        // --- Add-to-playlist picker ----------------------------------------
+        Action::PickerInput(c) => {
+            if let Some(picker) = &mut state.picker {
+                picker.filter.push(c);
+                picker.selected = 0;
+            }
+        }
+        Action::PickerBackspace => {
+            if let Some(picker) = &mut state.picker {
+                picker.filter.pop();
+                picker.selected = 0;
+            }
+        }
+        Action::PickerNext => picker_move(state, 1),
+        Action::PickerPrevious => picker_move(state, -1),
+        Action::PickerCancel => state.picker = None,
+
+        // --- History presentation ------------------------------------------
+        Action::ToggleHistoryViewMode => {
+            state.history_view_mode = match state.history_view_mode {
+                crate::app::state::HistoryViewMode::Recent => {
+                    crate::app::state::HistoryViewMode::Top
+                }
+                crate::app::state::HistoryViewMode::Top => {
+                    crate::app::state::HistoryViewMode::Recent
+                }
+            };
+            state.selected_index = 0;
+            state.reset_list();
+        }
+
         // --- Modal UI ----------------------------------------------------
         Action::OpenPrompt(purpose) => {
             state.prompt = Some(crate::app::state::PromptState {
@@ -311,9 +361,11 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
         // --- Playlists ----------------------------------------------------
         Action::OpenPlaylistDetail => {
             if state.view == View::Playlists && !state.playlists.is_empty() {
-                state.selected_playlist = Some(state.selected_index);
+                state.selected_playlist = Some(state.resolve_index(state.selected_index));
                 state.view = View::PlaylistDetail;
                 state.selected_index = 0;
+                state.list_filter = None;
+                state.visible_indices = None;
             }
         }
         Action::PlaylistSaved(playlist) => {
@@ -401,22 +453,39 @@ fn reduce_playback_event(state: &mut AppState, event: PlaybackEvent) -> Vec<Effe
     }
 }
 
-/// Track selected in the active view, if the view lists tracks.
+/// Move the picker selection through its candidate list, wrapping.
+fn picker_move(state: &mut AppState, delta: i32) {
+    let Some(picker) = &state.picker else {
+        return;
+    };
+    let (create_new, matching) =
+        crate::app::filter::picker_candidates(&state.playlists, &picker.filter);
+    let total = usize::from(create_new) + matching.len();
+    if total > 0
+        && let Some(picker) = &mut state.picker
+    {
+        picker.selected = (picker.selected as i32 + delta).rem_euclid(total as i32) as usize;
+    }
+}
+
+/// Track selected in the active view, if the view lists tracks. The
+/// selection index maps through the in-list filter when one is active.
 fn selected_track(state: &AppState) -> Option<crate::media::Track> {
+    let index = state.resolve_index(state.selected_index);
     match state.view {
         View::Search => match &state.search {
-            SearchState::Results { tracks, .. } => tracks.get(state.selected_index).cloned(),
+            SearchState::Results { tracks, .. } => tracks.get(index).cloned(),
             _ => None,
         },
         View::Queue => state
             .queue
             .order
-            .get(state.selected_index)
+            .get(index)
             .map(|&i| state.queue.tracks[i].clone()),
         View::PlaylistDetail => state
             .selected_playlist
             .and_then(|i| state.playlists.get(i))
-            .and_then(|p| p.tracks.get(state.selected_index))
+            .and_then(|p| p.tracks.get(index))
             .map(crate::media::Track::from),
         _ => None,
     }

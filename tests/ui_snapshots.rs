@@ -258,6 +258,69 @@ fn playing_view_shows_chapters_and_up_next() {
 }
 
 #[test]
+fn history_top_mode_shows_play_counts() {
+    let mut state = AppState::new();
+    state.view = ytm_tui::app::state::View::History;
+    state.history_view_mode = ytm_tui::app::state::HistoryViewMode::Top;
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut history = HistoryService::load(&dir.path().join("h.json"), 500).expect("load");
+    for _ in 0..3 {
+        history.record(HistoryEntry::from_track(
+            &Track::new("a", "Favourite Mix", "DJ A"),
+            None,
+            PlaybackOutcome::Completed,
+            3600,
+        ));
+    }
+    history.record(HistoryEntry::from_track(
+        &Track::new("b", "One-off", "DJ B"),
+        None,
+        PlaybackOutcome::Skipped,
+        60,
+    ));
+    let out = render_to_string(&mut state, Some(&history), 110, 30);
+    assert!(out.contains("3×"), "play count:\n{out}");
+    assert!(out.contains("Favourite Mix"), "aggregated title:\n{out}");
+    assert!(out.contains("3:00:00 total"), "total listened:\n{out}");
+    assert!(out.contains("· top"), "mode label:\n{out}");
+}
+
+#[test]
+fn queue_filter_bar_narrows_list() {
+    let mut state = AppState::new();
+    state.view = ytm_tui::app::state::View::Queue;
+    state.queue.push(Track::new("a", "ISS006", "Skee Mask"));
+    state.queue.push(Track::new("b", "Xtal", "Aphex Twin"));
+    state.list_filter = Some("skee".to_string());
+    state.visible_indices = Some(vec![0]);
+    let out = render_to_string(&mut state, None, 100, 30);
+    assert!(out.contains("/skee"), "filter bar:\n{out}");
+    assert!(out.contains("1 of 2"), "match count:\n{out}");
+    assert!(out.contains("ISS006"), "matching row:\n{out}");
+    assert!(!out.contains("Xtal"), "filtered-out row:\n{out}");
+}
+
+#[test]
+fn playlist_picker_modal_renders() {
+    let mut state = AppState::new();
+    state.view = ytm_tui::app::state::View::Search;
+    state.playlists = vec![
+        ytm_tui::playlists::Playlist::new("Techno Sets"),
+        ytm_tui::playlists::Playlist::new("Ambient"),
+    ];
+    state.picker = Some(ytm_tui::app::state::PickerState {
+        track: Track::new("t", "Song", "Artist"),
+        filter: "tech".to_string(),
+        selected: 0,
+    });
+    let out = render_to_string(&mut state, None, 100, 30);
+    assert!(out.contains("Add to playlist"), "modal title:\n{out}");
+    assert!(out.contains("New playlist \"tech\""), "create entry:\n{out}");
+    assert!(out.contains("Techno Sets"), "matching playlist:\n{out}");
+    assert!(!out.contains("Ambient  (0)"), "non-matching playlist hidden:\n{out}");
+}
+
+#[test]
 fn visual_dump_help_and_modal() {
     let mut state = AppState::new();
     state.view = ytm_tui::app::state::View::Help;
