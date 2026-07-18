@@ -1,5 +1,7 @@
 //! Terminal UI: layout, theme, icons, widgets, and views.
 
+pub mod activity;
+pub mod components;
 pub mod icons;
 pub mod layout;
 pub mod theme;
@@ -43,6 +45,7 @@ where
         .draw(|frame| {
             let area = frame.area();
             state.screen_area = area;
+            frame.buffer_mut().set_style(area, theme.bg);
             if is_compact(area) {
                 // Below the hard floor nothing useful fits; warn instead of
                 // panicking (PRD 20).
@@ -61,10 +64,7 @@ where
                 );
                 return;
             }
-            // The Playing view renders its own full playback panel, so the
-            // compact bar would duplicate it; suppress it there.
-            let has_bar = state.has_now_playing()
-                && state.view != crate::app::state::View::NowPlaying;
+            let has_bar = state.has_now_playing();
             let regions = AppLayout::new(area, has_bar, true);
             widgets::render_header(frame, regions.header, state, &icons, &theme);
             views::render_main(frame, regions.main, state, history, &icons, &theme);
@@ -107,7 +107,7 @@ where
                 );
             }
 
-            render_overlays(frame, regions.main, state, &theme);
+            render_overlays(frame, regions.main, state, &icons, &theme);
         })
         .map_err(|e| crate::error::AppError::Config(format!("render failed: {e}")))?;
     Ok(())
@@ -119,13 +119,14 @@ fn render_overlays(
     frame: &mut ratatui::Frame,
     area: ratatui::layout::Rect,
     state: &AppState,
+    icon_set: &icons::Icons,
     theme: &theme::Theme,
 ) {
     use crate::app::state::ImportState;
     use ratatui::text::Line;
     use ratatui::widgets::{Block, BorderType, Clear, Paragraph};
 
-    let modal_area = centered_rect(area, 64, 14);
+    let modal_area = centered_rect(area, 64, 18);
     let modal_block = |title: &str| {
         Block::bordered()
             .border_type(BorderType::Rounded)
@@ -141,10 +142,17 @@ fn render_overlays(
             .iter()
             .take(height.saturating_sub(3) as usize)
             .map(|n| {
-                Line::from(Span::styled(
-                    icons::sanitize_terminal_text(&n.message),
-                    if n.is_error { theme.error } else { theme.base },
-                ))
+                Line::from(vec![
+                    Span::styled(n.created_at.format("%H:%M:%S ").to_string(), theme.dim),
+                    Span::styled(
+                        if n.is_error { "ERROR " } else { "INFO  " },
+                        if n.is_error { theme.error } else { theme.dim },
+                    ),
+                    Span::styled(
+                        icons::sanitize_terminal_text(&n.message),
+                        if n.is_error { theme.error } else { theme.base },
+                    ),
+                ])
             })
             .collect();
         if lines.is_empty() {
@@ -161,7 +169,7 @@ fn render_overlays(
 
     if let Some(import) = &state.import {
         let lines: Vec<Line> = match import {
-            ImportState::Fetching { url } => vec![
+            ImportState::Fetching { url, .. } => vec![
                 Line::from(""),
                 Line::from(vec![
                     Span::styled(
@@ -184,11 +192,20 @@ fn render_overlays(
                     Span::styled(format!("{}", summary.imported), theme.playing),
                 ]),
                 Line::from(vec![
+                    Span::raw("Deleted:           "),
+                    Span::styled(format!("{}", summary.deleted), theme.warning),
+                ]),
+                Line::from(vec![
+                    Span::raw("Private:           "),
+                    Span::styled(format!("{}", summary.private), theme.warning),
+                ]),
+                Line::from(vec![
                     Span::raw("Unavailable:       "),
                     Span::styled(format!("{}", summary.unavailable), theme.warning),
                 ]),
                 Line::from(format!("Duplicates:        {}", summary.duplicates)),
-                Line::from(format!("Missing metadata:  {}", summary.missing_metadata)),
+                Line::from(format!("Missing ID:        {}", summary.missing_id)),
+                Line::from(format!("Missing title:     {}", summary.missing_title)),
                 Line::from(""),
                 Line::from(format!("Save as: {}", sanitize(&playlist.name))),
                 Line::from(""),
@@ -198,6 +215,12 @@ fn render_overlays(
                     Span::styled(" Esc ", theme.key_chip),
                     Span::styled("cancel", theme.dim),
                 ]),
+            ],
+            ImportState::Failed { url, message } => vec![
+                Line::from("Import failed"),
+                Line::from(url.clone()),
+                Line::from(message.clone()),
+                Line::from("Press Esc to close, then retry from Playlists."),
             ],
         };
         frame.render_widget(Clear, modal_area);
@@ -213,15 +236,81 @@ fn render_overlays(
             crate::app::state::PromptPurpose::SaveQueueAsPlaylist => "Save queue as playlist",
             crate::app::state::PromptPurpose::RenamePlaylist => "Rename playlist",
             crate::app::state::PromptPurpose::ImportPlaylistUrl => "Import playlist URL",
+            crate::app::state::PromptPurpose::ImportPlaylistJson => "Paste playlist JSON",
             crate::app::state::PromptPurpose::NewPlaylist => "New playlist name",
         };
-        let prompt_area = centered_rect(area, 56, 5);
-        let line = Line::from(vec![
-            Span::raw(sanitize(&prompt.buffer)),
-            Span::styled("▏", theme.accent),
-        ]);
+        let json_prompt = prompt.purpose == crate::app::state::PromptPurpose::ImportPlaylistJson;
+        let prompt_area = if json_prompt {
+            centered_rect(area, 76, 18)
+        } else {
+            centered_rect(area, 56, 5)
+        };
         frame.render_widget(Clear, prompt_area);
-        frame.render_widget(Paragraph::new(line).block(modal_block(title)), prompt_area);
+        if json_prompt {
+            let preview = sanitize(&prompt.buffer);
+            let content = Paragraph::new(preview)
+                .wrap(ratatui::widgets::Wrap { trim: false })
+                .block(modal_block(title).title_bottom(Line::from(vec![
+                    Span::styled(" Enter ", theme.key_chip),
+                    Span::styled("import  ", theme.dim),
+                    Span::styled(" Esc ", theme.key_chip),
+                    Span::styled("cancel", theme.dim),
+                ])));
+            frame.render_widget(content, prompt_area);
+        } else {
+            let line = Line::from(vec![
+                Span::raw(sanitize(&prompt.buffer)),
+                Span::styled(icon_set.section_bar, theme.accent),
+            ]);
+            frame.render_widget(Paragraph::new(line).block(modal_block(title)), prompt_area);
+        }
+        return;
+    }
+
+    if let Some(editor) = &state.playlist_editor {
+        use crate::app::state::PlaylistEditorField;
+        let editor_area = centered_rect(area, 72, 14);
+        let inner = editor_area.inner(ratatui::layout::Margin::new(2, 2));
+        let fields = ratatui::layout::Layout::vertical([
+            ratatui::layout::Constraint::Length(3),
+            ratatui::layout::Constraint::Length(3),
+            ratatui::layout::Constraint::Length(1),
+        ])
+        .spacing(1)
+        .split(inner);
+        let field_block = |title: &str, active: bool| {
+            Block::bordered()
+                .title(format!(" {title} "))
+                .border_style(if active { theme.accent } else { theme.border })
+                .style(if active { theme.selected } else { theme.base })
+        };
+        frame.render_widget(Clear, editor_area);
+        frame.render_widget(modal_block("Edit playlist"), editor_area);
+        frame.render_widget(
+            Paragraph::new(sanitize(&editor.name)).block(field_block(
+                "Name",
+                editor.field == PlaylistEditorField::Name,
+            )),
+            fields[0],
+        );
+        frame.render_widget(
+            Paragraph::new(sanitize(&editor.description)).block(field_block(
+                "Description",
+                editor.field == PlaylistEditorField::Description,
+            )),
+            fields[1],
+        );
+        frame.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled(" Tab ", theme.key_chip),
+                Span::styled("next field  ", theme.dim),
+                Span::styled(" Enter ", theme.key_chip),
+                Span::styled("save  ", theme.dim),
+                Span::styled(" Esc ", theme.key_chip),
+                Span::styled("cancel", theme.dim),
+            ])),
+            fields[2],
+        );
         return;
     }
 
@@ -231,17 +320,21 @@ fn render_overlays(
         let mut lines: Vec<Line> = vec![Line::from(vec![
             Span::styled("> ", theme.accent),
             Span::raw(icons::sanitize_terminal_text(&picker.filter)),
-            Span::styled("▏", theme.accent),
+            Span::styled(icon_set.section_bar, theme.accent),
         ])];
         let mut row = 0usize;
         let mut push_candidate = |label: Vec<Span<'static>>, selected: bool| {
             let mut spans = vec![Span::styled(
-                if selected { "▶ " } else { "  " },
+                if selected { icon_set.play_btn } else { "  " },
                 theme.accent,
             )];
             spans.extend(label);
             let line = Line::from(spans);
-            lines.push(if selected { line.style(theme.selected) } else { line });
+            lines.push(if selected {
+                line.style(theme.selected)
+            } else {
+                line
+            });
         };
         if create_new {
             push_candidate(
@@ -257,10 +350,7 @@ fn render_overlays(
             if let Some(playlist) = state.playlists.get(i) {
                 push_candidate(
                     vec![
-                        Span::styled(
-                            icons::sanitize_terminal_text(&playlist.name),
-                            theme.base,
-                        ),
+                        Span::styled(icons::sanitize_terminal_text(&playlist.name), theme.base),
                         Span::styled(format!("  ({})", playlist.tracks.len()), theme.dim),
                     ],
                     picker.selected == row,
@@ -318,7 +408,11 @@ fn sanitize(input: &str) -> String {
 }
 
 /// Center a modal of `width`/`height` within `area`.
-fn centered_rect(area: ratatui::layout::Rect, width: u16, height: u16) -> ratatui::layout::Rect {
+pub(crate) fn centered_rect(
+    area: ratatui::layout::Rect,
+    width: u16,
+    height: u16,
+) -> ratatui::layout::Rect {
     let w = width.min(area.width);
     let h = height.min(area.height);
     ratatui::layout::Rect {

@@ -34,31 +34,45 @@ pub fn classify_input(raw: &str) -> InputKind {
 /// Extract a YouTube video ID from watch, youtu.be, shorts, or
 /// music.youtube.com watch URLs. Returns `None` for non-URL input.
 fn video_id(input: &str) -> Option<&str> {
-    if !looks_like_url(input) {
-        return None;
+    let (is_short_host, path_and_query) = youtube_url(input)?;
+    if is_short_host {
+        return path_and_query
+            .strip_prefix('/')?
+            .split(['?', '&', '/', '#'])
+            .next()
+            .filter(|id| valid_id(id));
     }
-    if let Some(rest) = input.strip_prefix("https://youtu.be/") {
-        return rest.split(['?', '&', '/']).next().filter(|s| !s.is_empty());
-    }
-    query_param(input, "v").or_else(|| {
-        input
+    query_param(path_and_query, "v").or_else(|| {
+        path_and_query
             .split("/shorts/")
             .nth(1)
-            .and_then(|rest| rest.split(['?', '&', '/']).next())
-            .filter(|s| !s.is_empty())
+            .and_then(|rest| rest.split(['?', '&', '/', '#']).next())
+            .filter(|id| valid_id(id))
     })
 }
 
 /// Extract a playlist ID from a `list=` query parameter on any YouTube URL.
 fn playlist_id(input: &str) -> Option<&str> {
-    if !looks_like_url(input) {
-        return None;
-    }
-    query_param(input, "list")
+    let (_, path_and_query) = youtube_url(input)?;
+    query_param(path_and_query, "list").filter(|id| valid_id(id))
 }
 
-fn looks_like_url(input: &str) -> bool {
-    input.starts_with("https://") || input.starts_with("http://") || input.contains("youtu")
+fn youtube_url(input: &str) -> Option<(bool, &str)> {
+    let (scheme, remainder) = input.split_once("://")?;
+    if !matches!(scheme, "http" | "https") {
+        return None;
+    }
+    let authority_end = remainder.find(['/', '?', '#']).unwrap_or(remainder.len());
+    let authority = &remainder[..authority_end];
+    if authority.is_empty() || authority.contains('@') {
+        return None;
+    }
+    let host = authority.split(':').next()?.to_ascii_lowercase();
+    let allowed = matches!(
+        host.as_str(),
+        "youtube.com" | "www.youtube.com" | "m.youtube.com" | "music.youtube.com" | "youtu.be"
+    );
+    allowed.then_some((host == "youtu.be", &remainder[authority_end..]))
 }
 
 fn query_param<'a>(input: &'a str, key: &str) -> Option<&'a str> {
@@ -73,6 +87,13 @@ fn query_param<'a>(input: &'a str, key: &str) -> Option<&'a str> {
         }
     }
     None
+}
+
+fn valid_id(id: &str) -> bool {
+    !id.is_empty()
+        && id
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
 }
 
 #[cfg(test)]
@@ -138,5 +159,22 @@ mod tests {
             classify_input("https://www.youtube.com/watch?v=abc&list=PLxyz"),
             InputKind::Playlist("PLxyz".to_string())
         );
+    }
+
+    #[test]
+    fn rejects_lookalike_hosts_and_non_url_youtube_text() {
+        for input in [
+            "https://youtube.com.evil.example/watch?v=attack",
+            "https://evil-youtube.com/watch?v=attack",
+            "https://youtube.com@evil.example/watch?v=attack",
+            "javascript://youtube.com/watch?v=attack",
+            "please search youtu.be/attack",
+        ] {
+            assert_eq!(
+                classify_input(input),
+                InputKind::Query(input.to_string()),
+                "input: {input}"
+            );
+        }
     }
 }

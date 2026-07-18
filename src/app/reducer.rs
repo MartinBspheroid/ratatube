@@ -4,7 +4,9 @@
 //! that the app layer executes (PRD section 13).
 
 use crate::app::action::Action;
-use crate::app::state::{AppState, Focus, Notification, View};
+use crate::app::state::{
+    AppState, DetailsStatus, Focus, Notification, OperationStatus, PlayingPane, View,
+};
 use crate::media::search::SearchState;
 use crate::playback::PlaybackEvent;
 use crate::queue::PreviousOutcome;
@@ -13,6 +15,7 @@ use crate::queue::PreviousOutcome;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Effect {
     RunSearch { query: String, generation: u64 },
+    RunExactVideo { url: String, generation: u64 },
     RunImport { url: String },
     ResolveAndPlay { track_index_in_queue: usize },
     SeekBy(i64),
@@ -25,6 +28,7 @@ pub enum Effect {
     QuitMpv,
     PersistQueue,
     PersistPlaylists,
+    PersistSession,
     Exit,
 }
 
@@ -37,7 +41,25 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             state.focus = Focus::Content;
             state.list_filter = None;
             state.visible_indices = None;
+            state.search_detail_open = false;
             state.reset_list();
+        }
+        Action::OpenHelp => {
+            if state.view != View::Help {
+                state.help_return_view = state.view;
+            }
+            state.view = View::Help;
+            state.help_scroll = 0;
+            state.focus = Focus::Content;
+        }
+        Action::CloseHelp => {
+            state.view = state.help_return_view;
+            state.help_scroll = 0;
+        }
+        Action::ScrollHelp(delta) => {
+            if state.view == View::Help {
+                state.help_scroll = state.help_scroll.saturating_add_signed(delta as i16);
+            }
         }
         Action::NextView => {
             return reduce(state, Action::Navigate(state.view.next_tab()));
@@ -72,6 +94,21 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             state.search_input.clear();
             state.search = SearchState::Idle;
         }
+        Action::ToggleSearchDetail => {
+            if state.view == View::Search
+                && crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+                    == crate::ui::layout::Breakpoint::Narrow
+            {
+                state.search_detail_open = !state.search_detail_open;
+            }
+        }
+        // Resolved by the app layer because it needs the selected track and
+        // an operating-system process boundary.
+        Action::OpenInBrowser => {}
+        Action::ClearActivity => {
+            state.activity.clear();
+            return vec![Effect::PersistSession];
+        }
         Action::SubmitSearch(query) => {
             if query.trim().is_empty() {
                 return Vec::new();
@@ -84,6 +121,16 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             };
             state.focus = Focus::Content;
             return vec![Effect::RunSearch { query, generation }];
+        }
+        Action::SubmitExactVideo(url) => {
+            state.search_generation += 1;
+            let generation = state.search_generation;
+            state.search = SearchState::Searching {
+                query: url.clone(),
+                generation,
+            };
+            state.focus = Focus::Content;
+            return vec![Effect::RunExactVideo { url, generation }];
         }
         Action::SearchCompleted { generation, tracks } => {
             // Discard results from superseded searches (PRD 15).
@@ -161,7 +208,8 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
                 Some(_) => None,
             };
             state.sleep_timer = minutes.map(|m| SleepTimer {
-                deadline: std::time::Instant::now() + std::time::Duration::from_secs(u64::from(m) * 60),
+                deadline: std::time::Instant::now()
+                    + std::time::Duration::from_secs(u64::from(m) * 60),
                 minutes: m,
             });
             match minutes {
@@ -171,6 +219,9 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
         }
         Action::ToggleRadio => {
             state.radio = !state.radio;
+            if !state.radio {
+                state.radio_operation = None;
+            }
             state.notify(
                 if state.radio {
                     "Radio on: the queue will keep itself filled"
@@ -192,24 +243,55 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             return vec![Effect::PersistQueue];
         }
         Action::PlaybackEvent(event) => {
-            return reduce_playback_event(state, event);
+            let started = event == PlaybackEvent::Started;
+            if started && let Some(track) = &state.current_track {
+                state
+                    .activity
+                    .push(crate::history::activity::ActivityEvent::new(
+                        crate::history::activity::ActivityKind::Played,
+                        track.title.clone(),
+                        track.artist.clone(),
+                    ));
+            }
+            let mut effects = reduce_playback_event(state, event);
+            if started {
+                effects.push(Effect::PersistSession);
+            }
+            return effects;
         }
 
         // --- Queue --------------------------------------------------------
         Action::AddToQueue(track) => {
+            state
+                .activity
+                .push(crate::history::activity::ActivityEvent::new(
+                    crate::history::activity::ActivityKind::Queued,
+                    track.title.clone(),
+                    track.artist.clone(),
+                ));
             state.queue.push(track);
             state.notify("Added to queue", false);
-            return vec![Effect::PersistQueue];
+            return vec![Effect::PersistQueue, Effect::PersistSession];
         }
         Action::AddNext(track) => {
+            state
+                .activity
+                .push(crate::history::activity::ActivityEvent::new(
+                    crate::history::activity::ActivityKind::Queued,
+                    track.title.clone(),
+                    "Play next",
+                ));
             state.queue.push_next(track);
             state.notify("Will play next", false);
-            return vec![Effect::PersistQueue];
+            return vec![Effect::PersistQueue, Effect::PersistSession];
         }
         Action::RemoveSelectedFromQueue => {
             if state.view == View::Queue {
                 let real = state.resolve_index(state.selected_index);
-                state.queue.remove_at(real);
+                if let Some(track) = state.queue.remove_at(real) {
+                    state.removed_queue_item = Some((real, track));
+                    state.notify("Removed from queue — u to undo", false);
+                }
                 // The filter indices refresh next loop; drop them now so the
                 // stale mapping can't resolve a second removal wrongly.
                 if let Some(indices) = &mut state.visible_indices {
@@ -221,6 +303,14 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
                     }
                 }
                 state.clamp_selection();
+                return vec![Effect::PersistQueue];
+            }
+        }
+        Action::UndoQueueRemoval => {
+            if let Some((position, track)) = state.removed_queue_item.take() {
+                state.queue.insert_at(position, track);
+                state.selected_index = position;
+                state.notify("Queue removal undone", false);
                 return vec![Effect::PersistQueue];
             }
         }
@@ -244,7 +334,14 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             }
         }
         Action::ClearQueue => {
+            state.confirm = Some(crate::app::state::ConfirmState {
+                message: "Clear the entire queue? (y/n)".to_string(),
+                action: Box::new(Action::ClearQueueConfirmed),
+            });
+        }
+        Action::ClearQueueConfirmed => {
             state.queue.clear();
+            state.removed_queue_item = None;
             state.selected_index = 0;
             return vec![Effect::PersistQueue];
         }
@@ -252,10 +349,6 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             state.queue.push(track);
             let pos = state.queue.order.len() - 1;
             state.queue.position = Some(pos);
-            state.current_track = state.queue.current().cloned();
-            state.current_details = None;
-            state.thumbnail = None;
-            state.now_playing_scroll = 0;
             return vec![
                 Effect::ResolveAndPlay {
                     track_index_in_queue: pos,
@@ -263,17 +356,33 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
                 Effect::PersistQueue,
             ];
         }
+        // Resolved by the app layer through the existing pending-session flow.
+        Action::ResumeTrack { .. } => {}
         Action::PlaySelected => {
+            if matches!(state.view, View::Queue)
+                || (state.view == View::NowPlaying
+                    && state.playing_pane == PlayingPane::Queue
+                    && crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+                        == crate::ui::layout::Breakpoint::UltraWide)
+            {
+                let position = state.resolve_index(state.selected_index);
+                if position < state.queue.order.len() {
+                    state.queue.position = Some(position);
+                    return vec![
+                        Effect::ResolveAndPlay {
+                            track_index_in_queue: position,
+                        },
+                        Effect::PersistQueue,
+                    ];
+                }
+                return Vec::new();
+            }
             if let Some(track) = selected_track(state) {
                 return reduce(state, Action::PlayTrack(track));
             }
         }
         Action::NextTrack => {
-            if let Some(track) = state.queue.advance().cloned() {
-                state.current_track = Some(track);
-                state.current_details = None;
-                state.thumbnail = None;
-                state.now_playing_scroll = 0;
+            if state.queue.advance().is_some() {
                 let pos = state.queue.position.unwrap_or(0);
                 return vec![
                     Effect::ResolveAndPlay {
@@ -288,10 +397,6 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             match state.queue.previous(position, 5) {
                 PreviousOutcome::RestartCurrent => return vec![Effect::SeekTo(0.0)],
                 PreviousOutcome::PlayPrevious => {
-                    state.current_track = state.queue.current().cloned();
-                    state.current_details = None;
-                    state.thumbnail = None;
-                    state.now_playing_scroll = 0;
                     let pos = state.queue.position.unwrap_or(0);
                     return vec![
                         Effect::ResolveAndPlay {
@@ -302,10 +407,93 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
                 }
             }
         }
-        Action::DetailsLoaded { track_id, details } => {
+        Action::PlaybackResolveStarted { operation_id, .. } => {
+            state.playback_resolution = OperationStatus::Loading { operation_id };
+        }
+        Action::PlaybackResolved {
+            operation_id,
+            queue_position,
+            track_id,
+            ..
+        } => {
+            if !matches!(
+                state.playback_resolution,
+                OperationStatus::Loading { operation_id: active } if active == operation_id
+            ) {
+                return Vec::new();
+            }
+            let track = state
+                .queue
+                .order
+                .get(queue_position)
+                .and_then(|index| state.queue.tracks.get(*index))
+                .filter(|track| track.id == track_id)
+                .cloned();
+            if let Some(track) = track {
+                state.current_track = Some(track);
+                state.current_details = None;
+                state.thumbnail = None;
+                state.now_playing_scroll = 0;
+                state.playback_resolution = OperationStatus::Idle;
+            }
+        }
+        Action::PlaybackResolveFailed {
+            operation_id,
+            message,
+            ..
+        } => {
+            if !matches!(
+                state.playback_resolution,
+                OperationStatus::Loading { operation_id: active } if active == operation_id
+            ) {
+                return Vec::new();
+            }
+            state.playback_resolution = OperationStatus::Failed {
+                message: message.clone(),
+            };
+            state.notify(&format!("Playback unavailable: {message}"), true);
+        }
+        Action::DetailsStarted {
+            operation_id,
+            track_id,
+        } => {
+            state.details_status = DetailsStatus::Loading {
+                operation_id,
+                track_id,
+            };
+        }
+        Action::DetailsLoaded {
+            operation_id,
+            track_id,
+            details,
+        } => {
             // Only apply details that still belong to the current track.
-            if state.current_track.as_ref().map(|t| t.id.as_str()) == Some(track_id.as_str()) {
+            if matches!(
+                state.details_status,
+                DetailsStatus::Loading {
+                    operation_id: active,
+                    track_id: ref active_track_id,
+                } if active == operation_id && active_track_id == &track_id
+            ) && state.current_track.as_ref().map(|t| t.id.as_str()) == Some(track_id.as_str())
+            {
                 state.current_details = Some(*details);
+                state.details_status = DetailsStatus::Idle;
+            }
+        }
+        Action::DetailsFailed {
+            operation_id,
+            track_id,
+            message,
+        } => {
+            if matches!(
+                state.details_status,
+                DetailsStatus::Loading {
+                    operation_id: active,
+                    track_id: ref active_track_id,
+                } if active == operation_id && active_track_id == &track_id
+            ) && state.current_track.as_ref().map(|t| t.id.as_str()) == Some(track_id.as_str())
+            {
+                state.details_status = DetailsStatus::Failed { track_id, message };
             }
         }
         Action::ScrollNowPlaying(delta) => {
@@ -340,18 +528,32 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             state.now_playing_show_description = !state.now_playing_show_description;
             state.now_playing_scroll = 0;
         }
+        Action::CyclePlayingPane => {
+            if state.view == View::NowPlaying
+                && crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+                    == crate::ui::layout::Breakpoint::UltraWide
+            {
+                state.playing_pane = match state.playing_pane {
+                    PlayingPane::Info => PlayingPane::Queue,
+                    PlayingPane::Queue => PlayingPane::Info,
+                };
+                if state.playing_pane == PlayingPane::Queue {
+                    state.selected_index = state.queue.position.unwrap_or(0);
+                }
+                state.reset_list();
+            }
+        }
         Action::QueueExhausted => {
             state.current_track = None;
             state.notify("Queue finished", false);
         }
-        Action::MixLoaded { title, tracks } => {
+        Action::MixLoaded { title, tracks, .. } => {
             if tracks.is_empty() {
                 state.notify("Mix came back empty", true);
                 return Vec::new();
             }
             state.queue.load_tracks(tracks);
             state.queue.position = Some(0);
-            state.current_track = state.queue.current().cloned();
             state.current_details = None;
             state.thumbnail = None;
             state.now_playing_scroll = 0;
@@ -364,7 +566,17 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
                 Effect::PersistQueue,
             ];
         }
-        Action::RadioTracksLoaded { tracks } => {
+        Action::RadioRefillStarted { operation_id } => {
+            state.radio_operation = Some(operation_id);
+        }
+        Action::RadioTracksLoaded {
+            operation_id,
+            tracks,
+        } => {
+            if !state.radio || state.radio_operation != Some(operation_id) {
+                return Vec::new();
+            }
+            state.radio_operation = None;
             let known: std::collections::HashSet<String> =
                 state.queue.tracks.iter().map(|t| t.id.clone()).collect();
             let fresh: Vec<_> = tracks
@@ -384,7 +596,6 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             // If playback had already run dry, start on the new tracks.
             if state.queue.position.is_none() || state.current_track.is_none() {
                 state.queue.position = Some(first_new);
-                state.current_track = state.queue.current().cloned();
                 state.current_details = None;
                 state.thumbnail = None;
                 state.now_playing_scroll = 0;
@@ -428,6 +639,12 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             state.selected_index = 0;
             state.reset_list();
         }
+        Action::ClearHistory => {
+            state.confirm = Some(crate::app::state::ConfirmState {
+                message: "Clear all playback history? (y/n)".to_string(),
+                action: Box::new(Action::ClearHistoryConfirmed),
+            });
+        }
 
         // --- Modal UI ----------------------------------------------------
         Action::OpenPrompt(purpose) => {
@@ -437,8 +654,16 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             });
         }
         Action::PromptInput(c) => {
-            if let Some(prompt) = &mut state.prompt {
+            if let Some(prompt) = &mut state.prompt
+                && prompt.buffer.len() < 1_048_576
+            {
                 prompt.buffer.push(c);
+            }
+        }
+        Action::PromptPaste(text) => {
+            if let Some(prompt) = &mut state.prompt {
+                let remaining = 1_048_576usize.saturating_sub(prompt.buffer.len());
+                prompt.buffer.extend(text.chars().take(remaining));
             }
         }
         Action::PromptBackspace => {
@@ -447,6 +672,51 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
             }
         }
         Action::PromptCancel => state.prompt = None,
+        Action::OpenPlaylistEditor => {
+            state.playlist_editor = state
+                .selected_playlist
+                .and_then(|index| state.playlists.get(index))
+                .map(|playlist| crate::app::state::PlaylistEditorState {
+                    name: playlist.name.clone(),
+                    description: playlist.description.clone(),
+                    field: crate::app::state::PlaylistEditorField::Name,
+                });
+        }
+        Action::PlaylistEditorInput(character) => {
+            if let Some(editor) = &mut state.playlist_editor {
+                match editor.field {
+                    crate::app::state::PlaylistEditorField::Name => editor.name.push(character),
+                    crate::app::state::PlaylistEditorField::Description => {
+                        editor.description.push(character);
+                    }
+                }
+            }
+        }
+        Action::PlaylistEditorBackspace => {
+            if let Some(editor) = &mut state.playlist_editor {
+                match editor.field {
+                    crate::app::state::PlaylistEditorField::Name => {
+                        editor.name.pop();
+                    }
+                    crate::app::state::PlaylistEditorField::Description => {
+                        editor.description.pop();
+                    }
+                }
+            }
+        }
+        Action::PlaylistEditorNextField => {
+            if let Some(editor) = &mut state.playlist_editor {
+                editor.field = match editor.field {
+                    crate::app::state::PlaylistEditorField::Name => {
+                        crate::app::state::PlaylistEditorField::Description
+                    }
+                    crate::app::state::PlaylistEditorField::Description => {
+                        crate::app::state::PlaylistEditorField::Name
+                    }
+                };
+            }
+        }
+        Action::PlaylistEditorCancel => state.playlist_editor = None,
         Action::ConfirmNo => state.confirm = None,
         // PromptSubmit / ConfirmYes are resolved by the app layer, which
         // knows the services required by each purpose.
@@ -466,9 +736,7 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
                 Some(i) => state.playlists[i] = playlist,
                 None => state.playlists.push(playlist),
             }
-            state
-                .playlists
-                .sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+            state.sort_playlists_by_updated();
         }
         Action::DeletePlaylist(id) => {
             state.confirm = Some(crate::app::state::ConfirmState {
@@ -479,33 +747,54 @@ pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
 
         // --- Import --------------------------------------------------------
         Action::StartImport(url) => {
-            state.import = Some(crate::app::state::ImportState::Fetching { url: url.clone() });
             state.prompt = None;
             return vec![Effect::RunImport { url }];
         }
+        Action::ImportStarted { operation_id, url } => {
+            state.import = Some(crate::app::state::ImportState::Fetching { operation_id, url });
+        }
         Action::ImportCompleted {
+            operation_id,
             url,
             title,
             remote_id,
             tracks,
-            skipped,
+            rejections,
         } => {
-            let total_entries = tracks.len() + skipped;
-            let (playlist, summary) = crate::playlists::import::build_import(
-                title,
-                url,
-                remote_id,
-                total_entries,
-                tracks,
-                skipped,
-            );
+            if !matches!(
+                state.import,
+                Some(crate::app::state::ImportState::Fetching {
+                    operation_id: active,
+                    ..
+                }) if active == operation_id
+            ) {
+                return Vec::new();
+            }
+            let (playlist, summary) =
+                crate::playlists::import::build_import(title, url, remote_id, tracks, rejections);
             state.import = Some(crate::app::state::ImportState::Review {
                 summary,
                 playlist: Box::new(playlist),
             });
         }
-        Action::ImportFailed { message, .. } => {
-            state.import = None;
+        Action::ImportFailed {
+            operation_id,
+            url,
+            message,
+        } => {
+            if !matches!(
+                state.import,
+                Some(crate::app::state::ImportState::Fetching {
+                    operation_id: active,
+                    ..
+                }) if active == operation_id
+            ) {
+                return Vec::new();
+            }
+            state.import = Some(crate::app::state::ImportState::Failed {
+                url,
+                message: message.clone(),
+            });
             state.notify(&format!("Import failed: {message}"), true);
         }
         Action::CancelImport => state.import = None,
@@ -585,6 +874,17 @@ fn selected_track(state: &AppState) -> Option<crate::media::Track> {
             .order
             .get(index)
             .map(|&i| state.queue.tracks[i].clone()),
+        View::NowPlaying
+            if state.playing_pane == PlayingPane::Queue
+                && crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+                    == crate::ui::layout::Breakpoint::UltraWide =>
+        {
+            state
+                .queue
+                .order
+                .get(index)
+                .map(|&i| state.queue.tracks[i].clone())
+        }
         View::PlaylistDetail => state
             .selected_playlist
             .and_then(|i| state.playlists.get(i))
@@ -597,10 +897,7 @@ fn selected_track(state: &AppState) -> Option<crate::media::Track> {
 impl AppState {
     /// Record a transient notification (also kept in the `!` log).
     pub fn notify(&mut self, message: &str, is_error: bool) {
-        let notification = Notification {
-            message: message.to_string(),
-            is_error,
-        };
+        let notification = Notification::new_at(message, is_error, std::time::Instant::now());
         self.notification_log.push_front(notification.clone());
         self.notification_log.truncate(50);
         self.notification = Some(notification);
@@ -637,6 +934,7 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::operations::{OperationKind, OperationRegistry};
     use crate::media::Track;
 
     fn track(id: &str) -> Track {
@@ -660,6 +958,215 @@ mod tests {
     }
 
     #[test]
+    fn help_returns_to_the_view_that_opened_it_and_scrolls() {
+        let mut state = AppState::new();
+        state.view = View::Queue;
+        reduce(&mut state, Action::OpenHelp);
+        assert_eq!(state.view, View::Help);
+        assert_eq!(state.help_return_view, View::Queue);
+        reduce(&mut state, Action::ScrollHelp(7));
+        assert_eq!(state.help_scroll, 7);
+        reduce(&mut state, Action::CloseHelp);
+        assert_eq!(state.view, View::Queue);
+        assert_eq!(state.help_scroll, 0);
+    }
+
+    #[test]
+    fn queue_clear_requires_confirmation() {
+        let mut state = AppState::new();
+        state.queue.push(track("kept"));
+        assert!(reduce(&mut state, Action::ClearQueue).is_empty());
+        assert_eq!(state.queue.tracks.len(), 1);
+        assert!(state.confirm.is_some());
+        let effects = reduce(&mut state, Action::ClearQueueConfirmed);
+        assert!(state.queue.tracks.is_empty());
+        assert!(effects.contains(&Effect::PersistQueue));
+    }
+
+    #[test]
+    fn removed_queue_item_can_be_undone() {
+        let mut state = AppState::new();
+        state.view = View::Queue;
+        state.queue.push(track("a"));
+        state.queue.push(track("b"));
+        reduce(&mut state, Action::RemoveSelectedFromQueue);
+        assert_eq!(state.queue.tracks[0].id, "b");
+        reduce(&mut state, Action::UndoQueueRemoval);
+        let restored_ids: Vec<_> = state
+            .queue
+            .order
+            .iter()
+            .map(|&index| state.queue.tracks[index].id.as_str())
+            .collect();
+        assert_eq!(restored_ids, ["a", "b"]);
+    }
+
+    #[test]
+    fn notification_expiry_uses_elapsed_time_not_spinner_phase() {
+        let now = std::time::Instant::now();
+        let info = Notification::new_at("saved", false, now);
+        let error = Notification::new_at("failed", true, now);
+        assert!(!info.is_expired_at(now + std::time::Duration::from_secs(3)));
+        assert!(info.is_expired_at(now + std::time::Duration::from_secs(5)));
+        assert!(!error.is_expired_at(now + std::time::Duration::from_secs(5)));
+        assert!(error.is_expired_at(now + std::time::Duration::from_secs(9)));
+    }
+
+    #[test]
+    fn exact_video_uses_metadata_fetch_effect_instead_of_search() {
+        let mut state = AppState::new();
+        let url = "https://www.youtube.com/watch?v=exact".to_string();
+        let effects = reduce(&mut state, Action::SubmitExactVideo(url.clone()));
+
+        assert!(matches!(
+            effects.as_slice(),
+            [Effect::RunExactVideo { url: effect_url, .. }] if effect_url == &url
+        ));
+        assert!(
+            !effects
+                .iter()
+                .any(|effect| matches!(effect, Effect::RunSearch { .. }))
+        );
+    }
+
+    #[test]
+    fn superseded_import_completion_is_discarded() {
+        let mut state = AppState::new();
+        let mut operations = OperationRegistry::default();
+        let stale = operations.start(OperationKind::Import);
+        let current = operations.start(OperationKind::Import);
+        reduce(
+            &mut state,
+            Action::ImportStarted {
+                operation_id: current.id(),
+                url: "https://example.invalid/current".to_string(),
+            },
+        );
+        reduce(
+            &mut state,
+            Action::ImportCompleted {
+                operation_id: stale.id(),
+                url: "https://example.invalid/stale".to_string(),
+                title: "stale".to_string(),
+                remote_id: None,
+                tracks: vec![track("stale")],
+                rejections: crate::media::yt_dlp::ImportRejections::default(),
+            },
+        );
+
+        assert!(matches!(
+            state.import,
+            Some(crate::app::state::ImportState::Fetching {
+                operation_id,
+                ..
+            }) if operation_id == current.id()
+        ));
+    }
+
+    #[test]
+    fn current_import_failure_has_a_terminal_error_state() {
+        let mut state = AppState::new();
+        let mut operations = OperationRegistry::default();
+        let current = operations.start(OperationKind::Import);
+        reduce(
+            &mut state,
+            Action::ImportStarted {
+                operation_id: current.id(),
+                url: "https://example.invalid/current".to_string(),
+            },
+        );
+        reduce(
+            &mut state,
+            Action::ImportFailed {
+                operation_id: current.id(),
+                url: "https://example.invalid/current".to_string(),
+                message: "offline".to_string(),
+            },
+        );
+
+        assert!(matches!(
+            state.import,
+            Some(crate::app::state::ImportState::Failed { ref message, .. }) if message == "offline"
+        ));
+    }
+
+    #[test]
+    fn prompt_paste_keeps_multiline_json_as_one_input() {
+        let mut state = AppState::new();
+        reduce(
+            &mut state,
+            Action::OpenPrompt(crate::app::state::PromptPurpose::ImportPlaylistJson),
+        );
+
+        reduce(
+            &mut state,
+            Action::PromptPaste("{\n  \"version\": 1\n}".to_string()),
+        );
+
+        assert_eq!(
+            state.prompt.as_ref().map(|prompt| prompt.buffer.as_str()),
+            Some("{\n  \"version\": 1\n}")
+        );
+    }
+
+    #[test]
+    fn playlist_editor_copies_metadata_and_switches_fields() {
+        let mut state = AppState::new();
+        let mut playlist = crate::playlists::Playlist::new("Original");
+        playlist.description = "Existing description".to_string();
+        state.playlists.push(playlist);
+        state.selected_playlist = Some(0);
+        state.view = View::PlaylistDetail;
+
+        reduce(&mut state, Action::OpenPlaylistEditor);
+        assert_eq!(
+            state
+                .playlist_editor
+                .as_ref()
+                .map(|editor| editor.name.as_str()),
+            Some("Original")
+        );
+
+        reduce(&mut state, Action::PlaylistEditorNextField);
+        reduce(&mut state, Action::PlaylistEditorInput('!'));
+
+        let editor = state.playlist_editor.as_ref().expect("editor open");
+        assert_eq!(
+            editor.field,
+            crate::app::state::PlaylistEditorField::Description
+        );
+        assert_eq!(editor.description, "Existing description!");
+    }
+
+    #[test]
+    fn details_failure_replaces_loading_for_current_track() {
+        let mut state = AppState::new();
+        state.current_track = Some(track("current"));
+        let mut operations = OperationRegistry::default();
+        let ticket = operations.start(OperationKind::Details);
+        reduce(
+            &mut state,
+            Action::DetailsStarted {
+                operation_id: ticket.id(),
+                track_id: "current".to_string(),
+            },
+        );
+        reduce(
+            &mut state,
+            Action::DetailsFailed {
+                operation_id: ticket.id(),
+                track_id: "current".to_string(),
+                message: "offline".to_string(),
+            },
+        );
+
+        assert!(matches!(
+            state.details_status,
+            DetailsStatus::Failed { ref message, .. } if message == "offline"
+        ));
+    }
+
+    #[test]
     fn quit_persists_and_exits() {
         let mut state = AppState::new();
         let effects = reduce(&mut state, Action::Quit);
@@ -669,19 +1176,73 @@ mod tests {
     }
 
     #[test]
-    fn play_track_appends_and_selects() {
+    fn play_track_waits_for_resolution_before_replacing_current_track() {
         let mut state = AppState::new();
         let effects = reduce(&mut state, Action::PlayTrack(track("a")));
         assert_eq!(state.queue.tracks.len(), 1);
-        assert_eq!(
-            state.current_track.as_ref().map(|t| t.id.as_str()),
-            Some("a")
-        );
+        assert!(state.current_track.is_none());
         assert!(
             effects
                 .iter()
                 .any(|e| matches!(e, Effect::ResolveAndPlay { .. }))
         );
+
+        let mut operations = OperationRegistry::default();
+        let ticket = operations.start(OperationKind::Playback);
+        reduce(
+            &mut state,
+            Action::PlaybackResolveStarted {
+                operation_id: ticket.id(),
+                queue_position: 0,
+                track_id: "a".to_string(),
+            },
+        );
+        reduce(
+            &mut state,
+            Action::PlaybackResolved {
+                operation_id: ticket.id(),
+                queue_position: 0,
+                track_id: "a".to_string(),
+                url: "https://stream.invalid/a".to_string(),
+            },
+        );
+        assert_eq!(
+            state.current_track.as_ref().map(|t| t.id.as_str()),
+            Some("a")
+        );
+    }
+
+    #[test]
+    fn superseded_playback_completion_cannot_replace_current_track() {
+        let mut state = AppState::new();
+        state.queue.push(track("requested"));
+        state.queue.position = Some(0);
+        let mut operations = OperationRegistry::default();
+        let stale = operations.start(OperationKind::Playback);
+        let current = operations.start(OperationKind::Playback);
+        reduce(
+            &mut state,
+            Action::PlaybackResolveStarted {
+                operation_id: current.id(),
+                queue_position: 0,
+                track_id: "requested".to_string(),
+            },
+        );
+        reduce(
+            &mut state,
+            Action::PlaybackResolved {
+                operation_id: stale.id(),
+                queue_position: 0,
+                track_id: "requested".to_string(),
+                url: "https://stream.invalid/stale".to_string(),
+            },
+        );
+
+        assert!(state.current_track.is_none());
+        assert!(matches!(
+            state.playback_resolution,
+            OperationStatus::Loading { operation_id } if operation_id == current.id()
+        ));
     }
 
     #[test]
@@ -705,14 +1266,78 @@ mod tests {
     }
 
     #[test]
+    fn ultra_wide_playing_queue_focus_selects_without_duplicating() {
+        let mut state = AppState::new();
+        state.view = View::NowPlaying;
+        state.screen_area = ratatui::layout::Rect::new(0, 0, 180, 48);
+        state.queue.push(track("a"));
+        state.queue.push(track("b"));
+        state.queue.position = Some(0);
+
+        assert!(reduce(&mut state, Action::CyclePlayingPane).is_empty());
+        assert_eq!(state.playing_pane, PlayingPane::Queue);
+        assert!(reduce(&mut state, Action::SelectNext).is_empty());
+        assert_eq!(state.selected_index, 1);
+        let effects = reduce(&mut state, Action::PlaySelected);
+
+        assert_eq!(state.queue.tracks.len(), 2, "selection must not duplicate");
+        assert_eq!(state.queue.position, Some(1));
+        assert_eq!(
+            effects,
+            vec![
+                Effect::ResolveAndPlay {
+                    track_index_in_queue: 1
+                },
+                Effect::PersistQueue
+            ]
+        );
+    }
+
+    #[test]
+    fn queue_and_playback_actions_emit_only_truthful_activity_kinds() {
+        use crate::history::activity::ActivityKind;
+
+        let mut state = AppState::new();
+        let effects = reduce(&mut state, Action::AddToQueue(track("queued")));
+        assert!(effects.contains(&Effect::PersistSession));
+        assert_eq!(
+            state.activity.entries().front().map(|event| event.kind),
+            Some(ActivityKind::Queued)
+        );
+
+        state.current_track = Some(track("played"));
+        let effects = reduce(&mut state, Action::PlaybackEvent(PlaybackEvent::Started));
+        assert!(effects.contains(&Effect::PersistSession));
+        assert_eq!(
+            state.activity.entries().front().map(|event| event.kind),
+            Some(ActivityKind::Played)
+        );
+
+        assert_eq!(
+            reduce(&mut state, Action::ClearActivity),
+            vec![Effect::PersistSession]
+        );
+        assert!(state.activity.is_empty());
+    }
+
+    #[test]
     fn chapter_jumps_seek_to_starts() {
         let mut state = AppState::new();
         state.current_track = Some(track("mix"));
         state.current_details = Some(crate::media::TrackDetails {
             chapters: vec![
-                crate::media::Chapter { title: "a".into(), start_seconds: 0.0 },
-                crate::media::Chapter { title: "b".into(), start_seconds: 100.0 },
-                crate::media::Chapter { title: "c".into(), start_seconds: 200.0 },
+                crate::media::Chapter {
+                    title: "a".into(),
+                    start_seconds: 0.0,
+                },
+                crate::media::Chapter {
+                    title: "b".into(),
+                    start_seconds: 100.0,
+                },
+                crate::media::Chapter {
+                    title: "c".into(),
+                    start_seconds: 200.0,
+                },
             ],
             ..Default::default()
         });
@@ -772,21 +1397,22 @@ mod tests {
     fn radio_tracks_dedup_and_restart_playback() {
         let mut state = AppState::new();
         state.radio = true;
+        let mut operations = OperationRegistry::default();
+        let ticket = operations.start(OperationKind::Radio);
+        state.radio_operation = Some(ticket.id());
         state.queue.push(track("known"));
         // Queue already exhausted: nothing playing, no position.
         state.queue.position = None;
         let effects = reduce(
             &mut state,
             Action::RadioTracksLoaded {
+                operation_id: ticket.id(),
                 tracks: vec![track("known"), track("fresh1"), track("fresh2")],
             },
         );
         assert_eq!(state.queue.tracks.len(), 3, "known track deduplicated");
         assert_eq!(state.queue.position, Some(1), "starts on first fresh track");
-        assert_eq!(
-            state.current_track.as_ref().map(|t| t.id.as_str()),
-            Some("fresh1")
-        );
+        assert!(state.current_track.is_none());
         assert!(
             effects
                 .iter()
@@ -795,12 +1421,39 @@ mod tests {
     }
 
     #[test]
+    fn disabled_radio_discards_late_refill() {
+        let mut state = AppState::new();
+        state.radio = true;
+        let mut operations = OperationRegistry::default();
+        let ticket = operations.start(OperationKind::Radio);
+        reduce(
+            &mut state,
+            Action::RadioRefillStarted {
+                operation_id: ticket.id(),
+            },
+        );
+        reduce(&mut state, Action::ToggleRadio);
+        reduce(
+            &mut state,
+            Action::RadioTracksLoaded {
+                operation_id: ticket.id(),
+                tracks: vec![track("late")],
+            },
+        );
+
+        assert!(state.queue.tracks.is_empty());
+    }
+
+    #[test]
     fn mix_loaded_replaces_queue_and_enables_radio() {
         let mut state = AppState::new();
+        let mut operations = OperationRegistry::default();
+        let ticket = operations.start(OperationKind::Mix);
         state.queue.push(track("old"));
         let effects = reduce(
             &mut state,
             Action::MixLoaded {
+                operation_id: ticket.id(),
                 title: "My Mix".to_string(),
                 tracks: vec![track("m1"), track("m2")],
             },

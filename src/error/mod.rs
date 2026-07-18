@@ -55,6 +55,9 @@ pub enum AppError {
     #[error("operation timed out: {0}")]
     Timeout(String),
 
+    #[error("{resource} exceeded the {limit} byte safety limit")]
+    ResourceLimit { resource: String, limit: usize },
+
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
@@ -90,6 +93,7 @@ impl AppError {
             | AppError::Unavailable(_)
             | AppError::InvalidUrl(_)
             | AppError::Timeout(_)
+            | AppError::ResourceLimit { .. }
             | AppError::Json(_) => ErrorCategory::UserFacing,
         }
     }

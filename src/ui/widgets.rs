@@ -3,14 +3,14 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::symbols;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, LineGauge, Paragraph, Tabs};
+use ratatui::widgets::{Block, BorderType, Paragraph, Tabs};
+use unicode_width::UnicodeWidthStr;
 
 use crate::app::state::{AppState, View};
-use crate::playback::PlaybackStatus;
+use crate::ui::components::{playback_summary, spectrum};
 use crate::ui::icons::Icons;
-use crate::ui::icons::sanitize_terminal_text;
+use crate::ui::layout::Breakpoint;
 use crate::ui::theme::Theme;
 
 /// Braille spinner frames, cycled by `spinner_frame` (PRD 17 loading states).
@@ -21,22 +21,31 @@ pub fn spinner(frame: usize) -> &'static str {
     SPINNER_FRAMES[frame % SPINNER_FRAMES.len()]
 }
 
-/// Tab titles per view; in ASCII mode the long icon fallbacks would crowd
-/// the tabs, so titles alone carry the meaning (PRD 10.12).
-pub fn tab_titles(icons: &Icons) -> Vec<(View, String)> {
+/// Tab titles per view. Wide terminals get "icon + text"; narrow terminals
+/// keep a full active label while inactive tabs collapse to icons or short
+/// ASCII labels (PRD 10.12, 20).
+pub fn tab_titles(icons: &Icons, active: View, narrow: bool) -> Vec<(View, String)> {
     let ascii_mode = icons.playing == "[PLAY]";
     let views = [
-        (View::Home, icons.home, "Home"),
-        (View::Search, icons.search, "Search"),
-        (View::Queue, icons.queue, "Queue"),
-        (View::Playlists, icons.playlist, "Playlists"),
-        (View::History, icons.history, "History"),
-        (View::NowPlaying, icons.music, "Playing"),
+        (View::Home, icons.home, "Home", "Hm"),
+        (View::Search, icons.search, "Search", "Srch"),
+        (View::Queue, icons.queue, "Queue", "Que"),
+        (View::Playlists, icons.playlist, "Playlists", "Lists"),
+        (View::History, icons.history, "History", "Hist"),
+        (View::NowPlaying, icons.music, "Playing", "Play"),
     ];
     views
         .iter()
-        .map(|(view, icon, title)| {
-            let text = if ascii_mode {
+        .map(|(view, icon, title, short)| {
+            let text = if narrow {
+                if *view == active {
+                    format!("{icon} {title}")
+                } else if ascii_mode {
+                    (*short).to_string()
+                } else {
+                    (*icon).to_string()
+                }
+            } else if ascii_mode {
                 (*title).to_string()
             } else {
                 format!("{icon} {title}")
@@ -47,12 +56,14 @@ pub fn tab_titles(icons: &Icons) -> Vec<(View, String)> {
 }
 
 /// Clickable x-ranges of the header tabs: (view, start_col, end_col).
-/// Mirrors how the `Tabs` widget lays out titles with a 1-column divider.
-pub fn tab_hit_zones(icons: &Icons) -> Vec<(View, u16, u16)> {
+/// Mirrors how the `Tabs` widget lays out titles with 1-column padding on
+/// each side and a 1-column divider.
+pub fn tab_hit_zones(icons: &Icons, active: View, narrow: bool) -> Vec<(View, u16, u16)> {
     let mut zones = Vec::new();
-    let mut x = 0u16;
-    for (view, title) in tab_titles(icons) {
-        let width = title.chars().count() as u16;
+    let mut x = header_logo().width() as u16 + 2;
+    for (view, title) in tab_titles(icons, active, narrow) {
+        // +2 for the padding spaces rendered around each title.
+        let width = title.width() as u16 + 2;
         zones.push((view, x, x + width));
         // +1 for the "│" divider rendered between tabs.
         x += width + 1;
@@ -60,7 +71,12 @@ pub fn tab_hit_zones(icons: &Icons) -> Vec<(View, u16, u16)> {
     zones
 }
 
-/// Render the header: app badge, view tabs, and subprocess status.
+fn header_logo() -> String {
+    format!("ytm v{}", env!("CARGO_PKG_VERSION"))
+}
+
+/// Render the header: view tabs with breathing room, and dependency status
+/// shown only when something is missing.
 pub fn render_header(
     frame: &mut Frame,
     area: Rect,
@@ -68,14 +84,42 @@ pub fn render_header(
     icons: &Icons,
     theme: &Theme,
 ) {
+    let logo = header_logo();
+    let breakpoint = Breakpoint::from_width(area.width);
+    let show_volume = breakpoint >= Breakpoint::Medium;
+    let show_queue = breakpoint >= Breakpoint::Wide;
+    let dependency_problem = !state.mpv_ready || !state.yt_dlp_ready;
+    let right_width = if dependency_problem && breakpoint >= Breakpoint::Medium {
+        24
+    } else {
+        match (show_volume, show_queue) {
+            (true, true) => 18,
+            (true, false) => 5,
+            _ => 0,
+        }
+    };
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(40), Constraint::Length(30)])
+        .constraints([
+            Constraint::Length(logo.width() as u16 + 2),
+            Constraint::Min(20),
+            Constraint::Length(right_width),
+        ])
         .split(area);
 
-    let titles: Vec<Line> = tab_titles(icons)
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled("ytm", theme.header),
+            Span::styled(format!(" v{}", env!("CARGO_PKG_VERSION")), theme.dim),
+        ])),
+        chunks[0],
+    );
+
+    let narrow = breakpoint == Breakpoint::Narrow;
+    let titles: Vec<Line> = tab_titles(icons, state.view, narrow)
         .into_iter()
-        .map(|(_, text)| Line::from(text))
+        // Keep padding inside the title so the active background covers it.
+        .map(|(_, text)| Line::from(format!(" {text} ")))
         .collect();
     let selected = View::TABS
         .iter()
@@ -87,31 +131,40 @@ pub fn render_header(
         .highlight_style(theme.tab_active)
         .divider(Span::styled("│", theme.border))
         .padding("", "");
-    frame.render_widget(tabs, chunks[0]);
+    frame.render_widget(tabs, chunks[1]);
 
-    let (mpv_style, mpv_text) = status_dot(state.mpv_ready, "mpv", theme);
-    let (yt_style, yt_text) = status_dot(state.yt_dlp_ready, "yt-dlp", theme);
-    let status = Paragraph::new(Line::from(vec![
-        Span::styled("● ", mpv_style),
-        Span::styled(format!("{mpv_text}  "), theme.dim),
-        Span::styled("● ", yt_style),
-        Span::styled(yt_text, theme.dim),
-    ]))
-    .alignment(ratatui::layout::Alignment::Right);
-    frame.render_widget(status, chunks[1]);
-}
-
-fn status_dot(ready: bool, name: &str, theme: &Theme) -> (Style, String) {
-    if ready {
-        (theme.playing, format!("{name} ready"))
-    } else {
-        (theme.error, format!("{name} down"))
+    // Dependency status is noise when everything works; only surface
+    // problems (PRD 6: actionable when missing).
+    let mut problems: Vec<Span> = Vec::new();
+    if !state.mpv_ready {
+        problems.push(Span::styled(
+            format!("{} mpv down   ", icons.error),
+            theme.error,
+        ));
+    }
+    if !state.yt_dlp_ready {
+        problems.push(Span::styled(
+            format!("{} yt-dlp down", icons.error),
+            theme.error,
+        ));
+    }
+    if !dependency_problem && show_volume {
+        problems.extend(spectrum(4, state.spinner_frame, theme, icons).spans);
+    }
+    if !dependency_problem && show_queue {
+        problems.push(Span::styled(
+            format!("  queue {}", state.queue.tracks.len()),
+            theme.dim,
+        ));
+    }
+    if !problems.is_empty() && chunks[2].width > 0 {
+        let status =
+            Paragraph::new(Line::from(problems)).alignment(ratatui::layout::Alignment::Right);
+        frame.render_widget(status, chunks[2]);
     }
 }
 
-use ratatui::style::Style;
-
-/// Render the now-playing panel: state icon, title, progress gauge, volume.
+/// Render the three-row mini player.
 pub fn render_now_playing(
     frame: &mut Frame,
     area: Rect,
@@ -124,159 +177,72 @@ pub fn render_now_playing(
     }
     let block = Block::bordered()
         .border_type(BorderType::Rounded)
-        .border_style(theme.border)
-        .title(Span::styled(" Now Playing ", theme.header));
+        .border_style(theme.border);
     let inner = block.inner(area);
     frame.render_widget(block, area);
-
-    let Some(track) = &state.current_track else {
-        frame.render_widget(
-            Paragraph::new(Span::styled("Nothing is playing", theme.dim)),
-            inner,
-        );
-        return;
-    };
-
-    let rows = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Min(1)])
-        .split(inner);
-
-    // Row 1: status icon, artist — title, modes + volume.
-    let (status_icon, status_style) = match state.playback.status {
-        PlaybackStatus::Playing => (icons.playing, theme.playing),
-        PlaybackStatus::Paused => (icons.paused, theme.warning),
-        _ => (icons.stopped, theme.dim),
-    };
-    let title = sanitize_terminal_text(&track.title);
-    let artist = sanitize_terminal_text(&track.artist);
-
-    let mut right = Vec::new();
-    if state.radio {
-        right.push(Span::styled("RADIO ", theme.accent_alt));
-    }
-    if (state.playback.speed - 1.0).abs() > f64::EPSILON {
-        right.push(Span::styled(
-            format!("{:.2}x ", state.playback.speed),
-            theme.warning,
-        ));
-    }
-    if let Some(timer) = state.sleep_timer {
-        right.push(Span::styled(
-            format!("Zz {}m ", timer.remaining_minutes()),
-            theme.warning,
-        ));
-    }
-    if state.queue.shuffle {
-        right.push(Span::styled(format!("{} ", icons.shuffle), theme.accent));
-    }
-    match state.queue.repeat {
-        crate::queue::RepeatMode::Track => {
-            right.push(Span::styled(format!("{}1 ", icons.repeat), theme.accent));
-        }
-        crate::queue::RepeatMode::Queue => {
-            right.push(Span::styled(format!("{} ", icons.repeat), theme.accent));
-        }
-        crate::queue::RepeatMode::Off => {}
-    }
-    let volume_icon = if state.playback.muted {
-        icons.muted
-    } else {
-        icons.volume
-    };
-    right.push(Span::styled(
-        format!("{volume_icon} {}%", state.playback.volume),
-        theme.dim,
-    ));
-    let right_width: usize = right.iter().map(|s| s.content.chars().count()).sum();
-
-    let cols = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Min(20),
-            Constraint::Length(right_width as u16 + 1),
-        ])
-        .split(rows[0]);
-
-    // Ellipsize instead of letting ratatui hard-cut mid-word: the artist
-    // gets up to a third of the row, the title the rest.
-    let avail = (cols[0].width as usize).saturating_sub(status_icon.chars().count() + 1);
-    let artist = truncate_end(&artist, (avail / 3).max(10).min(avail));
-    let title_width = avail.saturating_sub(artist.chars().count() + 3);
-    let title = truncate_middle(&title, title_width.max(8));
-    let info = Line::from(vec![
-        Span::styled(format!("{status_icon} "), status_style),
-        Span::styled(artist, theme.accent),
-        Span::styled(" — ", theme.dim),
-        Span::styled(title, theme.base),
-    ]);
-    frame.render_widget(Paragraph::new(info), cols[0]);
-    frame.render_widget(
-        Paragraph::new(Line::from(right)).alignment(ratatui::layout::Alignment::Right),
-        cols[1],
-    );
-
-    // Row 2: progress gauge with elapsed/total.
-    let position = state.playback.position_seconds;
-    let duration = state.playback.duration_seconds.unwrap_or(0.0);
-    let ratio = if duration > 0.0 {
-        (position / duration).clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-    let mut label = format!(
-        "{} / {}",
-        format_time(position),
-        state
-            .playback
-            .duration_seconds
-            .map(format_time)
-            .unwrap_or_else(|| "--:--".to_string())
-    );
-    // Inside a mix with a known tracklist, show which track is on.
-    if let Some(index) = state.current_chapter_index()
-        && let Some(chapter) = state.chapters().get(index)
-    {
-        let max = (inner.width as usize / 2).saturating_sub(label.len() + 3);
-        if max >= 8 {
-            label.push_str(&format!(
-                " · {}",
-                truncate_end(&sanitize_terminal_text(&chapter.title), max)
-            ));
-        }
-    }
-    let gauge = LineGauge::default()
-        .filled_style(theme.gauge_filled)
-        .filled_symbol(symbols::line::THICK.horizontal)
-        .style(theme.border)
-        .ratio(ratio)
-        .label(Span::styled(label, theme.dim));
-    frame.render_widget(gauge, rows[1]);
+    playback_summary(frame, inner, state, icons, theme);
 }
 
 /// Render context-sensitive keyboard hints as styled chips (PRD 8).
 pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Theme) {
     let hints: &[(&str, &str)] = match state.view {
-        View::Home => &[
-            ("Space", "resume"),
+        View::Home
+            if state.home_section == crate::app::state::HomeSection::Resume
+                && state.pending_resume.is_some() =>
+        {
+            &[
+                ("Space", "resume"),
+                ("h/l", "section"),
+                ("/", "search"),
+                ("?", "help"),
+            ]
+        }
+        View::Home if state.home_section == crate::app::state::HomeSection::Recent => &[
             ("h/l", "section"),
             ("Enter", "play"),
             ("a", "queue"),
+            ("P", "playlist"),
             ("/", "search"),
             ("?", "help"),
         ],
+        View::Home if state.home_section == crate::app::state::HomeSection::Playlists => &[
+            ("h/l", "section"),
+            ("Enter", "play all"),
+            ("p", "play all"),
+            ("N", "new"),
+            ("4", "view all"),
+            ("?", "help"),
+        ],
+        View::Home => &[("h/l", "section"), ("/", "search"), ("?", "help")],
+        View::Search
+            if crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+                == crate::ui::layout::Breakpoint::Narrow =>
+        {
+            &[
+                ("Enter", "play"),
+                ("a", "queue"),
+                ("A", "next"),
+                ("/", "search"),
+                ("i", "details"),
+                ("o", "browser"),
+                ("?", "help"),
+                ("q", "quit"),
+            ]
+        }
         View::Search => &[
             ("Enter", "play"),
             ("a", "queue"),
             ("A", "next"),
+            ("P", "playlist"),
+            ("o", "browser"),
             ("/", "search"),
             ("?", "help"),
-            ("q", "quit"),
         ],
         View::Queue => &[
             ("Enter", "play"),
             ("J/K", "move"),
             ("d", "remove"),
+            ("u", "undo"),
             ("P", "playlist"),
             ("/", "filter"),
             ("w", "save"),
@@ -287,25 +253,61 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             ("p", "play"),
             ("N", "new"),
             ("i", "import"),
+            ("I", "JSON"),
             ("R", "rename"),
             ("x", "delete"),
         ],
         View::PlaylistDetail => &[
             ("Enter", "play"),
+            ("e", "edit details"),
             ("p", "play all"),
             ("J/K", "move"),
             ("d", "remove"),
             ("P", "copy to"),
             ("Bksp", "back"),
         ],
-        View::History => &[
-            ("Enter", "replay"),
-            ("a", "queue"),
-            ("P", "playlist"),
-            ("/", "filter"),
-            ("g", "top"),
-            ("x", "delete"),
-        ],
+        View::History => match state.history_view_mode {
+            crate::app::state::HistoryViewMode::Recent => &[
+                ("Enter", "replay"),
+                ("a", "queue"),
+                ("P", "playlist"),
+                ("/", "filter"),
+                ("g", "top"),
+                ("x", "delete"),
+            ],
+            crate::app::state::HistoryViewMode::Top => &[
+                ("Enter", "replay"),
+                ("a", "queue"),
+                ("P", "playlist"),
+                ("/", "filter"),
+                ("g", "recent"),
+            ],
+        },
+        View::NowPlaying
+            if crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+                == crate::ui::layout::Breakpoint::UltraWide
+                && state.playing_pane == crate::app::state::PlayingPane::Queue =>
+        {
+            &[
+                ("h/l", "info/queue"),
+                ("j/k", "select"),
+                ("Enter", "play"),
+                ("Space", "pause"),
+                ("+/-", "volume"),
+            ]
+        }
+        View::NowPlaying
+            if crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+                == crate::ui::layout::Breakpoint::UltraWide =>
+        {
+            &[
+                ("h/l", "info/queue"),
+                ("j/k", "scroll"),
+                ("Space", "pause"),
+                ("./,", "chapter"),
+                ("v", "pane"),
+            ]
+        }
         View::NowPlaying => &[
             ("Space", "pause"),
             ("h/l", "seek"),
@@ -314,7 +316,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             ("n/b", "next/prev"),
             ("v", "pane"),
         ],
-        View::Help => &[("q", "quit"), ("1-6", "views")],
+        View::Help => &[("j/k", "scroll"), ("Esc/?", "return"), ("q", "quit")],
     };
     let mut spans = Vec::new();
     for (key, label) in hints {
@@ -374,7 +376,14 @@ pub fn format_time(seconds: f64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_time, truncate_end, truncate_middle};
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+
+    use super::{format_time, render_header, tab_hit_zones, truncate_end, truncate_middle};
+    use crate::app::state::{AppState, View};
+    use crate::config::IconMode;
+    use crate::ui::icons::icons_for;
+    use crate::ui::theme::Theme;
 
     #[test]
     fn formats_durations() {
@@ -400,5 +409,47 @@ mod tests {
         assert!(out.ends_with("2021)"));
         // Below the useful minimum it degrades to end truncation.
         assert_eq!(truncate_middle("abcdefgh", 4), "abc…");
+    }
+
+    #[test]
+    fn tab_hit_zones_include_logo_offset_and_active_width() {
+        let icons = icons_for(IconMode::Ascii);
+        let zones = tab_hit_zones(&icons, View::Search, true);
+        assert!(zones[0].1 > 0, "logo occupies columns before tabs");
+        assert!(zones.windows(2).all(|pair| pair[0].2 < pair[1].1));
+        let search = zones
+            .iter()
+            .find(|(view, _, _)| *view == View::Search)
+            .expect("search zone");
+        let home = zones
+            .iter()
+            .find(|(view, _, _)| *view == View::Home)
+            .expect("home zone");
+        assert!(search.2 - search.1 > home.2 - home.1);
+    }
+
+    #[test]
+    fn active_tab_highlight_includes_one_cell_of_side_padding() {
+        let mut terminal = Terminal::new(TestBackend::new(100, 1)).expect("terminal");
+        let mut state = AppState::new();
+        state.mpv_ready = true;
+        state.yt_dlp_ready = true;
+        let icons = icons_for(IconMode::Ascii);
+        let theme = Theme::from_truecolor(false);
+        terminal
+            .draw(|frame| render_header(frame, frame.area(), &state, &icons, &theme))
+            .expect("draw");
+
+        let (_, start, end) = tab_hit_zones(&icons, View::Home, false)[0];
+        let buffer = terminal.backend().buffer();
+        let active_background = theme.tab_active.bg.expect("active tab background");
+        assert_eq!(
+            buffer.cell((start, 0)).expect("left padding").bg,
+            active_background
+        );
+        assert_eq!(
+            buffer.cell((end - 1, 0)).expect("right padding").bg,
+            active_background
+        );
     }
 }

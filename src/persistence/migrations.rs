@@ -46,8 +46,16 @@ pub fn migrate_in_place(path: &Path, target: u32) -> Result<bool> {
     let backup = path.with_extension("pre-migration.bak");
     fs::copy(path, &backup)?;
 
-    // No migrations exist yet beyond version 1; future migrations chain here.
-    let migrated = raw;
+    // Version zero is the pre-versioned form of the current document shape.
+    // Future structural migrations must be added here one version at a time.
+    let mut migrated = raw;
+    let Some(object) = migrated.as_object_mut() else {
+        return Err(AppError::Storage {
+            path: path.to_path_buf(),
+            message: "versioned document must be a JSON object".to_string(),
+        });
+    };
+    object.insert("schemaVersion".to_string(), Value::from(target));
     crate::persistence::json_store::atomic_write(path, &migrated)?;
     tracing::info!(?path, from = version, to = target, "migrated document");
     Ok(true)
@@ -75,5 +83,23 @@ mod tests {
         let path = dir.path().join("doc.json");
         fs::write(&path, r#"{"schemaVersion": 1}"#).expect("write");
         assert!(!migrate_in_place(&path, 1).expect("migrate"));
+    }
+
+    #[test]
+    fn version_zero_is_backed_up_and_updated_to_target() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("doc.json");
+        fs::write(&path, r#"{"entries":[]}"#).expect("write");
+
+        assert!(migrate_in_place(&path, 1).expect("migrate"));
+
+        let migrated: Value = serde_json::from_slice(&fs::read(&path).expect("read migrated"))
+            .expect("parse migrated");
+        assert_eq!(migrated["schemaVersion"], 1);
+        let backup: Value = serde_json::from_slice(
+            &fs::read(path.with_extension("pre-migration.bak")).expect("read backup"),
+        )
+        .expect("parse backup");
+        assert!(backup.get("schemaVersion").is_none());
     }
 }

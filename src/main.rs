@@ -1,6 +1,7 @@
 //! ytm-tui binary: CLI entry point.
 
 use clap::{Parser, Subcommand};
+use std::path::{Path, PathBuf};
 use ytm_tui::error::Result;
 use ytm_tui::{app, config, persistence, process, queue};
 
@@ -8,6 +9,9 @@ use ytm_tui::{app, config, persistence, process, queue};
 #[derive(Debug, Parser)]
 #[command(name = "ytm-tui", version, about)]
 struct Cli {
+    /// Override all application data/config paths (useful for isolation).
+    #[arg(long, global = true, value_name = "PATH")]
+    data_dir: Option<PathBuf>,
     /// Restore the previous session and start playing immediately.
     #[arg(long)]
     resume: bool,
@@ -22,6 +26,7 @@ enum Command {
     /// Search for a query (or URL) and play the first result.
     Play {
         /// Search terms or a YouTube URL.
+        #[arg(required = true, num_args = 1..)]
         query: Vec<String>,
     },
 }
@@ -29,19 +34,15 @@ enum Command {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    let paths = persistence::AppPaths::resolve()?;
-    paths.ensure_dirs()?;
-    init_tracing(&paths);
+    let paths = match cli.data_dir {
+        Some(path) => persistence::AppPaths::with_data_dir(path),
+        None => persistence::AppPaths::resolve()?,
+    };
 
     match cli.command {
         Some(Command::Doctor) => run_doctor(&paths),
         Some(Command::Play { query }) => {
             let query = query.join(" ");
-            if query.trim().is_empty() {
-                return Err(ytm_tui::error::AppError::Config(
-                    "play needs a query or URL".to_string(),
-                ));
-            }
             run_tui(paths, Some(app::StartupIntent::PlayQuery(query))).await
         }
         None => {
@@ -53,14 +54,36 @@ async fn main() -> Result<()> {
 
 /// Check dependencies, storage, and config; print a readable report.
 fn run_doctor(paths: &persistence::AppPaths) -> Result<()> {
-    let config = config::load(&paths.config_file())?;
+    let mut ok = true;
+    let config = match config::inspect(&paths.config_file()) {
+        Ok(Some(config)) => {
+            println!("OK   config          {}", paths.config_file().display());
+            config
+        }
+        Ok(None) => {
+            println!(
+                "INFO config          defaults in use (no file at {})",
+                paths.config_file().display()
+            );
+            config::Config::default()
+        }
+        Err(err) => {
+            println!(
+                "FAIL config          {} — {err}",
+                paths.config_file().display()
+            );
+            println!("     recovery        fix or move the file; doctor made no changes");
+            ok = false;
+            config::Config::default()
+        }
+    };
 
     let probes = [
         process::probe("mpv", &config.paths.mpv),
         process::probe("yt-dlp", &config.paths.yt_dlp),
         process::probe("ffmpeg (optional)", "ffmpeg"),
+        process::probe("curl (optional)", "curl"),
     ];
-    let mut ok = true;
     for probe in &probes {
         match &probe.status {
             process::DependencyStatus::Found { path, version } => {
@@ -86,23 +109,40 @@ fn run_doctor(paths: &persistence::AppPaths) -> Result<()> {
         }
     }
 
-    let data_ok = paths.data_dir.exists() && paths.playlists_dir().exists();
-    println!(
-        "{:<4} data dir        {}",
-        if data_ok { "OK" } else { "FAIL" },
-        paths.data_dir.display()
-    );
-    ok &= data_ok;
+    if paths.data_dir.exists() {
+        let data_ok = paths.data_dir.is_dir() && path_looks_writable(&paths.data_dir);
+        println!(
+            "{:<4} data dir        {}{}",
+            if data_ok { "OK" } else { "FAIL" },
+            paths.data_dir.display(),
+            if data_ok {
+                ""
+            } else {
+                " (not a writable directory)"
+            }
+        );
+        ok &= data_ok;
+    } else {
+        println!(
+            "INFO data dir        {} (not created yet)",
+            paths.data_dir.display()
+        );
+        let parent_ok = paths.data_dir.parent().is_some_and(path_looks_writable);
+        if !parent_ok {
+            println!("FAIL parent dir      no writable parent for data directory");
+            ok = false;
+        }
+    }
 
-    let ipc_dir_ok = paths.data_dir.is_dir();
     println!(
         "{:<4} ipc path dir    {}",
-        if ipc_dir_ok { "OK" } else { "FAIL" },
+        if paths.data_dir.is_dir() {
+            "OK"
+        } else {
+            "INFO"
+        },
         paths.data_dir.display()
     );
-    ok &= ipc_dir_ok;
-
-    println!("OK   config          {}", paths.config_file().display());
     if ok {
         println!("\nAll checks passed.");
         Ok(())
@@ -115,10 +155,11 @@ fn run_doctor(paths: &persistence::AppPaths) -> Result<()> {
 }
 
 /// Launch the terminal UI.
-async fn run_tui(
-    paths: persistence::AppPaths,
-    intent: Option<app::StartupIntent>,
-) -> Result<()> {
+async fn run_tui(paths: persistence::AppPaths, intent: Option<app::StartupIntent>) -> Result<()> {
+    paths.ensure_dirs()?;
+    if let Err(err) = init_tracing(&paths) {
+        eprintln!("warning: logging unavailable: {err}");
+    }
     // Malformed config must not lock the user out: report it and continue
     // with defaults (PRD 11.4); the original file is preserved with a .bak.
     let config = match config::load(&paths.config_file()) {
@@ -152,20 +193,30 @@ async fn run_tui(
     let mut terminal = ratatui::init();
     // Enable mouse events (click to select, wheel to scroll).
     let _ = crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture);
+    let _ = crossterm::execute!(std::io::stdout(), crossterm::event::EnableBracketedPaste);
     let result = app.run(&mut terminal).await;
+    let _ = crossterm::execute!(std::io::stdout(), crossterm::event::DisableBracketedPaste);
     let _ = crossterm::execute!(std::io::stdout(), crossterm::event::DisableMouseCapture);
     ratatui::restore();
     app.shutdown().await;
     result
 }
 
-/// Detect the terminal graphics protocol. Ghostty/Kitty/WezTerm are
-/// detected from environment variables so no stdin query is needed (a query
-/// would consume buffered input and stall on terminals that don't answer).
-/// Other interactive terminals get a capability query; anything else falls
-/// back to halfblocks, which render everywhere.
+/// Detect the terminal graphics protocol.
+///
+/// - Inside a multiplexer (herdr/tmux) graphics escapes don't pass through,
+///   so use halfblocks, which render anywhere.
+/// - Ghostty/Kitty/WezTerm answer capability queries instantly, giving the
+///   real font size so images fit their cells exactly.
+/// - Non-interactive contexts (pipes, tests) use halfblocks without
+///   querying, since a query would consume buffered input and stall.
 fn create_picker() -> ratatui_image::picker::Picker {
     use ratatui_image::picker::{Picker, ProtocolType};
+
+    let inside_mux = std::env::var_os("TMUX").is_some() || std::env::var_os("HERDR_ENV").is_some();
+    if inside_mux {
+        return Picker::halfblocks();
+    }
 
     let kitty_capable = std::env::var("TERM_PROGRAM")
         .map(|v| matches!(v.as_str(), "ghostty" | "iTerm.app" | "WezTerm" | "kitty"))
@@ -174,35 +225,70 @@ fn create_picker() -> ratatui_image::picker::Picker {
             .map(|v| v.contains("kitty") || v.contains("ghostty"))
             .unwrap_or(false);
 
+    if std::io::IsTerminal::is_terminal(&std::io::stdin())
+        && let Ok(picker) = Picker::from_query_stdio()
+    {
+        return picker;
+    }
+
     if kitty_capable {
-        let mut picker = Picker::halfblocks();
+        // The query failed but the terminal is known to support graphics;
+        // force the protocol with a font size derived from the window size.
+        let mut picker = picker_from_window_size();
         let proto = if std::env::var("TERM_PROGRAM").as_deref() == Ok("iTerm.app") {
             ProtocolType::Iterm2
         } else {
             ProtocolType::Kitty
         };
         picker.set_protocol_type(proto);
-        return picker;
-    }
-
-    if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-        Picker::from_query_stdio().unwrap_or_else(|_| Picker::halfblocks())
+        picker
     } else {
         Picker::halfblocks()
     }
 }
 
+/// Build a picker whose font size matches the actual terminal cell size.
+/// `from_fontsize` is deprecated in v11 but is the only way to set the font
+/// size without a stdin query; suppress the lint with this explanation.
+#[allow(deprecated)]
+fn picker_from_window_size() -> ratatui_image::picker::Picker {
+    use ratatui_image::picker::Picker;
+    match crossterm::terminal::window_size() {
+        Ok(size) if size.columns > 0 && size.rows > 0 => {
+            Picker::from_fontsize(ratatui_image::FontSize::new(
+                (size.width / size.columns).max(1),
+                (size.height / size.rows).max(1),
+            ))
+        }
+        _ => Picker::halfblocks(),
+    }
+}
+
 /// Route logs to a local file; never to the terminal UI (PRD 16).
-fn init_tracing(paths: &persistence::AppPaths) {
-    let file = std::fs::File::create(paths.log_file());
-    let Ok(file) = file else {
-        return;
-    };
+fn init_tracing(paths: &persistence::AppPaths) -> Result<()> {
+    let file = ytm_tui::diagnostics::open_log(&paths.log_file())?;
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(std::sync::Mutex::new(file))
         .with_ansi(false)
-        .init();
+        .try_init()
+        .map_err(|err| ytm_tui::error::AppError::Config(format!("tracing init failed: {err}")))?;
+    Ok(())
+}
+
+fn path_looks_writable(path: &Path) -> bool {
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return false;
+    };
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o222 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        !metadata.permissions().readonly()
+    }
 }

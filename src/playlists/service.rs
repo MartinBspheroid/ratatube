@@ -4,9 +4,11 @@ use std::path::PathBuf;
 
 use crate::error::{AppError, Result};
 use crate::persistence::json_store;
+use crate::persistence::migrations::{PLAYLIST_SCHEMA_VERSION, migrate_in_place};
 use crate::playlists::model::Playlist;
 
 /// Filesystem-backed playlist repository.
+#[derive(Clone)]
 pub struct PlaylistService {
     dir: PathBuf,
 }
@@ -37,7 +39,7 @@ impl PlaylistService {
         Ok(self.dir.join(format!("{id}.json")))
     }
 
-    /// List all playlists, sorted by name.
+    /// List all playlists with the most recently updated first.
     pub fn list(&self) -> Result<Vec<Playlist>> {
         let mut playlists = Vec::new();
         if !self.dir.exists() {
@@ -47,20 +49,24 @@ impl PlaylistService {
             let entry = entry?;
             let path = entry.path();
             if path.extension().is_some_and(|ext| ext == "json") {
-                match json_store::read::<Playlist>(&path) {
+                match migrate_in_place(&path, PLAYLIST_SCHEMA_VERSION)
+                    .and_then(|_| json_store::read::<Playlist>(&path))
+                {
                     Ok(playlist) => playlists.push(playlist),
                     // A single malformed playlist must not break the listing.
                     Err(err) => tracing::warn!(?err, ?path, "skipping unreadable playlist"),
                 }
             }
         }
-        playlists.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        playlists.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
         Ok(playlists)
     }
 
     /// Load one playlist by ID.
     pub fn get(&self, id: &str) -> Result<Playlist> {
-        json_store::read(&self.file_for(id)?)
+        let path = self.file_for(id)?;
+        migrate_in_place(&path, PLAYLIST_SCHEMA_VERSION)?;
+        json_store::read(&path)
     }
 
     /// Persist a playlist atomically.
@@ -94,6 +100,8 @@ impl PlaylistService {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
 
     #[test]
@@ -107,6 +115,21 @@ mod tests {
         assert_eq!(service.get(&id).expect("get").name, "Test");
         service.delete(&id).expect("delete");
         assert!(service.list().expect("list").is_empty());
+    }
+
+    #[test]
+    fn list_orders_playlists_by_most_recent_update() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let service = PlaylistService::new(dir.path().join("playlists"));
+        let mut older = Playlist::new("A older");
+        older.updated_at = chrono::Utc::now() - chrono::Duration::days(1);
+        let newer = Playlist::new("Z newer");
+        service.save(&older).expect("save older");
+        service.save(&newer).expect("save newer");
+
+        let listed = service.list().expect("list");
+        assert_eq!(listed[0].id, newer.id);
+        assert_eq!(listed[1].id, older.id);
     }
 
     #[test]
@@ -125,5 +148,41 @@ mod tests {
         let copy = service.duplicate(&playlist.id).expect("duplicate");
         assert_ne!(copy.id, playlist.id);
         assert_eq!(copy.name, "Original (copy)");
+    }
+
+    #[test]
+    fn get_migrates_pre_versioned_playlist() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let service = PlaylistService::new(dir.path().to_path_buf());
+        let playlist = Playlist::new("Legacy");
+        let path = dir.path().join(format!("{}.json", playlist.id));
+        let mut raw = serde_json::to_value(&playlist).expect("serialize");
+        raw.as_object_mut().expect("object").remove("schemaVersion");
+        fs::write(&path, serde_json::to_vec_pretty(&raw).expect("json")).expect("write");
+
+        let loaded = service.get(&playlist.id).expect("load");
+
+        assert_eq!(loaded.name, "Legacy");
+        let migrated: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).expect("read")).expect("parse");
+        assert_eq!(migrated["schemaVersion"], PLAYLIST_SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn get_rejects_future_playlist_schema() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let service = PlaylistService::new(dir.path().to_path_buf());
+        let playlist = Playlist::new("Future");
+        let path = dir.path().join(format!("{}.json", playlist.id));
+        let mut raw = serde_json::to_value(&playlist).expect("serialize");
+        raw["schemaVersion"] = serde_json::json!(99);
+        fs::write(&path, serde_json::to_vec_pretty(&raw).expect("json")).expect("write");
+
+        let result = service.get(&playlist.id);
+
+        assert!(matches!(
+            result,
+            Err(AppError::UnsupportedSchema { found: 99, .. })
+        ));
     }
 }

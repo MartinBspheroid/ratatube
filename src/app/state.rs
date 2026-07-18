@@ -1,5 +1,6 @@
 //! Central application state (PRD section 13).
 
+use crate::app::operations::OperationId;
 use crate::media::Track;
 use crate::media::import::InputKind;
 use crate::media::search::SearchState;
@@ -69,6 +70,14 @@ pub enum HomeSection {
     Playlists,
 }
 
+/// Keyboard focus within the ultra-wide Playing view.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlayingPane {
+    #[default]
+    Info,
+    Queue,
+}
+
 impl HomeSection {
     /// Cycle focus forward (+1) or backward (-1).
     pub fn cycled(self, delta: i32) -> HomeSection {
@@ -100,6 +109,30 @@ pub struct PendingResume {
 pub struct Notification {
     pub message: String,
     pub is_error: bool,
+    pub created_at: chrono::DateTime<chrono::Local>,
+    expires_at: std::time::Instant,
+}
+
+impl Notification {
+    /// Build a notification with a deterministic creation instant.
+    pub fn new_at(message: &str, is_error: bool, now: std::time::Instant) -> Self {
+        let lifetime = if is_error {
+            std::time::Duration::from_secs(8)
+        } else {
+            std::time::Duration::from_secs(4)
+        };
+        Self {
+            message: message.to_string(),
+            is_error,
+            created_at: chrono::Local::now(),
+            expires_at: now + lifetime,
+        }
+    }
+
+    /// Whether this transient message has reached its deadline.
+    pub fn is_expired_at(&self, now: std::time::Instant) -> bool {
+        now >= self.expires_at
+    }
 }
 
 /// An armed sleep timer.
@@ -108,6 +141,35 @@ pub struct SleepTimer {
     pub deadline: std::time::Instant,
     /// The duration originally chosen, for cycling and display.
     pub minutes: u16,
+}
+
+/// User-visible lifecycle of a cancellable background operation.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum OperationStatus {
+    #[default]
+    Idle,
+    Loading {
+        operation_id: OperationId,
+    },
+    Failed {
+        message: String,
+    },
+    Cancelled,
+}
+
+/// Background metadata lifecycle for the current track.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum DetailsStatus {
+    #[default]
+    Idle,
+    Loading {
+        operation_id: OperationId,
+        track_id: String,
+    },
+    Failed {
+        track_id: String,
+        message: String,
+    },
 }
 
 impl SleepTimer {
@@ -164,15 +226,32 @@ pub enum PromptPurpose {
     RenamePlaylist,
     /// URL for importing a remote playlist.
     ImportPlaylistUrl,
+    /// Versioned JSON containing one or more local playlists.
+    ImportPlaylistJson,
     /// Name for a new empty playlist.
     NewPlaylist,
 }
 
-/// Active single-line prompt state.
+/// Active text prompt state. JSON imports may contain pasted newlines.
 #[derive(Debug, Clone)]
 pub struct PromptState {
     pub purpose: PromptPurpose,
     pub buffer: String,
+}
+
+/// Active field in the playlist metadata editor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlaylistEditorField {
+    Name,
+    Description,
+}
+
+/// Draft playlist metadata; persisted only when explicitly submitted.
+#[derive(Debug, Clone)]
+pub struct PlaylistEditorState {
+    pub name: String,
+    pub description: String,
+    pub field: PlaylistEditorField,
 }
 
 /// A yes/no confirmation dialog (e.g. playlist deletion, PRD 10.7).
@@ -186,12 +265,17 @@ pub struct ConfirmState {
 #[derive(Debug, Clone)]
 pub enum ImportState {
     /// Fetching remote metadata.
-    Fetching { url: String },
+    Fetching {
+        operation_id: OperationId,
+        url: String,
+    },
     /// Ready for user review before saving.
     Review {
         summary: crate::playlists::import::ImportSummary,
         playlist: Box<crate::playlists::Playlist>,
     },
+    /// Fetching terminated with an actionable error.
+    Failed { url: String, message: String },
 }
 
 /// Root application state. UI renders this; reducers mutate it.
@@ -199,6 +283,10 @@ pub enum ImportState {
 pub struct AppState {
     pub running: bool,
     pub view: View,
+    /// View restored when the help overlay closes.
+    pub help_return_view: View,
+    /// Vertical row offset in the help document.
+    pub help_scroll: u16,
     pub focus: Focus,
 
     // Search
@@ -206,6 +294,12 @@ pub struct AppState {
     pub search_input: String,
     /// Classified kind of the current search input (URL vs query).
     pub input_kind: Option<InputKind>,
+    /// Narrow Search modal showing details for the highlighted result.
+    pub search_detail_open: bool,
+    /// Track whose selected-result thumbnail is loaded or being fetched.
+    pub search_thumbnail_track_id: Option<String>,
+    /// Decoded thumbnail preview for the selected Search result.
+    pub search_thumbnail: Option<ratatui_image::protocol::StatefulProtocol>,
 
     // Lists and selection
     pub selected_index: usize,
@@ -218,14 +312,19 @@ pub struct AppState {
     pub spinner_frame: usize,
     /// Last rendered main content area, for mouse hit-testing.
     pub main_area: ratatui::layout::Rect,
+    /// Renderer-provided rows that map one-to-one to selectable items.
+    pub list_hit_area: ratatui::layout::Rect,
     /// Last rendered full screen area, for mouse hit-testing.
     pub screen_area: ratatui::layout::Rect,
     pub queue: Queue,
+    /// Single-level undo for accidental queue deletion.
+    pub removed_queue_item: Option<(usize, Track)>,
     pub playlists: Vec<Playlist>,
     pub selected_playlist: Option<usize>,
 
     // Modal UI
     pub prompt: Option<PromptState>,
+    pub playlist_editor: Option<PlaylistEditorState>,
     pub confirm: Option<ConfirmState>,
     pub import: Option<ImportState>,
     /// Add-to-playlist picker (`P` in track lists).
@@ -244,6 +343,8 @@ pub struct AppState {
     /// Radio mode: when the queue runs low, append tracks from YouTube's
     /// mix for the last played track.
     pub radio: bool,
+    /// Active radio refill, used to reject late results after disable.
+    pub radio_operation: Option<OperationId>,
     /// Sleep timer: stop playback at the deadline.
     pub sleep_timer: Option<SleepTimer>,
     /// Recent notifications, newest first (bounded ring).
@@ -254,8 +355,12 @@ pub struct AppState {
     // Playback
     pub playback: PlaybackSnapshot,
     pub current_track: Option<Track>,
+    /// Resolution state for the track requested by the queue cursor.
+    pub playback_resolution: OperationStatus,
     /// Extended metadata for the current track, loaded in the background.
     pub current_details: Option<crate::media::TrackDetails>,
+    /// Truthful status for metadata shown in the now-playing view.
+    pub details_status: DetailsStatus,
     /// Decoded thumbnail for the current track, when available.
     pub thumbnail: Option<ratatui_image::protocol::StatefulProtocol>,
     /// Scroll offset of the now-playing description panel.
@@ -263,6 +368,8 @@ pub struct AppState {
     /// Show the description instead of chapters in the Playing view's
     /// right pane (only meaningful when chapters exist).
     pub now_playing_show_description: bool,
+    /// Active pane when the ultra-wide Playing layout exposes its queue.
+    pub playing_pane: PlayingPane,
 
     // Home dashboard
     /// Which Home section holds the selection.
@@ -271,6 +378,10 @@ pub struct AppState {
     pub home_recent_len: usize,
     /// Previous-session track preloaded for one-key resume.
     pub pending_resume: Option<PendingResume>,
+    /// Persisted, bounded product activity shown on Home and Playing.
+    pub activity: crate::history::activity::ActivityLog,
+    /// Persisted per-track resume positions shown on Home.
+    pub resume_points: crate::persistence::resume::ResumePoints,
 
     /// History entry count, mirrored from the service each loop iteration so
     /// selection movement works (the state cannot see the service itself).
@@ -289,6 +400,12 @@ pub struct AppState {
 }
 
 impl AppState {
+    /// Keep playlist presentation and selection order newest-updated first.
+    pub fn sort_playlists_by_updated(&mut self) {
+        self.playlists
+            .sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+    }
+
     pub fn new() -> Self {
         Self {
             running: true,
@@ -372,7 +489,39 @@ impl AppState {
                 .and_then(|i| self.playlists.get(i))
                 .map_or(0, |p| p.tracks.len()),
             View::History => self.history_len,
+            View::NowPlaying
+                if self.playing_pane == PlayingPane::Queue
+                    && crate::ui::layout::Breakpoint::from_width(self.screen_area.width)
+                        == crate::ui::layout::Breakpoint::UltraWide =>
+            {
+                self.queue.order.len()
+            }
             View::NowPlaying | View::Help => 0,
         }
+    }
+}
+
+#[cfg(test)]
+mod home_section_tests {
+    use super::HomeSection;
+
+    #[test]
+    fn home_section_ring_follows_visual_reading_order() {
+        let mut section = HomeSection::Resume;
+        let mut visited = Vec::new();
+        for _ in 0..3 {
+            visited.push(section);
+            section = section.cycled(1);
+        }
+        assert_eq!(
+            visited,
+            vec![
+                HomeSection::Resume,
+                HomeSection::Recent,
+                HomeSection::Playlists,
+            ]
+        );
+        assert_eq!(section, HomeSection::Resume);
+        assert_eq!(HomeSection::Resume.cycled(-1), HomeSection::Playlists);
     }
 }

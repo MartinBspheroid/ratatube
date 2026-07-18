@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 
+use tokio::io::AsyncReadExt;
 use tokio::process::{Child, Command};
 
 use crate::error::{AppError, Result};
@@ -15,6 +16,7 @@ use crate::error::{AppError, Result};
 pub struct MpvProcess {
     child: Child,
     socket_path: PathBuf,
+    binary: String,
 }
 
 impl MpvProcess {
@@ -31,10 +33,11 @@ impl MpvProcess {
             .arg("--really-quiet")
             .arg(format!("--input-ipc-server={}", socket_path.display()))
             .arg(format!("--volume={initial_volume}"))
+            .arg("--volume-max=100")
             .arg("--ytdl=no")
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .kill_on_drop(true)
             .spawn()
             .map_err(|err| {
@@ -50,6 +53,7 @@ impl MpvProcess {
         Ok(Self {
             child,
             socket_path: socket_path.to_path_buf(),
+            binary: binary.to_string(),
         })
     }
 
@@ -58,11 +62,27 @@ impl MpvProcess {
     }
 
     /// Wait until the IPC socket appears or mpv exits.
-    pub async fn wait_for_socket(&self, timeout: Duration) -> Result<()> {
+    pub async fn wait_for_socket(&mut self, timeout: Duration) -> Result<()> {
         let start = std::time::Instant::now();
         while start.elapsed() < timeout {
             if self.socket_path.exists() {
                 return Ok(());
+            }
+            if let Some(status) = self.child.try_wait().map_err(AppError::Io)? {
+                let mut stderr = String::new();
+                if let Some(pipe) = self.child.stderr.as_mut() {
+                    let _ = pipe.read_to_string(&mut stderr).await;
+                }
+                let detail = stderr.trim();
+                let message = if detail.is_empty() {
+                    format!("exited with {status} before creating the IPC socket")
+                } else {
+                    format!("exited with {status}: {detail}")
+                };
+                return Err(AppError::Process {
+                    command: self.binary.clone(),
+                    message,
+                });
             }
             tokio::time::sleep(Duration::from_millis(25)).await;
         }
@@ -80,5 +100,29 @@ impl MpvProcess {
             }
         }
         let _ = std::fs::remove_file(&self.socket_path);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    use super::MpvProcess;
+    use crate::error::AppError;
+
+    #[tokio::test]
+    async fn wait_for_socket_reports_early_child_exit_without_full_timeout() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let socket = temp.path().join("mpv.sock");
+        let mut process = MpvProcess::spawn("/usr/bin/false", &socket, 50).expect("spawn false");
+        let started = Instant::now();
+
+        let error = process
+            .wait_for_socket(Duration::from_secs(2))
+            .await
+            .expect_err("child exited");
+
+        assert!(started.elapsed() < Duration::from_millis(500));
+        assert!(matches!(error, AppError::Process { .. }));
     }
 }

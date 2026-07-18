@@ -11,6 +11,27 @@ pub const MIN_ROWS: u16 = 24;
 pub const FLOOR_COLS: u16 = 40;
 pub const FLOOR_ROWS: u16 = 10;
 
+/// Responsive layout band selected only from terminal width.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Breakpoint {
+    Narrow,
+    Medium,
+    Wide,
+    UltraWide,
+}
+
+impl Breakpoint {
+    /// Classify terminal columns using the provisional mock-layout thresholds.
+    pub const fn from_width(width: u16) -> Self {
+        match width {
+            0..100 => Self::Narrow,
+            100..140 => Self::Medium,
+            140..170 => Self::Wide,
+            _ => Self::UltraWide,
+        }
+    }
+}
+
 /// Rectangles for the four fixed screen areas.
 #[derive(Debug, Clone, Copy)]
 pub struct AppLayout {
@@ -25,8 +46,9 @@ impl AppLayout {
     /// first on short terminals, the footer second (PRD 20: graceful
     /// degradation instead of failure).
     pub fn new(area: Rect, has_now_playing: bool, show_footer: bool) -> Self {
-        let now_playing_height = if has_now_playing && area.height >= 14 {
-            4
+        let now_playing_height = if has_now_playing && area.height >= 16 {
+            // Border + name + full-width timeline + status row + border.
+            5
         } else {
             0
         };
@@ -58,4 +80,62 @@ pub fn is_compact(area: Rect) -> bool {
 /// adaptively but should tell the user (PRD 20).
 pub fn is_small(area: Rect) -> bool {
     area.width < MIN_COLS || area.height < MIN_ROWS
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn breakpoint_boundaries_are_explicit() {
+        assert_eq!(Breakpoint::from_width(99), Breakpoint::Narrow);
+        assert_eq!(Breakpoint::from_width(100), Breakpoint::Medium);
+        assert_eq!(Breakpoint::from_width(139), Breakpoint::Medium);
+        assert_eq!(Breakpoint::from_width(140), Breakpoint::Wide);
+        assert_eq!(Breakpoint::from_width(169), Breakpoint::Wide);
+        assert_eq!(Breakpoint::from_width(170), Breakpoint::UltraWide);
+    }
+
+    #[test]
+    fn mini_player_reserves_three_content_rows() {
+        let layout = AppLayout::new(Rect::new(0, 0, 120, 30), true, true);
+        assert_eq!(layout.now_playing.height, 5);
+        assert_eq!(layout.footer.height, 1);
+        assert_eq!(layout.main.height, 23);
+    }
+
+    #[test]
+    fn mini_player_keeps_all_three_rows_below_thirty() {
+        let layout = AppLayout::new(Rect::new(0, 0, 80, 29), true, true);
+        assert_eq!(layout.now_playing.height, 5);
+        assert_eq!(layout.footer.height, 1);
+    }
+
+    #[test]
+    fn degradation_gates_remain_explicit() {
+        assert_eq!(
+            AppLayout::new(Rect::new(0, 0, 80, 15), true, true)
+                .now_playing
+                .height,
+            0
+        );
+        assert_eq!(
+            AppLayout::new(Rect::new(0, 0, 80, 16), true, true)
+                .now_playing
+                .height,
+            5
+        );
+        assert_eq!(
+            AppLayout::new(Rect::new(0, 0, 80, 17), true, true)
+                .footer
+                .height,
+            0
+        );
+        assert_eq!(
+            AppLayout::new(Rect::new(0, 0, 80, 18), true, true)
+                .footer
+                .height,
+            1
+        );
+    }
 }

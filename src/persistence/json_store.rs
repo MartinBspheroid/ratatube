@@ -14,7 +14,8 @@ use crate::error::{AppError, Result};
 
 /// Maximum accepted JSON document size (16 MiB) to bound hostile input
 /// (PRD section 19).
-const MAX_JSON_BYTES: u64 = 16 * 1024 * 1024;
+/// Largest JSON document the store will read or write (16 MiB).
+pub const MAX_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
 
 /// Read and deserialize a JSON document.
 ///
@@ -23,10 +24,10 @@ const MAX_JSON_BYTES: u64 = 16 * 1024 * 1024;
 /// left untouched.
 pub fn read<T: DeserializeOwned>(path: &Path) -> Result<T> {
     let metadata = fs::metadata(path)?;
-    if metadata.len() > MAX_JSON_BYTES {
+    if metadata.len() > MAX_DOCUMENT_BYTES as u64 {
         return Err(AppError::Storage {
             path: path.to_path_buf(),
-            message: format!("file exceeds {} byte limit", MAX_JSON_BYTES),
+            message: format!("file exceeds {} byte limit", MAX_DOCUMENT_BYTES),
         });
     }
     let raw = fs::read_to_string(path)?;
@@ -42,6 +43,26 @@ pub fn read<T: DeserializeOwned>(path: &Path) -> Result<T> {
     }
 }
 
+/// Read JSON without creating recovery artifacts; intended for diagnostics.
+pub fn read_only<T: DeserializeOwned>(path: &Path) -> Result<T> {
+    let metadata = fs::metadata(path)?;
+    if metadata.len() > MAX_DOCUMENT_BYTES as u64 {
+        return Err(AppError::Storage {
+            path: path.to_path_buf(),
+            message: format!("file exceeds {} byte limit", MAX_DOCUMENT_BYTES),
+        });
+    }
+    let raw = fs::read_to_string(path)?;
+    serde_json::from_str(&raw).map_err(AppError::Json)
+}
+
+/// Preserve the current document beside `path` for manual recovery.
+pub fn preserve_backup(path: &Path) -> Result<PathBuf> {
+    let backup = backup_path(path);
+    fs::copy(path, &backup)?;
+    Ok(backup)
+}
+
 /// Atomically write `value` as pretty JSON to `path`.
 pub fn atomic_write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let parent = path.parent().ok_or_else(|| AppError::Storage {
@@ -51,6 +72,12 @@ pub fn atomic_write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     fs::create_dir_all(parent)?;
 
     let payload = serde_json::to_vec_pretty(value)?;
+    if payload.len() > MAX_DOCUMENT_BYTES {
+        return Err(AppError::Storage {
+            path: path.to_path_buf(),
+            message: format!("document exceeds {} byte limit", MAX_DOCUMENT_BYTES),
+        });
+    }
     let tmp = tmp_path(path);
 
     let write_result = (|| -> Result<()> {
@@ -120,5 +147,21 @@ mod tests {
         assert!(matches!(result, Err(AppError::MalformedData(_))));
         assert_eq!(fs::read(&path).expect("original"), b"{ not json");
         assert!(backup_path(&path).exists());
+    }
+
+    #[test]
+    fn oversized_write_is_rejected_and_preserves_previous_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("doc.json");
+        atomic_write(&path, &serde_json::json!({"v": "original"})).expect("initial write");
+        let oversized = "x".repeat(MAX_DOCUMENT_BYTES);
+
+        let result = atomic_write(&path, &serde_json::json!({"v": oversized}));
+
+        assert!(
+            matches!(result, Err(AppError::Storage { path: ref error_path, .. }) if error_path == &path)
+        );
+        let stored: serde_json::Value = read(&path).expect("read original");
+        assert_eq!(stored["v"], "original");
     }
 }

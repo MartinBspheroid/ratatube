@@ -1,1 +1,4 @@
 /target
+.DS_Store
+ruvector.db
+.plans/ruvector.db

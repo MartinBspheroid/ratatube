@@ -5,6 +5,16 @@ use crate::config::IconMode;
 /// Semantic icon slots used across the interface.
 #[derive(Debug, Clone, Copy)]
 pub struct Icons {
+    pub section_bar: &'static str,
+    pub panel_rule: &'static str,
+    pub prev: &'static str,
+    pub next: &'static str,
+    pub pause_btn: &'static str,
+    pub play_btn: &'static str,
+    pub chevron_l: &'static str,
+    pub chevron_r: &'static str,
+    pub spectrum_ramp: [&'static str; 5],
+    pub dropdown: &'static str,
     pub home: &'static str,
     pub playing: &'static str,
     pub paused: &'static str,
@@ -21,10 +31,21 @@ pub struct Icons {
     pub error: &'static str,
     pub loading: &'static str,
     pub import: &'static str,
+    pub dot: &'static str,
 }
 
 /// Nerd Font glyphs.
 const NERD: Icons = Icons {
+    section_bar: "▎",
+    panel_rule: "─",
+    prev: "\u{f048}",
+    next: "\u{f051}",
+    pause_btn: "\u{f04c}",
+    play_btn: "\u{f04b}",
+    chevron_l: "‹",
+    chevron_r: "›",
+    spectrum_ramp: ["▁", "▂", "▃", "▅", "▇"],
+    dropdown: "▾",
     home: "\u{f015}",
     playing: "\u{f04b}",
     paused: "\u{f04c}",
@@ -41,10 +62,21 @@ const NERD: Icons = Icons {
     error: "\u{f071}",
     loading: "\u{f251}",
     import: "\u{f019}",
+    dot: "●",
 };
 
 /// ASCII fallbacks; the UI must stay fully understandable in this mode.
 const ASCII: Icons = Icons {
+    section_bar: "|",
+    panel_rule: "-",
+    prev: "<",
+    next: ">",
+    pause_btn: "|",
+    play_btn: ">",
+    chevron_l: "<",
+    chevron_r: ">",
+    spectrum_ramp: ["_", ".", "-", "=", "#"],
+    dropdown: "v",
     home: "[HOME]",
     playing: "[PLAY]",
     paused: "[PAUSE]",
@@ -61,6 +93,7 @@ const ASCII: Icons = Icons {
     error: "[ERROR]",
     loading: "[...]",
     import: "[IMPORT]",
+    dot: "*",
 };
 
 /// Select the active icon set from the configured mode.
@@ -133,5 +166,30 @@ mod tests {
     fn sanitizes_control_characters() {
         let dirty = "bad\u{1b}[2Jtitle\u{7}\u{0}";
         assert_eq!(sanitize_terminal_text(dirty), "bad[2Jtitle");
+    }
+
+    #[test]
+    fn new_icon_slots_are_single_terminal_cells() {
+        use unicode_width::UnicodeWidthStr;
+
+        for icons in [NERD, ASCII] {
+            for glyph in [
+                icons.section_bar,
+                icons.panel_rule,
+                icons.prev,
+                icons.next,
+                icons.pause_btn,
+                icons.play_btn,
+                icons.chevron_l,
+                icons.chevron_r,
+                icons.dropdown,
+                icons.dot,
+            ] {
+                assert_eq!(glyph.width(), 1, "glyph {glyph:?}");
+            }
+            for glyph in icons.spectrum_ramp {
+                assert_eq!(glyph.width(), 1, "spectrum glyph {glyph:?}");
+            }
+        }
     }
 }

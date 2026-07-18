@@ -80,7 +80,24 @@ async fn mpv_plays_audio_and_reports_events() {
     // Controls: pause, seek, volume, mute.
     controller.pause().await.expect("pause");
     controller.seek_to(1.0).await.expect("seek");
-    controller.set_volume(40).await.expect("volume");
+    controller.set_volume(0).await.expect("reset volume");
+    controller
+        .queue_adjust_volume(2)
+        .expect("first queued volume increase");
+    controller
+        .queue_adjust_volume(2)
+        .expect("second queued volume increase");
+    let saw_four_percent = tokio::time::timeout(Duration::from_secs(3), async {
+        while let Some(event) = event_rx.recv().await {
+            if matches!(event, PlaybackEvent::VolumeChanged(value) if (value - 4.0).abs() < 0.1) {
+                return true;
+            }
+        }
+        false
+    })
+    .await
+    .unwrap_or(false);
+    assert!(saw_four_percent, "two queued + presses reached 4% in mpv");
     controller.toggle_mute().await.expect("mute");
 
     // Graceful quit.

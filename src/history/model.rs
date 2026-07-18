@@ -15,6 +15,95 @@ pub enum PlaybackOutcome {
     Stopped,
 }
 
+/// Accumulates listened media time while excluding pauses and seek jumps.
+#[derive(Debug, Default)]
+pub struct ListeningAccumulator {
+    playing: bool,
+    last_position: Option<f64>,
+    listened_seconds: f64,
+}
+
+impl ListeningAccumulator {
+    /// Start a new track session.
+    pub fn started(&mut self) {
+        self.playing = true;
+        self.last_position = None;
+        self.listened_seconds = 0.0;
+    }
+
+    /// Update whether media is actively advancing.
+    pub fn paused(&mut self, paused: bool) {
+        self.playing = !paused;
+        self.last_position = None;
+    }
+
+    /// Invalidate the position baseline before an explicit seek.
+    pub fn seeking(&mut self) {
+        self.last_position = None;
+    }
+
+    /// Consume one observed media position.
+    pub fn position(&mut self, position: f64) {
+        if !position.is_finite() || position < 0.0 {
+            self.last_position = None;
+            return;
+        }
+        if self.playing
+            && let Some(previous) = self.last_position
+        {
+            let delta = position - previous;
+            // Progress events normally arrive every 0.5s. Larger or
+            // backwards jumps are seeks/stale events, not listened time.
+            if delta > 0.0 && delta <= 3.0 {
+                self.listened_seconds += delta;
+            }
+        }
+        self.last_position = Some(position);
+    }
+
+    /// Finish the session and return whole media seconds listened.
+    pub fn finish(&mut self) -> u64 {
+        let listened = self.listened_seconds.floor() as u64;
+        *self = Self::default();
+        listened
+    }
+}
+
+#[cfg(test)]
+mod listening_tests {
+    use super::ListeningAccumulator;
+
+    #[test]
+    fn counts_only_positive_playing_media_deltas() {
+        let mut listening = ListeningAccumulator::default();
+        listening.started();
+        listening.position(10.0);
+        listening.position(11.0);
+        listening.paused(true);
+        listening.position(12.0);
+        listening.position(13.0);
+        listening.paused(false);
+        listening.position(13.0);
+        listening.position(15.0);
+        listening.seeking();
+        listening.position(50.0);
+        listening.position(51.5);
+        listening.position(40.0);
+        listening.position(41.0);
+
+        assert_eq!(listening.finish(), 5);
+    }
+
+    #[test]
+    fn large_position_jump_is_not_counted_as_listening() {
+        let mut listening = ListeningAccumulator::default();
+        listening.started();
+        listening.position(0.0);
+        listening.position(30.0);
+        assert_eq!(listening.finish(), 0);
+    }
+}
+
 /// One entry in the play history.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

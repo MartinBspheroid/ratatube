@@ -7,6 +7,17 @@ pub mod yt_dlp;
 
 use serde::{Deserialize, Serialize};
 
+/// Decode artwork under strict dimensions and allocation limits.
+pub fn decode_thumbnail(bytes: &[u8]) -> image::ImageResult<image::DynamicImage> {
+    let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format()?;
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(4096);
+    limits.max_image_height = Some(4096);
+    limits.max_alloc = Some(64 * 1024 * 1024);
+    reader.limits(limits);
+    reader.decode()
+}
+
 /// A chapter within a video: yt-dlp chapters when the uploader set them,
 /// or timestamps parsed from a tracklist in the description (DJ mixes).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -70,7 +81,11 @@ pub fn parse_chapters_from_description(description: &str) -> Vec<Chapter> {
             let title = title_tokens
                 .join(" ")
                 .trim_matches(|c: char| {
-                    c.is_whitespace() || matches!(c, '-' | '–' | '—' | '|' | ':' | '.' | '(' | ')' | '[' | ']' | '*')
+                    c.is_whitespace()
+                        || matches!(
+                            c,
+                            '-' | '–' | '—' | '|' | ':' | '.' | '(' | ')' | '[' | ']' | '*'
+                        )
                 })
                 .to_string();
             chapters.push(Chapter {
@@ -105,6 +120,14 @@ pub struct TrackDetails {
     pub upload_date: Option<String>,
     pub uploader: Option<String>,
     pub categories: Vec<String>,
+    /// Selected audio codec reported by yt-dlp, for example `opus`.
+    pub acodec: Option<String>,
+    /// Approximate audio bitrate in kilobits per second.
+    pub abr: Option<f64>,
+    /// Audio sample rate in hertz.
+    pub asr: Option<u32>,
+    /// Number of audio channels in the selected format.
+    pub audio_channels: Option<u8>,
     /// Uploader-set chapters, or a tracklist parsed from the description.
     pub chapters: Vec<Chapter>,
 }
@@ -113,11 +136,9 @@ impl TrackDetails {
     /// Upload date formatted as YYYY-MM-DD for display.
     pub fn formatted_upload_date(&self) -> Option<String> {
         let raw = self.upload_date.as_deref()?;
-        if raw.len() == 8 {
-            Some(format!("{}-{}-{}", &raw[0..4], &raw[4..6], &raw[6..8]))
-        } else {
-            Some(raw.to_string())
-        }
+        chrono::NaiveDate::parse_from_str(raw, "%Y%m%d")
+            .ok()
+            .map(|date| date.format("%Y-%m-%d").to_string())
     }
 }
 
@@ -126,9 +147,11 @@ pub fn format_count(count: u64) -> String {
     const MILLION: u64 = 1_000_000;
     const THOUSAND: u64 = 1_000;
     if count >= MILLION {
-        format!("{:.1}M", count as f64 / MILLION as f64)
+        let tenths = count / (MILLION / 10);
+        format!("{}.{:01}M", tenths / 10, tenths % 10)
     } else if count >= THOUSAND {
-        format!("{:.1}K", count as f64 / THOUSAND as f64)
+        let tenths = count / (THOUSAND / 10);
+        format!("{}.{:01}K", tenths / 10, tenths % 10)
     } else {
         count.to_string()
     }
@@ -210,13 +233,58 @@ mod chapter_tests {
     #[test]
     fn chapter_at_finds_current() {
         let chapters = vec![
-            Chapter { title: "a".into(), start_seconds: 0.0 },
-            Chapter { title: "b".into(), start_seconds: 100.0 },
-            Chapter { title: "c".into(), start_seconds: 200.0 },
+            Chapter {
+                title: "a".into(),
+                start_seconds: 0.0,
+            },
+            Chapter {
+                title: "b".into(),
+                start_seconds: 100.0,
+            },
+            Chapter {
+                title: "c".into(),
+                start_seconds: 200.0,
+            },
         ];
         assert_eq!(chapter_at(&chapters, 0.0), Some(0));
         assert_eq!(chapter_at(&chapters, 150.0), Some(1));
         assert_eq!(chapter_at(&chapters, 999.0), Some(2));
         assert_eq!(chapter_at(&[], 10.0), None);
+    }
+
+    #[test]
+    fn thumbnail_decoder_rejects_dimensions_above_limit() {
+        let image = image::DynamicImage::new_rgba8(4097, 1);
+        let mut encoded = std::io::Cursor::new(Vec::new());
+        image
+            .write_to(&mut encoded, image::ImageFormat::Png)
+            .expect("encode png");
+
+        assert!(decode_thumbnail(encoded.get_ref()).is_err());
+    }
+
+    #[test]
+    fn upload_date_requires_a_real_calendar_date() {
+        let valid = TrackDetails {
+            upload_date: Some("20240229".to_string()),
+            ..TrackDetails::default()
+        };
+        assert_eq!(valid.formatted_upload_date().as_deref(), Some("2024-02-29"));
+
+        for raw in ["20230229", "20241301", "not-a-date", "1234567"] {
+            let details = TrackDetails {
+                upload_date: Some(raw.to_string()),
+                ..TrackDetails::default()
+            };
+            assert_eq!(details.formatted_upload_date(), None, "raw: {raw}");
+        }
+    }
+
+    #[test]
+    fn compact_count_boundaries_are_stable() {
+        assert_eq!(format_count(999), "999");
+        assert_eq!(format_count(1_000), "1.0K");
+        assert_eq!(format_count(999_999), "999.9K");
+        assert_eq!(format_count(1_000_000), "1.0M");
     }
 }

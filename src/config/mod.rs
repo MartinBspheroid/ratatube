@@ -3,5 +3,5 @@
 pub mod loader;
 pub mod model;
 
-pub use loader::load;
+pub use loader::{inspect, load};
 pub use model::{Config, IconMode, ResumeMode};

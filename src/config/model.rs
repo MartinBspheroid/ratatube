@@ -35,7 +35,7 @@ pub enum ResumeMode {
 
 /// Root configuration document.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct Config {
     pub schema_version: u32,
     pub playback: PlaybackConfig,
@@ -46,42 +46,38 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct PlaybackConfig {
     pub default_volume: u8,
-    pub audio_only: bool,
     /// Continue to the next queue item when a track fails (PRD 10.4).
     pub continue_on_error: bool,
-    /// Resolve the stream URL shortly before playback (PRD 10.4).
-    pub resolve_before_playback: bool,
     /// Session restore behavior on launch.
     pub resume_on_launch: ResumeMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct SearchConfig {
     pub result_limit: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct HistoryConfig {
     pub enabled: bool,
     pub max_entries: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct UiConfig {
     pub icons: IconMode,
-    pub show_footer_hints: bool,
     /// Progress refresh interval in milliseconds (PRD 10.3).
     pub progress_refresh_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct PathsConfig {
     /// Executable name or absolute path for mpv.
     pub mpv: String,
@@ -106,9 +102,7 @@ impl Default for PlaybackConfig {
     fn default() -> Self {
         Self {
             default_volume: 70,
-            audio_only: true,
             continue_on_error: true,
-            resolve_before_playback: true,
             resume_on_launch: ResumeMode::default(),
         }
     }
@@ -133,7 +127,6 @@ impl Default for UiConfig {
     fn default() -> Self {
         Self {
             icons: IconMode::Auto,
-            show_footer_hints: true,
             progress_refresh_ms: 500,
         }
     }
@@ -169,5 +162,27 @@ mod tests {
             .expect("deserialize partial");
         assert_eq!(parsed.search.result_limit, 50);
         assert_eq!(parsed.playback.default_volume, 70);
+    }
+
+    #[test]
+    fn rejects_removed_inert_configuration_keys() {
+        for json in [
+            r#"{"playback":{"audioOnly":false}}"#,
+            r#"{"playback":{"resolveBeforePlayback":false}}"#,
+            r#"{"ui":{"showFooterHints":false}}"#,
+        ] {
+            assert!(
+                serde_json::from_str::<Config>(json).is_err(),
+                "json: {json}"
+            );
+        }
+    }
+
+    #[test]
+    fn checked_in_example_is_valid_and_current() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("config.example.json");
+        let json = std::fs::read_to_string(path).expect("read config example");
+        let parsed: Config = serde_json::from_str(&json).expect("parse config example");
+        assert_eq!(parsed.schema_version, CONFIG_SCHEMA_VERSION);
     }
 }

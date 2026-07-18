@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "playback": {
+    "defaultVolume": 70,
+    "continueOnError": true,
+    "resumeOnLaunch": "paused"
+  },
+  "search": {
+    "resultLimit": 20
+  },
+  "history": {
+    "enabled": true,
+    "maxEntries": 500
+  },
+  "ui": {
+    "icons": "auto",
+    "progressRefreshMs": 500
+  },
+  "paths": {
+    "mpv": "mpv",
+    "ytDlp": "yt-dlp"
+  }
+}

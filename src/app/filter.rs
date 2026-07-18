@@ -45,7 +45,9 @@ pub fn picker_candidates(
         .map(|(i, _)| i)
         .collect();
     let trimmed = filter.trim();
-    let exact = playlists.iter().any(|p| p.name.eq_ignore_ascii_case(trimmed));
+    let exact = playlists
+        .iter()
+        .any(|p| p.name.eq_ignore_ascii_case(trimmed));
     (!trimmed.is_empty() && !exact, matching)
 }
 

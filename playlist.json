@@ -1,0 +1,817 @@
+{
+  "version": 1,
+  "playlists": [
+    {
+      "name": "Neon Pressure",
+      "description": "Neurofunk, rollers, and jungle heat from your DNB listening session.",
+      "tracks": [
+        {
+          "title": "Reset",
+          "channel": "Visages",
+          "url": "https://music.youtube.com/watch?v=sEltKu3XP6I"
+        },
+        {
+          "title": "Out & In",
+          "channel": "calyx",
+          "url": "https://music.youtube.com/watch?v=MABNmM0sm2g"
+        },
+        {
+          "title": "Motion Blur (DLR Remix)",
+          "channel": "Noisia",
+          "url": "https://music.youtube.com/watch?v=u9HJ9-6TTdw"
+        },
+        {
+          "title": "Tempest VIP",
+          "channel": "calyx",
+          "url": "https://music.youtube.com/watch?v=s2tpyrzqCLM"
+        },
+        {
+          "title": "Photek - 30 Seconds Out",
+          "channel": "Photek (via UKF)",
+          "url": "https://www.youtube.com/watch?v=MwWoWjg-0pU"
+        },
+        {
+          "title": "Painkiller (Noisia Remix)",
+          "channel": "Freestylers ft Pendulum",
+          "url": "https://music.youtube.com/watch?v=TzcB17qL5NE"
+        },
+        {
+          "title": "Technical Itch - The Ruckus (D.Kay VIP)",
+          "channel": "Technical Itch",
+          "url": "https://music.youtube.com/watch?v=AGf-tp1GDcw"
+        },
+        {
+          "title": "For Sudden VIP",
+          "channel": "Deft",
+          "url": "https://music.youtube.com/watch?v=crR27JaiVOA"
+        },
+        {
+          "title": "Hardware",
+          "channel": "Monty",
+          "url": "https://music.youtube.com/watch?v=2S3IlHmqxCw"
+        },
+        {
+          "title": "The Quest (Break Remix)",
+          "channel": "calyx",
+          "url": "https://music.youtube.com/watch?v=Cuo8C5ekZtQ"
+        },
+        {
+          "title": "Kyrist - Drum and Bass Show - 8 July 2026",
+          "channel": "Kyrist (via Bass Café)",
+          "url": "https://www.youtube.com/watch?v=1ZJ0kuKEkMQ"
+        },
+        {
+          "title": "Shellshock (Original)",
+          "channel": "Noisia",
+          "url": "https://music.youtube.com/watch?v=niPke_H3xqo"
+        },
+        {
+          "title": "Démon",
+          "channel": "Monty",
+          "url": "https://music.youtube.com/watch?v=G0IbXuTlsYs"
+        },
+        {
+          "title": "The Calling (VIP)",
+          "channel": "Technical Itch",
+          "url": "https://music.youtube.com/watch?v=gHmXPbjDD-Q"
+        },
+        {
+          "title": "Can't Punish Me (2007 Remix)",
+          "channel": "Dom & Roland",
+          "url": "https://music.youtube.com/watch?v=IRBf1bsvVy4"
+        },
+        {
+          "title": "Rapture",
+          "channel": "Evol Intent",
+          "url": "https://music.youtube.com/watch?v=9fuebdZtWlE"
+        },
+        {
+          "title": "King of the Hustlers",
+          "channel": "Dom & Roland",
+          "url": "https://music.youtube.com/watch?v=t7yzvuK3Wcg"
+        },
+        {
+          "title": "Contact",
+          "channel": "Foreign Beggars",
+          "url": "https://music.youtube.com/watch?v=PTqWT_GdnFM"
+        },
+        {
+          "title": "Skanga Riddim",
+          "channel": "SHY FX",
+          "url": "https://music.youtube.com/watch?v=6x7zl9G8LhU"
+        },
+        {
+          "title": "The Optimist",
+          "channel": "LSB",
+          "url": "https://music.youtube.com/watch?v=Y2eNSMbTjJY"
+        },
+        {
+          "title": "Dead Limit (Teddy Killerz Remix)",
+          "channel": "Noisia",
+          "url": "https://music.youtube.com/watch?v=t4DqKRabrQU"
+        },
+        {
+          "title": "Angel Blade",
+          "channel": "Sleepnet",
+          "url": "https://music.youtube.com/watch?v=gO3ltlBVlZY"
+        },
+        {
+          "title": "Black Katana",
+          "channel": "Visages",
+          "url": "https://music.youtube.com/watch?v=kad8m-D9c9Y"
+        },
+        {
+          "title": "War Fear",
+          "channel": "Teebee",
+          "url": "https://music.youtube.com/watch?v=M2J83d0FROc"
+        },
+        {
+          "title": "TEK",
+          "channel": "Monty",
+          "url": "https://music.youtube.com/watch?v=B6dlA8NHirs"
+        },
+        {
+          "title": "Shape Of Space",
+          "channel": "Current Value",
+          "url": "https://music.youtube.com/watch?v=HJSEKwt6r3s"
+        },
+        {
+          "title": "Squarepusher Theme",
+          "channel": "Squarepusher",
+          "url": "https://www.youtube.com/watch?v=wiycAAoaK2k"
+        },
+        {
+          "title": "BXG STEPPA VIP",
+          "channel": "TRXGGX",
+          "url": "https://music.youtube.com/watch?v=pxo_df5xWr4"
+        },
+        {
+          "title": "Stigma (Billain Remix)",
+          "channel": "Noisia",
+          "url": "https://music.youtube.com/watch?v=pDcNR7UZ9to"
+        },
+        {
+          "title": "Contact (Annix Remix)",
+          "channel": "Release - Topic",
+          "url": "https://music.youtube.com/watch?v=1gk8-x7nF6s"
+        }
+      ]
+    },
+    {
+      "name": "Subterranean",
+      "description": "Hypnotic chord washes, vinyl warmth, and cavernous reverb — for early mornings or late nights.",
+      "tracks": [
+        {
+          "title": "DUB TECHNO || Selection 087 || Reverberate",
+          "channel": "SCIENIDE 1995",
+          "url": "https://www.youtube.com/watch?v=raJB0XgS2YQ"
+        },
+        {
+          "title": "DUB TECHNO || Selection 109 || Deepsoft",
+          "channel": "SCIENIDE 1995",
+          "url": "https://www.youtube.com/watch?v=OX838AIRC8M"
+        },
+        {
+          "title": "DUB TECHNO || Selection 001",
+          "channel": "SCIENIDE 1995",
+          "url": "https://www.youtube.com/watch?v=Cua16fnKWlk"
+        },
+        {
+          "title": "DUB TECHNO || Selection 106 || Tram Dubs",
+          "channel": "SCIENIDE 1995",
+          "url": "https://www.youtube.com/watch?v=OnvhOUkU0jI"
+        },
+        {
+          "title": "Dub Techno Mix - Drift Deeper Live 310",
+          "channel": "Drift Deeper",
+          "url": "https://www.youtube.com/watch?v=68MpX3ijDC0"
+        },
+        {
+          "title": "Latest Dub Techno & House Releases - Drift Deeper Live 299",
+          "channel": "Drift Deeper",
+          "url": "https://www.youtube.com/watch?v=AjAFPHMbGRk"
+        },
+        {
+          "title": "Dub Techno Lounge Mix | Long Night Selection | L017",
+          "channel": "DJ ma1",
+          "url": "https://www.youtube.com/watch?v=TjeublwX7Z0"
+        },
+        {
+          "title": "Dub Techno Session | 2 Hours Long Mix | L001",
+          "channel": "DJ ma1",
+          "url": "https://www.youtube.com/watch?v=XWKVFKF6uEY"
+        },
+        {
+          "title": "Reactor Room 2.4 | Dub Techno Mix",
+          "channel": "f1rstpers0n",
+          "url": "https://www.youtube.com/watch?v=x1gRtwThSGo"
+        },
+        {
+          "title": "Reactor Room 2.8 | Dub Techno Mix",
+          "channel": "f1rstpers0n",
+          "url": "https://www.youtube.com/watch?v=5gNhrR0sQ9o"
+        },
+        {
+          "title": "Reactor Room 3.0 | Dub Techno Mix",
+          "channel": "f1rstpers0n",
+          "url": "https://www.youtube.com/watch?v=tIaly1wi5ro"
+        },
+        {
+          "title": "Livestream #116 - Dub Techno Session",
+          "channel": "f1rstpers0n",
+          "url": "https://www.youtube.com/watch?v=PwG5p002Suc"
+        },
+        {
+          "title": "Toishy Koshimi - Beadroom Bedlam [Dub Techno mix]",
+          "channel": "Toishy Koshimi",
+          "url": "https://www.youtube.com/watch?v=gfUQABRK84o"
+        },
+        {
+          "title": "MOROCCO DEEP CLUB // DUB TECHNO w DJ SIDEWAYS",
+          "channel": "Jarris_Beatmaster",
+          "url": "https://www.youtube.com/watch?v=SguolPPihGo"
+        },
+        {
+          "title": "La Parisienne",
+          "channel": "Feiertag",
+          "url": "https://music.youtube.com/watch?v=ikAPCpbK8u0"
+        }
+      ]
+    },
+    {
+      "name": "Void Signal",
+      "description": "Deep space drones, industrial decay, and Lovecraftian soundscapes from the Cryo Chamber orbit.",
+      "tracks": [
+        {
+          "title": "Lost Among Stars [ ボイド ]",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=bnkMsmwCRco"
+        },
+        {
+          "title": "Dronny Darko - Godless Land [FULL ALBUM]",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=d53rXbyu3JE"
+        },
+        {
+          "title": "Xanthe Terra (feat. Tineidae)",
+          "channel": "Dronny Darko",
+          "url": "https://music.youtube.com/watch?v=iG-XYgIBB5Y"
+        },
+        {
+          "title": "Alphaxone - Subsynthethic Pulseforms [FULL ALBUM]",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=ySavv2by1Dc"
+        },
+        {
+          "title": "Tsarewitch & Brooddark - Supra Memoriam [ FULL ALBUM ]",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=XheiNoRkTK4"
+        },
+        {
+          "title": "Ruptured World - Void Rituals [ FULL ALBUM ]",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=EGqWS7HCboA"
+        },
+        {
+          "title": "ProtoU - The Infinite Recall [Full Album]",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=BTbApAndfSU"
+        },
+        {
+          "title": "Sjellos - Lifeless Ground // Industrial Dark Ambient",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=VM3S40gdSz4"
+        },
+        {
+          "title": "Exploring a Derelict Meat Ship // Industrial Dark Ambient Mix",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=WwEwau19i_o"
+        },
+        {
+          "title": "Deep Space Meditations and Hellfire Hymns",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=mVv7m1_XX5o"
+        },
+        {
+          "title": "Songs For Lonely Rainy Nights [Mount Shrine Archives]",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=sl1imu_2ifM"
+        },
+        {
+          "title": "Dark Ambient from Night City",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=Mitz7U5r2GQ"
+        },
+        {
+          "title": "Dark Dungeon Music",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=noZJARt6uuQ"
+        },
+        {
+          "title": "Grim Dark Industrial Ambience [インダストリアル]",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=cHjeWV7QL-8"
+        },
+        {
+          "title": "Cryo Chamber - Dark Ambient of 2024 // Free Album Download",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=keIMfmXcH6w"
+        },
+        {
+          "title": "R e l i c : Dark Ambient Sci Fi Space Music for Focus",
+          "channel": "Deep Space Music",
+          "url": "https://www.youtube.com/watch?v=3WUij3drQZI"
+        },
+        {
+          "title": "sleep... | Cyberpunk Ambient Mix | Blade Runner Ambience & Rain",
+          "channel": "Focus Soundscapes",
+          "url": "https://www.youtube.com/watch?v=d00VwBAoiF0"
+        },
+        {
+          "title": "Live Lofi Cafe 90s ☕ Chillhop & Rain Ambience for Work & Focus",
+          "channel": "Hembusan Wirid",
+          "url": "https://www.youtube.com/watch?v=CZZdF-RhiME"
+        },
+        {
+          "title": "Dagon - 2 hours of Dark Lovecraft Ambience",
+          "channel": "Cryo Chamber",
+          "url": "https://www.youtube.com/watch?v=nOvXQ3srt70"
+        }
+      ]
+    },
+    {
+      "name": "Neon Suit",
+      "description": "Angular guitars, driving basslines, and shout-along choruses — the 2000s indie revival.",
+      "tracks": [
+        {
+          "title": "Mr. Brightside",
+          "channel": "The Killers",
+          "url": "https://music.youtube.com/watch?v=m2zUrruKjDQ"
+        },
+        {
+          "title": "Take Me Out",
+          "channel": "Franz Ferdinand",
+          "url": "https://music.youtube.com/watch?v=d11xns8lE4w"
+        },
+        {
+          "title": "Banquet",
+          "channel": "Bloc Party",
+          "url": "https://music.youtube.com/watch?v=dW6aB2Us3pQ"
+        },
+        {
+          "title": "Reptilia",
+          "channel": "The Strokes",
+          "url": "https://music.youtube.com/watch?v=YdRjNeu11Ww"
+        },
+        {
+          "title": "Hate To Say I Told You So",
+          "channel": "The Hives",
+          "url": "https://music.youtube.com/watch?v=bL-hRknymbI"
+        },
+        {
+          "title": "Golden Skans",
+          "channel": "Klaxons",
+          "url": "https://music.youtube.com/watch?v=xVSMasmbQdM"
+        },
+        {
+          "title": "Here It Goes Again",
+          "channel": "OK Go",
+          "url": "https://music.youtube.com/watch?v=juidLK8Dec4"
+        },
+        {
+          "title": "Wolf Like Me",
+          "channel": "TV On The Radio",
+          "url": "https://music.youtube.com/watch?v=xZl-ssLKyPE"
+        },
+        {
+          "title": "Lazy Eye",
+          "channel": "Silversun Pickups",
+          "url": "https://music.youtube.com/watch?v=_farsI18j3I"
+        },
+        {
+          "title": "Tongue Tied",
+          "channel": "Grouplove",
+          "url": "https://music.youtube.com/watch?v=pkV5Lh2dZ_A"
+        },
+        {
+          "title": "What You Know",
+          "channel": "Two Door Cinema Club",
+          "url": "https://music.youtube.com/watch?v=iGKJe7QGoXk"
+        },
+        {
+          "title": "Somebody Told Me",
+          "channel": "The Killers",
+          "url": "https://music.youtube.com/watch?v=liRMxUT8A2c"
+        },
+        {
+          "title": "Bohemian Like You",
+          "channel": "The Dandy Warhols",
+          "url": "https://music.youtube.com/watch?v=128uBheJArs"
+        },
+        {
+          "title": "Smile Like You Mean It",
+          "channel": "The Killers",
+          "url": "https://music.youtube.com/watch?v=dy3O9N479i8"
+        },
+        {
+          "title": "When I Come Around",
+          "channel": "Green Day",
+          "url": "https://music.youtube.com/watch?v=06HcqK2vvlw"
+        },
+        {
+          "title": "Maps",
+          "channel": "Yeah Yeah Yeahs",
+          "url": "https://music.youtube.com/watch?v=gYsJPGAfM98"
+        },
+        {
+          "title": "Heads Will Roll",
+          "channel": "Yeah Yeah Yeahs",
+          "url": "https://music.youtube.com/watch?v=auzfTPp4moA"
+        },
+        {
+          "title": "Under the Bridge",
+          "channel": "Red Hot Chili Peppers",
+          "url": "https://music.youtube.com/watch?v=4UnU3r0M3zg"
+        },
+        {
+          "title": "The Less I Know The Better",
+          "channel": "Tame Impala",
+          "url": "https://music.youtube.com/watch?v=PvM79DJ2PmM"
+        },
+        {
+          "title": "Roman Holiday",
+          "channel": "Fontaines D.C.",
+          "url": "https://music.youtube.com/watch?v=QgddyyWQid0"
+        },
+        {
+          "title": "Up All Night",
+          "channel": "Beck",
+          "url": "https://music.youtube.com/watch?v=0ZJ9PNtmRCs"
+        },
+        {
+          "title": "Young Folks",
+          "channel": "Peter Bjorn And John",
+          "url": "https://music.youtube.com/watch?v=tUsH87zLvAg"
+        },
+        {
+          "title": "Pogo",
+          "channel": "Digitalism",
+          "url": "https://music.youtube.com/watch?v=JUUNHisjb0s"
+        }
+      ]
+    },
+    {
+      "name": "Block of Raw",
+      "description": "Lyrical dexterity, unconventional production, and bars that demand re-listening.",
+      "tracks": [
+        {
+          "title": "Oh My Darling Don't Cry",
+          "channel": "Run The Jewels",
+          "url": "https://music.youtube.com/watch?v=T3ckToXbNQA"
+        },
+        {
+          "title": "Blockbuster Night Pt. 1",
+          "channel": "Run The Jewels",
+          "url": "https://music.youtube.com/watch?v=9CapH6H109M"
+        },
+        {
+          "title": "Intergalactic",
+          "channel": "Beastie Boys",
+          "url": "https://music.youtube.com/watch?v=qORYO0atB6g"
+        },
+        {
+          "title": "Ch-Check It Out",
+          "channel": "Beastie Boys",
+          "url": "https://music.youtube.com/watch?v=6iuGp9gUeNk"
+        },
+        {
+          "title": "So What'Cha Want (Remastered 2009)",
+          "channel": "Beastie Boys",
+          "url": "https://music.youtube.com/watch?v=yuD6enwjoLY"
+        },
+        {
+          "title": "Body Movin' (Fatboy Slim Remix)",
+          "channel": "Beastie Boys",
+          "url": "https://music.youtube.com/watch?v=0dyGK_hI90M"
+        },
+        {
+          "title": "N95",
+          "channel": "Kendrick Lamar",
+          "url": "https://music.youtube.com/watch?v=fhCkGKiP95I"
+        },
+        {
+          "title": "Not Like Us",
+          "channel": "Kendrick Lamar",
+          "url": "https://music.youtube.com/watch?v=phLb_SoPBlA"
+        },
+        {
+          "title": "Rhymes Like Dimes",
+          "channel": "MF Doom",
+          "url": "https://music.youtube.com/watch?v=5TlZeem3FU8"
+        },
+        {
+          "title": "All Caps",
+          "channel": "Madvillain",
+          "url": "https://music.youtube.com/watch?v=NPiAK33CfxQ"
+        },
+        {
+          "title": "Shadowboxin'",
+          "channel": "GZA/Genius",
+          "url": "https://music.youtube.com/watch?v=xRQ5mmVfNdY"
+        },
+        {
+          "title": "The Hop",
+          "channel": "A Tribe Called Quest",
+          "url": "https://music.youtube.com/watch?v=f1-oJnaN1Js"
+        },
+        {
+          "title": "Legend Has It",
+          "channel": "Run The Jewels",
+          "url": "https://music.youtube.com/watch?v=SXZO7KYPIOI"
+        },
+        {
+          "title": "Let's Go (The Royal We)",
+          "channel": "Run The Jewels",
+          "url": "https://music.youtube.com/watch?v=0e3EtcO5J9s"
+        },
+        {
+          "title": "No Save Point (Cyberpunk 2077)",
+          "channel": "Run The Jewels",
+          "url": "https://music.youtube.com/watch?v=2D-YUhCXKwg"
+        },
+        {
+          "title": "Babushka Boi",
+          "channel": "A$AP Rocky",
+          "url": "https://music.youtube.com/watch?v=IA1H1--5GFM"
+        },
+        {
+          "title": "The King and Eye",
+          "channel": "Czarface",
+          "url": "https://music.youtube.com/watch?v=wK6LNqH9NjM"
+        },
+        {
+          "title": "Damien's Dinner Time",
+          "channel": "Czarface",
+          "url": "https://music.youtube.com/watch?v=-zDX5iDsZPM"
+        },
+        {
+          "title": "Blast Off",
+          "channel": "Czarface",
+          "url": "https://music.youtube.com/watch?v=mmdK4aUJ1OM"
+        },
+        {
+          "title": "Figaro",
+          "channel": "Madvillain",
+          "url": "https://music.youtube.com/watch?v=I4P5RR4jPGg"
+        },
+        {
+          "title": "A.D.H.D",
+          "channel": "Kendrick Lamar",
+          "url": "https://music.youtube.com/watch?v=s4z2CE_21fA"
+        },
+        {
+          "title": "Sabotage",
+          "channel": "Beastie Boys",
+          "url": "https://music.youtube.com/watch?v=B8CD2Rco8cQ"
+        },
+        {
+          "title": "Root Down",
+          "channel": "Beastie Boys",
+          "url": "https://music.youtube.com/watch?v=p61aZpqAqkU"
+        },
+        {
+          "title": "Run The Jewels",
+          "channel": "Run The Jewels",
+          "url": "https://music.youtube.com/watch?v=13R_yTdUxsY"
+        }
+      ]
+    },
+    {
+      "name": "Tonal Glitch",
+      "description": "Warped, experimental bass music — where sound design meets dancefloor weight.",
+      "tracks": [
+        {
+          "title": "The Word Becomes Flesh",
+          "channel": "Boards of Canada",
+          "url": "https://music.youtube.com/watch?v=cDCIdAGzhG0"
+        },
+        {
+          "title": "There Is Still Time",
+          "channel": "Lorn",
+          "url": "https://music.youtube.com/watch?v=Npv-R2Iret8"
+        },
+        {
+          "title": "Diamond",
+          "channel": "Lorn",
+          "url": "https://music.youtube.com/watch?v=Y8qolwoqugU"
+        },
+        {
+          "title": "Opening The Mouth",
+          "channel": "Boards of Canada",
+          "url": "https://music.youtube.com/watch?v=BXDGUnw1pf8"
+        },
+        {
+          "title": "Avril 14th",
+          "channel": "Aphex Twin",
+          "url": "https://music.youtube.com/watch?v=uxTdTaNIUxo"
+        },
+        {
+          "title": "Olson",
+          "channel": "Boards of Canada",
+          "url": "https://music.youtube.com/watch?v=6_lzNFjqGiw"
+        },
+        {
+          "title": "Flim",
+          "channel": "Aphex Twin",
+          "url": "https://music.youtube.com/watch?v=-yNHlKAzyVA"
+        },
+        {
+          "title": "In The Annexe",
+          "channel": "Boards of Canada",
+          "url": "https://music.youtube.com/watch?v=f3cFyQRn8Ac"
+        },
+        {
+          "title": "IZ-US",
+          "channel": "Aphex Twin",
+          "url": "https://music.youtube.com/watch?v=OkqOmWyb2Ac"
+        },
+        {
+          "title": "Goto 10",
+          "channel": "Amon Tobin",
+          "url": "https://music.youtube.com/watch?v=cQmSTdm8ajg"
+        },
+        {
+          "title": "Latch",
+          "channel": "Scuba",
+          "url": "https://music.youtube.com/watch?v=Z49JUnZ_nHg"
+        },
+        {
+          "title": "Twitch (Jamie Vex'd Remix)",
+          "channel": "Scuba",
+          "url": "https://music.youtube.com/watch?v=pbdsgLfskto"
+        },
+        {
+          "title": "Ruptured (Surgeon Remix)",
+          "channel": "Scuba",
+          "url": "https://music.youtube.com/watch?v=VgrZFeVYZtQ"
+        },
+        {
+          "title": "Acid Rain",
+          "channel": "Lorn",
+          "url": "https://music.youtube.com/watch?v=IE1VwGKJgm8"
+        },
+        {
+          "title": "BLINK",
+          "channel": "Lorn",
+          "url": "https://music.youtube.com/watch?v=FdfR4rWGb3A"
+        },
+        {
+          "title": "SEGA SUNSET",
+          "channel": "Lorn",
+          "url": "https://music.youtube.com/watch?v=C2xvePQ3ejo"
+        },
+        {
+          "title": "YESTERDAY'S PAIN",
+          "channel": "Lorn",
+          "url": "https://music.youtube.com/watch?v=Kr3oCjIiDnM"
+        },
+        {
+          "title": "The Son of Flynn (TRON: Legacy)",
+          "channel": "Daft Punk",
+          "url": "https://music.youtube.com/watch?v=mqgEYRtWMJU"
+        },
+        {
+          "title": "Go",
+          "channel": "The Chemical Brothers",
+          "url": "https://music.youtube.com/watch?v=A17f8OsvuDw"
+        },
+        {
+          "title": "Gangster Trippin",
+          "channel": "Fatboy Slim",
+          "url": "https://music.youtube.com/watch?v=mJt2zQKgiMQ"
+        },
+        {
+          "title": "Weapon of Choice",
+          "channel": "Fatboy Slim",
+          "url": "https://music.youtube.com/watch?v=aw7IsHfmYmM"
+        },
+        {
+          "title": "Hypnotize (Original Mix)",
+          "channel": "Monty",
+          "url": "https://music.youtube.com/watch?v=Fg89IXzXuQk"
+        },
+        {
+          "title": "HYYTUP",
+          "channel": "Boys Noize",
+          "url": "https://music.youtube.com/watch?v=QUeCbL-lBpY"
+        },
+        {
+          "title": "Immortals",
+          "channel": "Shades",
+          "url": "https://music.youtube.com/watch?v=1U468nZDJTk"
+        },
+        {
+          "title": "Berry Patch (IMANU Remix)",
+          "channel": "Machinedrum",
+          "url": "https://music.youtube.com/watch?v=8Qd4HCT8sRQ"
+        },
+        {
+          "title": "Trunk Acid",
+          "channel": "Eprom",
+          "url": "https://music.youtube.com/watch?v=FW0HrvBk02Q"
+        },
+        {
+          "title": "Pinch - Qawwali",
+          "channel": "Pinch",
+          "url": "https://music.youtube.com/watch?v=rc85cGTlKLY"
+        },
+        {
+          "title": "Tears",
+          "channel": "Skrillex",
+          "url": "https://music.youtube.com/watch?v=lFP1svJ4fSo"
+        }
+      ]
+    },
+    {
+      "name": "Direct Drive",
+      "description": "Live sets, boiler room energy, and proper techno from your listening day.",
+      "tracks": [
+        {
+          "title": "MUTEK LIVE 394 - Speedy J",
+          "channel": "Speedy J",
+          "url": "https://www.youtube.com/watch?v=LnPkDHbBhng"
+        },
+        {
+          "title": "Planetary Assault Systems - Stone Techno 2025 - ARTE Concert",
+          "channel": "ARTE Concert",
+          "url": "https://www.youtube.com/watch?v=6xoN1Z2RXwU"
+        },
+        {
+          "title": "Oscar Mulero - Hypnotic Dark Techno Set (Boiler Room)",
+          "channel": "Techno Hypnosis",
+          "url": "https://www.youtube.com/watch?v=IfO33bFS9dM"
+        },
+        {
+          "title": "Oscar Mulero - Hypnotic Dark Techno Set (De School, ADE)",
+          "channel": "Techno Hypnosis",
+          "url": "https://www.youtube.com/watch?v=KuH47NulXrk"
+        },
+        {
+          "title": "Cristian Varela | 6 Turntables. 60 Minutes. A Vinyl Only Techno Tribute",
+          "channel": "Technics",
+          "url": "https://www.youtube.com/watch?v=1dUTCBXmLrA"
+        },
+        {
+          "title": "fabric 96 - DVS1 (2017) [Continuous Mix]",
+          "channel": "DJ Hugo Rodrigues",
+          "url": "https://www.youtube.com/watch?v=lzzjXkyJogs"
+        },
+        {
+          "title": "Rødhåd - Live at Mode Festival 2025",
+          "channel": "Mode Festival",
+          "url": "https://www.youtube.com/watch?v=ebEqQ0iEGO4"
+        },
+        {
+          "title": "Skee Mask - Stressmanagement [ISS011]",
+          "channel": "Acidalia",
+          "url": "https://www.youtube.com/watch?v=UqxPdyuNkpc"
+        },
+        {
+          "title": "Skee Mask - Resort",
+          "channel": "C:\\",
+          "url": "https://www.youtube.com/watch?v=kbC6hSzv13I"
+        },
+        {
+          "title": "Skee Mask @TheLotRadio 05-20-2024",
+          "channel": "The Lot Radio",
+          "url": "https://www.youtube.com/watch?v=c6I_zvhZN-Y"
+        },
+        {
+          "title": "Mix 62: Skee Mask - Works 2014-2022",
+          "channel": "TheDaddyO44",
+          "url": "https://www.youtube.com/watch?v=w8-CY7fCoTo"
+        },
+        {
+          "title": "Mix 85: Skee Mask 2 - Works 2022-2025",
+          "channel": "TheDaddyO44",
+          "url": "https://www.youtube.com/watch?v=nEe_00AoS6E"
+        },
+        {
+          "title": "Best of 2026 Techno (So Far)",
+          "channel": "Sebastiaan Hooft",
+          "url": "https://www.youtube.com/watch?v=Z20UGbOMuco"
+        },
+        {
+          "title": "Scuba (D:U:LIVE) | HÖR - July 11 / 2024",
+          "channel": "HÖR BERLIN",
+          "url": "https://www.youtube.com/watch?v=x5hh9PMQ0w0"
+        },
+        {
+          "title": "SCB aka SCUBA | HÖR - Feb 12 / 2022",
+          "channel": "HÖR BERLIN",
+          "url": "https://www.youtube.com/watch?v=5dubO7O0Xj4"
+        }
+      ]
+    }
+  ]
+}

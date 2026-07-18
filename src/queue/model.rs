@@ -14,6 +14,21 @@ pub enum RepeatMode {
     Queue,
 }
 
+/// Structural error found while validating queue indices and selection.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum QueueValidationError {
+    #[error("play order has {order_len} entries for {track_len} tracks")]
+    OrderLength { order_len: usize, track_len: usize },
+    #[error("play-order index {index} is outside {track_len} tracks")]
+    OrderIndex { index: usize, track_len: usize },
+    #[error("play-order index {0} occurs more than once")]
+    DuplicateOrderIndex(usize),
+    #[error("queue position {position} is outside {order_len} play-order entries")]
+    Position { position: usize, order_len: usize },
+    #[error("play-history position {position} is outside {order_len} play-order entries")]
+    PlayHistory { position: usize, order_len: usize },
+}
+
 impl RepeatMode {
     /// Cycle to the next mode: Off -> Track -> Queue -> Off.
     pub fn next(self) -> Self {
@@ -46,6 +61,50 @@ pub struct Queue {
 }
 
 impl Queue {
+    /// Validate all cross-field queue invariants before runtime use.
+    pub fn validate(&self) -> Result<(), QueueValidationError> {
+        if self.order.len() != self.tracks.len() {
+            return Err(QueueValidationError::OrderLength {
+                order_len: self.order.len(),
+                track_len: self.tracks.len(),
+            });
+        }
+
+        let mut seen = vec![false; self.tracks.len()];
+        for &index in &self.order {
+            let Some(slot) = seen.get_mut(index) else {
+                return Err(QueueValidationError::OrderIndex {
+                    index,
+                    track_len: self.tracks.len(),
+                });
+            };
+            if *slot {
+                return Err(QueueValidationError::DuplicateOrderIndex(index));
+            }
+            *slot = true;
+        }
+
+        if let Some(position) = self.position
+            && position >= self.order.len()
+        {
+            return Err(QueueValidationError::Position {
+                position,
+                order_len: self.order.len(),
+            });
+        }
+        if let Some(&position) = self
+            .play_history
+            .iter()
+            .find(|&&position| position >= self.order.len())
+        {
+            return Err(QueueValidationError::PlayHistory {
+                position,
+                order_len: self.order.len(),
+            });
+        }
+        Ok(())
+    }
+
     /// Append a track to the end of the queue.
     pub fn push(&mut self, track: Track) {
         self.tracks.push(track);
@@ -61,19 +120,51 @@ impl Queue {
             .insert(insert_at.min(self.order.len()), track_index);
     }
 
+    /// Insert a track at a play-order position.
+    pub fn insert_at(&mut self, position: usize, track: Track) {
+        let track_index = self.tracks.len();
+        self.tracks.push(track);
+        self.order
+            .insert(position.min(self.order.len()), track_index);
+        if let Some(current) = &mut self.position
+            && *current >= position
+        {
+            *current += 1;
+        }
+        for history_position in &mut self.play_history {
+            if *history_position >= position {
+                *history_position += 1;
+            }
+        }
+    }
+
     /// Remove the track at play-order position `pos`.
     pub fn remove_at(&mut self, pos: usize) -> Option<Track> {
         if pos >= self.order.len() {
             return None;
         }
         let track_index = self.order.remove(pos);
-        self.play_history.retain(|&p| p != pos);
+        let track = self.tracks.remove(track_index);
+        for index in &mut self.order {
+            if *index > track_index {
+                *index -= 1;
+            }
+        }
+        self.play_history = self
+            .play_history
+            .iter()
+            .filter_map(|&history_pos| match history_pos.cmp(&pos) {
+                std::cmp::Ordering::Less => Some(history_pos),
+                std::cmp::Ordering::Equal => None,
+                std::cmp::Ordering::Greater => Some(history_pos - 1),
+            })
+            .collect();
         self.position = match self.position {
             Some(p) if p == pos => None,
             Some(p) if p > pos => Some(p - 1),
             other => other,
         };
-        Some(self.tracks[track_index].clone())
+        Some(track)
     }
 
     /// Move the item at play-order position `from` to position `to`.
@@ -107,7 +198,9 @@ impl Queue {
     /// The track currently selected, if any.
     pub fn current(&self) -> Option<&Track> {
         let pos = self.position?;
-        self.order.get(pos).map(|&i| &self.tracks[i])
+        self.order
+            .get(pos)
+            .and_then(|&index| self.tracks.get(index))
     }
 
     /// Replace contents with `tracks`, preserving order (identity order).
@@ -289,5 +382,69 @@ mod tests {
         let ids: Vec<&str> = q.order.iter().map(|&i| q.tracks[i].id.as_str()).collect();
         assert_eq!(ids, vec!["a", "b", "c", "d"]);
         assert_eq!(q.current().expect("current").id, current);
+    }
+
+    #[test]
+    fn validation_rejects_out_of_range_order_index() {
+        let mut q = queue_with(&["a"]);
+        q.order = vec![99];
+
+        assert!(q.validate().is_err());
+    }
+
+    #[test]
+    fn validation_rejects_duplicate_order_index() {
+        let mut q = queue_with(&["a", "b"]);
+        q.order = vec![0, 0];
+
+        assert!(q.validate().is_err());
+    }
+
+    #[test]
+    fn validation_rejects_order_that_omits_tracks() {
+        let mut q = queue_with(&["a", "b"]);
+        q.order = vec![1];
+
+        assert!(q.validate().is_err());
+    }
+
+    #[test]
+    fn validation_rejects_position_outside_order() {
+        let mut q = queue_with(&["a"]);
+        q.position = Some(1);
+
+        assert!(q.validate().is_err());
+    }
+
+    #[test]
+    fn validation_accepts_complete_shuffled_order() {
+        let mut q = queue_with(&["a", "b", "c"]);
+        q.order = vec![2, 0, 1];
+        q.position = Some(1);
+
+        assert!(q.validate().is_ok());
+    }
+
+    #[test]
+    fn remove_deletes_track_and_preserves_valid_indices() {
+        let mut q = queue_with(&["a", "b", "c"]);
+        q.order = vec![2, 0, 1];
+        q.position = Some(1);
+        q.play_history = vec![0, 2];
+
+        let removed = q.remove_at(1).expect("removed track");
+
+        assert_eq!(removed.id, "a");
+        assert_eq!(
+            q.tracks
+                .iter()
+                .map(|track| track.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["b", "c"]
+        );
+        assert_eq!(q.order, vec![1, 0]);
+        assert_eq!(q.position, None);
+        assert_eq!(q.play_history, vec![0, 1]);
+        assert!(q.validate().is_ok());
     }
 }
