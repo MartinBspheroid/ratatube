@@ -93,6 +93,85 @@ git add src/media/mod.rs src/media/yt_dlp.rs src/playlists/model.rs tests/yt_dlp
 git commit -m "feat: preserve track channel identity"
 ```
 
+### Task 2A: Split the Legacy Application Core by Responsibility
+
+**Files:**
+- Modify: `src/app/action.rs`
+- Create: `src/app/actions/mod.rs`
+- Create: `src/app/actions/navigation.rs`
+- Create: `src/app/actions/playback.rs`
+- Create: `src/app/actions/queue.rs`
+- Create: `src/app/actions/playlists.rs`
+- Create: `src/app/actions/history.rs`
+- Modify: `src/app/state.rs`
+- Create: `src/app/state/navigation.rs`
+- Create: `src/app/state/notifications.rs`
+- Create: `src/app/state/operations.rs`
+- Create: `src/app/state/modals.rs`
+- Create: `src/app/state/app_state.rs`
+- Create: `src/app/state/selection.rs`
+- Modify and split by responsibility: `src/app/mod.rs` and focused sibling modules under `src/app/`
+- Modify: all action construction and matching call sites under `src/` and `tests/`
+
+**Interfaces:**
+- Produces: nested domain actions under the facade `Action` enum, including `NavigationAction`, `PlaybackAction`, `QueueAction`, `PlaylistAction`, and `HistoryAction`.
+- Preserves: public `App` construction, startup, runtime, playback, persistence, and rendering behavior.
+- Produces: focused application orchestration and state files, each at most 250 lines.
+
+- [ ] **Step 1: Add compile-time action-category tests and capture the RED state**
+
+Add tests constructing one representative nested action per domain, then run `cargo test --locked app::actions`. Expected: compilation fails because the nested action facade does not exist.
+
+- [ ] **Step 2: Introduce nested domain action enums and migrate every call site**
+
+Use a small facade shape:
+
+```rust
+pub enum Action {
+    Navigation(NavigationAction),
+    Playback(PlaybackAction),
+    Queue(QueueAction),
+    Playlists(PlaylistAction),
+    History(HistoryAction),
+}
+```
+
+Move existing variants without changing payload semantics. Update reducers, keymaps, runtime channels, tests, and action producers to use their domain wrapper. Do not retain duplicate legacy variants.
+
+- [ ] **Step 3: Split state into focused modules with facade re-exports**
+
+Move navigation, notification/timer, operation lifecycle, modal, main state, and selection helpers into the paths listed above. Preserve existing public type names through `pub use` from `src/app/state.rs`.
+
+- [ ] **Step 4: Split application orchestration by responsibility**
+
+Keep `src/app/mod.rs` as the facade containing module declarations, shared private types, `StartupIntent`, and `App` fields. Move lifecycle, runtime, input, dispatch, service-action handling, selection, playlist helpers, background work, playback/session bookkeeping, thumbnails, browser helpers, and tests into focused sibling modules. Use `pub(super)` only where sibling modules require access.
+
+- [ ] **Step 5: Enforce the structural gate**
+
+Run: `find src/app -name '*.rs' -type f -print0 | xargs -0 wc -l | awk '$1 > 250 { print; failed=1 } END { exit failed }'`
+
+Expected: no application Rust file exceeds 250 lines.
+
+- [ ] **Step 6: Run behavior-preservation gates**
+
+Run:
+
+```bash
+cargo fmt --all -- --check
+cargo test --locked
+cargo clippy --locked --all-targets -- -D warnings
+git diff --check
+```
+
+Expected: all existing tests pass unchanged except for mechanical nested-action syntax updates; three live-network tests remain ignored.
+
+- [ ] **Step 7: Commit the prerequisite migration**
+
+```bash
+git add src/app src/input src/ui src/main.rs tests
+git commit -m "refactor: split application actions and orchestration"
+```
+
 ### Task 2: Build the Universal Track Context Resolver
 
 **Files:**
