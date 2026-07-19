@@ -38,7 +38,11 @@ async fn cancellation_kills_and_reaps_started_child_before_returning() {
     let cancellation = CancellationToken::new();
     let cancel = cancellation.clone();
     tokio::spawn(async move {
-        while !pid_path.exists() {
+        while fs::read_to_string(&pid_path)
+            .ok()
+            .and_then(|contents| contents.trim().parse::<u32>().ok())
+            .is_none()
+        {
             tokio::task::yield_now().await;
         }
         cancel.cancel();
