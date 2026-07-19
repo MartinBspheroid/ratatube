@@ -8,6 +8,11 @@ pub enum QueueAction {
     AddToQueue(Track),
     AddNext(Track),
     RemoveSelectedFromQueue,
+    /// Remove one captured play-order occurrence if its track still matches.
+    RemoveTrackOccurrence {
+        order_index: usize,
+        expected_track: Track,
+    },
     /// Restore the most recently removed queue item.
     UndoQueueRemoval,
     /// Move the selected queue item up (-1) or down (+1) in play order.

@@ -16,6 +16,7 @@ impl App {
     ) {
         match action {
             NavigationAction::OpenTrackContext => self.open_track_context(),
+            NavigationAction::SubmitTrackContext => self.submit_track_context(action_tx).await,
             NavigationAction::OpenInBrowser => {
                 let track = match self.state.view {
                     View::Search => self.resolve_selected_track(),

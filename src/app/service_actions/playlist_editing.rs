@@ -17,6 +17,13 @@ impl App {
                     });
                 }
             }
+            PlaylistAction::OpenPlaylistPickerForTrack(track) => {
+                self.state.picker = Some(crate::app::state::PickerState {
+                    track,
+                    filter: String::new(),
+                    selected: 0,
+                });
+            }
             PlaylistAction::PickerSubmit => self.submit_picker().await,
             PlaylistAction::RemoveSelectedFromPlaylist => {
                 if self.state.view != View::PlaylistDetail {
@@ -39,6 +46,46 @@ impl App {
                 match self.playlists.save(&snapshot) {
                     Ok(()) => self.state.notify("Removed from playlist", false),
                     Err(err) => self.state.notify(&format!("Save failed: {err}"), true),
+                }
+                self.state.clamp_selection();
+            }
+            PlaylistAction::RemoveTrackOccurrence {
+                playlist_id,
+                track_index,
+                expected_track,
+            } => {
+                let Some(playlist_index) = self
+                    .state
+                    .playlists
+                    .iter()
+                    .position(|playlist| playlist.id == playlist_id)
+                else {
+                    self.state
+                        .notify("Playlist changed; removal cancelled", true);
+                    return;
+                };
+                let still_matches = self.state.playlists[playlist_index]
+                    .tracks
+                    .get(track_index)
+                    .map(crate::media::Track::from)
+                    .as_ref()
+                    == Some(&expected_track);
+                if !still_matches {
+                    self.state
+                        .notify("Playlist changed; removal cancelled", true);
+                    return;
+                }
+                let previous = self.state.playlists[playlist_index].clone();
+                let playlist = &mut self.state.playlists[playlist_index];
+                playlist.tracks.remove(track_index);
+                playlist.updated_at = chrono::Utc::now();
+                let snapshot = playlist.clone();
+                match self.playlists.save(&snapshot) {
+                    Ok(()) => self.state.notify("Removed from playlist", false),
+                    Err(error) => {
+                        self.state.playlists[playlist_index] = previous;
+                        self.state.notify(&format!("Save failed: {error}"), true);
+                    }
                 }
                 self.state.clamp_selection();
             }

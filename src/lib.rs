@@ -12,6 +12,7 @@ pub mod history;
 pub mod input;
 pub mod media;
 pub mod persistence;
+pub mod platform;
 pub mod playback;
 pub mod playlists;
 pub mod process;

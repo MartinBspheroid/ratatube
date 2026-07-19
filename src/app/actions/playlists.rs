@@ -57,6 +57,8 @@ pub enum PlaylistAction {
     ConfirmYes,
     ConfirmNo,
     OpenPlaylistPicker,
+    /// Open the picker for a stable context-menu track.
+    OpenPlaylistPickerForTrack(Track),
     PickerInput(char),
     PickerBackspace,
     PickerNext,
@@ -66,6 +68,12 @@ pub enum PlaylistAction {
     PickerSubmit,
     PickerCancel,
     RemoveSelectedFromPlaylist,
+    /// Remove one captured playlist occurrence if its track still matches.
+    RemoveTrackOccurrence {
+        playlist_id: String,
+        track_index: usize,
+        expected_track: Track,
+    },
     /// Move the selected playlist track up (-1) or down (+1).
     MoveSelectedInPlaylist(i32),
 }

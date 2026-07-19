@@ -14,8 +14,10 @@ impl App {
     ) {
         match action {
             action @ (PlaylistAction::OpenPlaylistPicker
+            | PlaylistAction::OpenPlaylistPickerForTrack(_)
             | PlaylistAction::PickerSubmit
             | PlaylistAction::RemoveSelectedFromPlaylist
+            | PlaylistAction::RemoveTrackOccurrence { .. }
             | PlaylistAction::PlaylistEditorSubmit
             | PlaylistAction::MoveSelectedInPlaylist(_)) => {
                 self.handle_playlist_editing(action).await;

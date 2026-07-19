@@ -1,11 +1,12 @@
 use tokio::sync::mpsc;
 
 use super::track;
-use crate::app::action::{Action, NavigationAction};
+use crate::app::action::{Action, NavigationAction, PlaybackAction};
 use crate::app::state::{AppState, TrackContextMenuState, View};
 use crate::app::tests::test_app;
 use crate::app::track_context::{TrackSource, open_track_context, resolve_track_context};
 use crate::media::search::SearchState;
+use crate::playback::PlaybackStatus;
 
 #[test]
 fn opening_without_a_track_notifies_exact_error_and_keeps_modal_absent() {
@@ -27,7 +28,7 @@ async fn nested_navigation_intents_open_move_submit_and_close_modal() {
         query: "intent".to_string(),
         tracks: vec![track("intent", "Intent track")],
     };
-    let (action_tx, _action_rx) = mpsc::channel(4);
+    let (action_tx, mut action_rx) = mpsc::channel(4);
 
     app.handle_action(
         Action::Navigation(NavigationAction::OpenTrackContext),
@@ -51,12 +52,26 @@ async fn nested_navigation_intents_open_move_submit_and_close_modal() {
     assert_eq!(menu.selected, menu.context.actions.len() - 1);
 
     app.handle_action(
+        Action::Navigation(NavigationAction::MoveTrackContext(1)),
+        &action_tx,
+    )
+    .await;
+    app.handle_action(
         Action::Navigation(NavigationAction::SubmitTrackContext),
         &action_tx,
     )
     .await;
-    assert!(app.state.track_context_menu.is_some());
+    assert!(app.state.track_context_menu.is_none());
+    assert!(matches!(
+        action_rx.try_recv(),
+        Ok(Action::Playback(PlaybackAction::PlayTrack(track))) if track.id == "intent"
+    ));
 
+    app.handle_action(
+        Action::Navigation(NavigationAction::OpenTrackContext),
+        &action_tx,
+    )
+    .await;
     app.handle_action(
         Action::Navigation(NavigationAction::CloseTrackContext),
         &action_tx,
@@ -126,4 +141,49 @@ fn modal_state_stores_resolved_context_and_selection() {
 
     assert_eq!(menu.selected, 0);
     assert_eq!(menu.context.source, TrackSource::Search);
+}
+
+#[test]
+fn selected_track_details_reuse_metadata_only_for_the_current_track() {
+    let mut state = AppState::new();
+    let current = track("current", "Current track");
+    state.current_track = Some(current.clone());
+    state.current_details = Some(crate::media::TrackDetails {
+        view_count: Some(42),
+        ..crate::media::TrackDetails::default()
+    });
+    state.playback.status = PlaybackStatus::Playing;
+
+    crate::app::reducer::reduce(
+        &mut state,
+        Action::Navigation(NavigationAction::ShowTrackDetails(track(
+            "selected",
+            "Selected track",
+        ))),
+    );
+
+    let modal = state.track_details_modal.as_ref().expect("details modal");
+    assert_eq!(modal.track.id, "selected");
+    assert!(modal.details.is_none());
+    assert_eq!(
+        state
+            .current_details
+            .as_ref()
+            .and_then(|details| details.view_count),
+        Some(42)
+    );
+    assert_eq!(state.playback.status, PlaybackStatus::Playing);
+
+    crate::app::reducer::reduce(
+        &mut state,
+        Action::Navigation(NavigationAction::ShowTrackDetails(current)),
+    );
+    assert_eq!(
+        state
+            .track_details_modal
+            .as_ref()
+            .and_then(|modal| modal.details.as_ref())
+            .and_then(|details| details.view_count),
+        Some(42)
+    );
 }

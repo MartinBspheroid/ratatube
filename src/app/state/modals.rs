@@ -9,6 +9,15 @@ pub struct TrackContextMenuState {
     pub selected: usize,
 }
 
+/// Selected-track details independent from the current playback track.
+#[derive(Debug, Clone)]
+pub struct TrackDetailsModalState {
+    /// Stable track captured by the context menu.
+    pub track: crate::media::Track,
+    /// Existing extended details only when they belong to this exact track.
+    pub details: Option<crate::media::TrackDetails>,
+}
+
 /// State of the add-to-playlist picker modal.
 #[derive(Debug, Clone)]
 pub struct PickerState {

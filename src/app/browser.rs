@@ -5,29 +5,15 @@ pub(super) fn open_browser(url: &str) -> std::io::Result<()> {
     if !is_allowed_browser_url(url) {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            "only YouTube HTTP(S) URLs are allowed",
+            "only HTTPS YouTube video URLs are allowed",
         ));
     }
     browser_command(url).spawn().map(|_| ())
 }
 
-/// Return whether a URL is HTTP(S) and targets an allow-listed YouTube host.
+/// Return whether a URL is a validated HTTPS YouTube video URL.
 pub(super) fn is_allowed_browser_url(url: &str) -> bool {
-    let Some(remainder) = url
-        .strip_prefix("https://")
-        .or_else(|| url.strip_prefix("http://"))
-    else {
-        return false;
-    };
-    let authority = remainder.split('/').next().unwrap_or_default();
-    if authority.contains('@') {
-        return false;
-    }
-    let host = authority.split(':').next().unwrap_or_default();
-    matches!(
-        host,
-        "youtube.com" | "www.youtube.com" | "music.youtube.com" | "youtu.be"
-    )
+    crate::platform::is_safe_youtube_video_url(url)
 }
 
 #[cfg(target_os = "macos")]

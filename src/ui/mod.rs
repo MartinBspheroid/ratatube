@@ -2,11 +2,16 @@
 
 pub mod activity;
 pub mod components;
+pub mod context_menu;
 pub mod icons;
 pub mod layout;
 pub mod theme;
 pub mod views;
 pub mod widgets;
+
+mod overlay_playlists;
+mod overlay_status;
+mod overlays;
 
 use ratatui::DefaultTerminal;
 use ratatui::text::{Line, Span};
@@ -39,7 +44,7 @@ where
     B: ratatui::backend::Backend,
     B::Error: std::fmt::Display,
 {
-    let icons = icons::icons_for(state_icon_mode(state));
+    let icons = icons::icons_for(state.icon_mode);
     let theme = theme::Theme::default();
     terminal
         .draw(|frame| {
@@ -64,8 +69,7 @@ where
                 );
                 return;
             }
-            let has_bar = state.has_now_playing();
-            let regions = AppLayout::new(area, has_bar, true);
+            let regions = AppLayout::new(area, state.has_now_playing(), true);
             widgets::render_header(frame, regions.header, state, &icons, &theme);
             views::render_main(frame, regions.main, state, history, &icons, &theme);
             widgets::render_now_playing(frame, regions.now_playing, state, &icons, &theme);
@@ -92,6 +96,9 @@ where
                 frame.render_widget(Paragraph::new(note), note_area);
             }
 
+            // Modal content stays below notifications so operation failures
+            // remain visible while the context menu is open.
+            overlays::render(frame, regions.main, state, &icons, &theme);
             if let Some(notification) = &state.notification {
                 let style = if notification.is_error {
                     theme.error
@@ -106,305 +113,9 @@ where
                     regions.header,
                 );
             }
-
-            render_overlays(frame, regions.main, state, &icons, &theme);
         })
-        .map_err(|e| crate::error::AppError::Config(format!("render failed: {e}")))?;
+        .map_err(|error| crate::error::AppError::Config(format!("render failed: {error}")))?;
     Ok(())
-}
-
-/// Render modal overlays on top of the main area: import progress/review,
-/// text prompts, and confirmation dialogs.
-fn render_overlays(
-    frame: &mut ratatui::Frame,
-    area: ratatui::layout::Rect,
-    state: &AppState,
-    icon_set: &icons::Icons,
-    theme: &theme::Theme,
-) {
-    use crate::app::state::ImportState;
-    use ratatui::text::Line;
-    use ratatui::widgets::{Block, BorderType, Clear, Paragraph};
-
-    let modal_area = centered_rect(area, 64, 18);
-    let modal_block = |title: &str| {
-        Block::bordered()
-            .border_type(BorderType::Rounded)
-            .border_style(theme.border_active)
-            .title(format!(" {title} "))
-    };
-
-    if state.show_notification_log {
-        let height = (state.notification_log.len() as u16 + 3).clamp(5, area.height);
-        let log_area = centered_rect(area, 76, height);
-        let mut lines: Vec<Line> = state
-            .notification_log
-            .iter()
-            .take(height.saturating_sub(3) as usize)
-            .map(|n| {
-                Line::from(vec![
-                    Span::styled(n.created_at.format("%H:%M:%S ").to_string(), theme.dim),
-                    Span::styled(
-                        if n.is_error { "ERROR " } else { "INFO  " },
-                        if n.is_error { theme.error } else { theme.dim },
-                    ),
-                    Span::styled(
-                        icons::sanitize_terminal_text(&n.message),
-                        if n.is_error { theme.error } else { theme.base },
-                    ),
-                ])
-            })
-            .collect();
-        if lines.is_empty() {
-            lines.push(Line::from(Span::styled("No messages yet", theme.dim)));
-        }
-        lines.push(Line::from(Span::styled("Esc close", theme.dim)));
-        frame.render_widget(Clear, log_area);
-        frame.render_widget(
-            Paragraph::new(lines).block(modal_block("Messages (newest first)")),
-            log_area,
-        );
-        return;
-    }
-
-    if let Some(import) = &state.import {
-        let lines: Vec<Line> = match import {
-            ImportState::Fetching { url, .. } => vec![
-                Line::from(""),
-                Line::from(vec![
-                    Span::styled(
-                        format!("{} ", widgets::spinner(state.spinner_frame)),
-                        theme.accent,
-                    ),
-                    Span::raw("Importing playlist..."),
-                ]),
-                Line::from(Span::styled(icons::sanitize_terminal_text(url), theme.dim)),
-            ],
-            ImportState::Review { summary, playlist } => vec![
-                Line::from(Span::styled(
-                    format!("\"{}\"", sanitize(&summary.remote_title)),
-                    theme.header,
-                )),
-                Line::from(""),
-                Line::from(format!("Total entries:     {}", summary.total_entries)),
-                Line::from(vec![
-                    Span::raw("Imported:          "),
-                    Span::styled(format!("{}", summary.imported), theme.playing),
-                ]),
-                Line::from(vec![
-                    Span::raw("Deleted:           "),
-                    Span::styled(format!("{}", summary.deleted), theme.warning),
-                ]),
-                Line::from(vec![
-                    Span::raw("Private:           "),
-                    Span::styled(format!("{}", summary.private), theme.warning),
-                ]),
-                Line::from(vec![
-                    Span::raw("Unavailable:       "),
-                    Span::styled(format!("{}", summary.unavailable), theme.warning),
-                ]),
-                Line::from(format!("Duplicates:        {}", summary.duplicates)),
-                Line::from(format!("Missing ID:        {}", summary.missing_id)),
-                Line::from(format!("Missing title:     {}", summary.missing_title)),
-                Line::from(""),
-                Line::from(format!("Save as: {}", sanitize(&playlist.name))),
-                Line::from(""),
-                Line::from(vec![
-                    Span::styled(" Enter ", theme.key_chip),
-                    Span::styled("save    ", theme.dim),
-                    Span::styled(" Esc ", theme.key_chip),
-                    Span::styled("cancel", theme.dim),
-                ]),
-            ],
-            ImportState::Failed { url, message } => vec![
-                Line::from("Import failed"),
-                Line::from(url.clone()),
-                Line::from(message.clone()),
-                Line::from("Press Esc to close, then retry from Playlists."),
-            ],
-        };
-        frame.render_widget(Clear, modal_area);
-        frame.render_widget(
-            Paragraph::new(lines).block(modal_block("Import playlist")),
-            modal_area,
-        );
-        return;
-    }
-
-    if let Some(prompt) = &state.prompt {
-        let title = match prompt.purpose {
-            crate::app::state::PromptPurpose::SaveQueueAsPlaylist => "Save queue as playlist",
-            crate::app::state::PromptPurpose::RenamePlaylist => "Rename playlist",
-            crate::app::state::PromptPurpose::ImportPlaylistUrl => "Import playlist URL",
-            crate::app::state::PromptPurpose::ImportPlaylistJson => "Paste playlist JSON",
-            crate::app::state::PromptPurpose::NewPlaylist => "New playlist name",
-        };
-        let json_prompt = prompt.purpose == crate::app::state::PromptPurpose::ImportPlaylistJson;
-        let prompt_area = if json_prompt {
-            centered_rect(area, 76, 18)
-        } else {
-            centered_rect(area, 56, 5)
-        };
-        frame.render_widget(Clear, prompt_area);
-        if json_prompt {
-            let preview = sanitize(&prompt.buffer);
-            let content = Paragraph::new(preview)
-                .wrap(ratatui::widgets::Wrap { trim: false })
-                .block(modal_block(title).title_bottom(Line::from(vec![
-                    Span::styled(" Enter ", theme.key_chip),
-                    Span::styled("import  ", theme.dim),
-                    Span::styled(" Esc ", theme.key_chip),
-                    Span::styled("cancel", theme.dim),
-                ])));
-            frame.render_widget(content, prompt_area);
-        } else {
-            let line = Line::from(vec![
-                Span::raw(sanitize(&prompt.buffer)),
-                Span::styled(icon_set.section_bar, theme.accent),
-            ]);
-            frame.render_widget(Paragraph::new(line).block(modal_block(title)), prompt_area);
-        }
-        return;
-    }
-
-    if let Some(editor) = &state.playlist_editor {
-        use crate::app::state::PlaylistEditorField;
-        let editor_area = centered_rect(area, 72, 14);
-        let inner = editor_area.inner(ratatui::layout::Margin::new(2, 2));
-        let fields = ratatui::layout::Layout::vertical([
-            ratatui::layout::Constraint::Length(3),
-            ratatui::layout::Constraint::Length(3),
-            ratatui::layout::Constraint::Length(1),
-        ])
-        .spacing(1)
-        .split(inner);
-        let field_block = |title: &str, active: bool| {
-            Block::bordered()
-                .title(format!(" {title} "))
-                .border_style(if active { theme.accent } else { theme.border })
-                .style(if active { theme.selected } else { theme.base })
-        };
-        frame.render_widget(Clear, editor_area);
-        frame.render_widget(modal_block("Edit playlist"), editor_area);
-        frame.render_widget(
-            Paragraph::new(sanitize(&editor.name)).block(field_block(
-                "Name",
-                editor.field == PlaylistEditorField::Name,
-            )),
-            fields[0],
-        );
-        frame.render_widget(
-            Paragraph::new(sanitize(&editor.description)).block(field_block(
-                "Description",
-                editor.field == PlaylistEditorField::Description,
-            )),
-            fields[1],
-        );
-        frame.render_widget(
-            Paragraph::new(Line::from(vec![
-                Span::styled(" Tab ", theme.key_chip),
-                Span::styled("next field  ", theme.dim),
-                Span::styled(" Enter ", theme.key_chip),
-                Span::styled("save  ", theme.dim),
-                Span::styled(" Esc ", theme.key_chip),
-                Span::styled("cancel", theme.dim),
-            ])),
-            fields[2],
-        );
-        return;
-    }
-
-    if let Some(picker) = &state.picker {
-        let (create_new, matching) =
-            crate::app::filter::picker_candidates(&state.playlists, &picker.filter);
-        let mut lines: Vec<Line> = vec![Line::from(vec![
-            Span::styled("> ", theme.accent),
-            Span::raw(icons::sanitize_terminal_text(&picker.filter)),
-            Span::styled(icon_set.section_bar, theme.accent),
-        ])];
-        let mut row = 0usize;
-        let mut push_candidate = |label: Vec<Span<'static>>, selected: bool| {
-            let mut spans = vec![Span::styled(
-                if selected { icon_set.play_btn } else { "  " },
-                theme.accent,
-            )];
-            spans.extend(label);
-            let line = Line::from(spans);
-            lines.push(if selected {
-                line.style(theme.selected)
-            } else {
-                line
-            });
-        };
-        if create_new {
-            push_candidate(
-                vec![Span::styled(
-                    format!("＋ New playlist \"{}\"", picker.filter.trim()),
-                    theme.playing,
-                )],
-                picker.selected == row,
-            );
-            row += 1;
-        }
-        for &i in matching.iter().take(9) {
-            if let Some(playlist) = state.playlists.get(i) {
-                push_candidate(
-                    vec![
-                        Span::styled(icons::sanitize_terminal_text(&playlist.name), theme.base),
-                        Span::styled(format!("  ({})", playlist.tracks.len()), theme.dim),
-                    ],
-                    picker.selected == row,
-                );
-                row += 1;
-            }
-        }
-        if row == 0 {
-            lines.push(Line::from(Span::styled(
-                "No matching playlists — type a name to create one",
-                theme.dim,
-            )));
-        }
-        lines.push(Line::from(""));
-        lines.push(Line::from(vec![
-            Span::styled(" Enter ", theme.key_chip),
-            Span::styled("add   ", theme.dim),
-            Span::styled(" ↑/↓ ", theme.key_chip),
-            Span::styled("choose   ", theme.dim),
-            Span::styled(" Esc ", theme.key_chip),
-            Span::styled("cancel", theme.dim),
-        ]));
-        let height = (lines.len() as u16 + 2).min(area.height);
-        let picker_area = centered_rect(area, 56, height);
-        frame.render_widget(Clear, picker_area);
-        frame.render_widget(
-            Paragraph::new(lines).block(modal_block("Add to playlist")),
-            picker_area,
-        );
-        return;
-    }
-
-    if let Some(confirm) = &state.confirm {
-        let confirm_area = centered_rect(area, 50, 5);
-        frame.render_widget(Clear, confirm_area);
-        frame.render_widget(
-            Paragraph::new(vec![
-                Line::from(sanitize(&confirm.message)),
-                Line::from(""),
-                Line::from(vec![
-                    Span::styled(" y ", theme.key_chip),
-                    Span::styled("yes   ", theme.dim),
-                    Span::styled(" n ", theme.key_chip),
-                    Span::styled("no", theme.dim),
-                ]),
-            ])
-            .block(modal_block("Confirm")),
-            confirm_area,
-        );
-    }
-}
-
-fn sanitize(input: &str) -> String {
-    icons::sanitize_terminal_text(input)
 }
 
 /// Center a modal of `width`/`height` within `area`.
@@ -413,16 +124,12 @@ pub(crate) fn centered_rect(
     width: u16,
     height: u16,
 ) -> ratatui::layout::Rect {
-    let w = width.min(area.width);
-    let h = height.min(area.height);
+    let width = width.min(area.width);
+    let height = height.min(area.height);
     ratatui::layout::Rect {
-        x: area.x + area.width.saturating_sub(w) / 2,
-        y: area.y + area.height.saturating_sub(h) / 2,
-        width: w,
-        height: h,
+        x: area.x + area.width.saturating_sub(width) / 2,
+        y: area.y + area.height.saturating_sub(height) / 2,
+        width,
+        height,
     }
-}
-
-fn state_icon_mode(state: &AppState) -> crate::config::IconMode {
-    state.icon_mode
 }

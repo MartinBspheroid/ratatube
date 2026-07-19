@@ -44,6 +44,12 @@ pub enum NavigationAction {
     MoveTrackContext(i32),
     /// Submit the selected menu action; Task 3 owns execution.
     SubmitTrackContext,
+    /// Carry the selected track to Task 5 channel metadata resolution.
+    VisitChannel(Track),
+    /// Show details for the selected track without changing playback ownership.
+    ShowTrackDetails(Track),
+    /// Close the selected-track details modal.
+    CloseTrackDetails,
     SelectNext,
     SelectPrevious,
 }

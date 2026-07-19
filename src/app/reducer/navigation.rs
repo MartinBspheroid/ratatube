@@ -8,11 +8,13 @@ use crate::media::search::SearchState;
 /// Reduce navigation-domain state transitions.
 pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effect> {
     if matches!(
-        action,
+        &action,
         NavigationAction::OpenTrackContext
             | NavigationAction::CloseTrackContext
             | NavigationAction::MoveTrackContext(_)
             | NavigationAction::SubmitTrackContext
+            | NavigationAction::ShowTrackDetails(_)
+            | NavigationAction::CloseTrackDetails
     ) {
         return super::track_context::reduce(state, action);
     }
@@ -93,6 +95,8 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
         // Resolved by the app layer because it needs the selected track and
         // an operating-system process boundary.
         Action::Navigation(NavigationAction::OpenInBrowser) => {}
+        // Task 5 consumes this typed intent and owns channel navigation.
+        Action::Navigation(NavigationAction::VisitChannel(_)) => {}
         Action::Navigation(NavigationAction::SubmitSearch(query)) => {
             if query.trim().is_empty() {
                 return Vec::new();

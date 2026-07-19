@@ -10,7 +10,7 @@ mod selection;
 pub use app_state::AppState;
 pub use modals::{
     ConfirmState, PickerState, PlaylistEditorField, PlaylistEditorState, PromptPurpose,
-    PromptState, TrackContextMenuState,
+    PromptState, TrackContextMenuState, TrackDetailsModalState,
 };
 pub use navigation::{Focus, HistoryViewMode, HomeSection, PlayingPane, View};
 pub use notifications::{Notification, SleepTimer};

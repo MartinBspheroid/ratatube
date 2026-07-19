@@ -22,6 +22,20 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
                 }
             }
         }
+        NavigationAction::ShowTrackDetails(track) => {
+            let details = if state
+                .current_track
+                .as_ref()
+                .is_some_and(|current| current.id == track.id)
+            {
+                state.current_details.clone()
+            } else {
+                None
+            };
+            state.track_details_modal =
+                Some(crate::app::state::TrackDetailsModalState { track, details });
+        }
+        NavigationAction::CloseTrackDetails => state.track_details_modal = None,
         // Opening needs HistoryService; Task 3 consumes submit and dispatches
         // the selected stable action through existing action domains.
         NavigationAction::OpenTrackContext | NavigationAction::SubmitTrackContext => {}

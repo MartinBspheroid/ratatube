@@ -52,6 +52,28 @@ pub(super) fn reduce(state: &mut AppState, action: QueueAction) -> Vec<Effect> {
                 return vec![Effect::PersistQueue];
             }
         }
+        Action::Queue(QueueAction::RemoveTrackOccurrence {
+            order_index,
+            expected_track,
+        }) => {
+            let still_matches = state
+                .queue
+                .order
+                .get(order_index)
+                .and_then(|track_index| state.queue.tracks.get(*track_index))
+                == Some(&expected_track);
+            if !still_matches {
+                state.notify("Queue changed; removal cancelled", true);
+                return Vec::new();
+            }
+            if let Some(track) = state.queue.remove_at(order_index) {
+                state.removed_queue_item = Some((order_index, track));
+                state.notify("Removed from queue — u to undo", false);
+                state.visible_indices = None;
+                state.clamp_selection();
+                return vec![Effect::PersistQueue];
+            }
+        }
         Action::Queue(QueueAction::UndoQueueRemoval) => {
             if let Some((position, track)) = state.removed_queue_item.take() {
                 state.queue.insert_at(position, track);

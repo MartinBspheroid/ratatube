@@ -15,6 +15,7 @@ mod effects;
 mod input;
 mod lifecycle;
 mod media_tasks;
+mod modal_input;
 mod mouse;
 mod persistence;
 mod playback_followup;
