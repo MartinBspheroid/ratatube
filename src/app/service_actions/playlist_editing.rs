@@ -5,6 +5,7 @@ use crate::app::action::PlaylistAction;
 use crate::app::state::View;
 
 impl App {
+    /// Apply picker and playlist-editor workflows that require stored playlists.
     pub(super) async fn handle_playlist_editing(&mut self, action: PlaylistAction) {
         match action {
             PlaylistAction::OpenPlaylistPicker => {

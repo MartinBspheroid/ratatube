@@ -25,6 +25,10 @@ impl ThumbnailPurpose {
 }
 
 impl App {
+    /// Fetch a YouTube thumbnail in a cancellable task.
+    ///
+    /// The deterministic `i.ytimg.com` URL is downloaded with curl to avoid an
+    /// HTTP-client dependency. Failure is silent and leaves the UI without an image.
     pub(super) fn spawn_thumbnail_fetch(
         &mut self,
         track: &Track,
@@ -97,6 +101,8 @@ impl App {
         self.operations.attach(operation_kind, operation_id, handle);
     }
 
+    /// Decode current-track thumbnail bytes into a resize protocol only while
+    /// that track is still active.
     pub(super) fn on_thumbnail_loaded(&mut self, track_id: String, bytes: Vec<u8>) {
         if self
             .state
@@ -113,6 +119,7 @@ impl App {
         }
     }
 
+    /// Start or reuse the thumbnail preview for the selected Search result.
     pub(super) fn sync_search_thumbnail(&mut self, action_tx: &mpsc::Sender<Action>) {
         if self.state.view != View::Search {
             return;
@@ -137,6 +144,7 @@ impl App {
         self.spawn_thumbnail_fetch(&track, ThumbnailPurpose::SearchSelection, action_tx);
     }
 
+    /// Decode a selected-result thumbnail only if that result is still active.
     pub(super) fn on_search_thumbnail_loaded(&mut self, track_id: String, bytes: Vec<u8>) {
         if self.state.search_thumbnail_track_id.as_deref() != Some(track_id.as_str()) {
             return;

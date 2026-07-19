@@ -9,7 +9,8 @@ pub struct PendingResume {
     pub position_seconds: f64,
     /// True once the stream URL arrived and mpv holds the track paused.
     pub armed: bool,
-    /// Start playback when the stream loads because the user already requested it.
+    /// The user already pressed play while resolution was in flight, so start
+    /// playback as soon as the stream loads.
     pub play_on_load: bool,
 }
 

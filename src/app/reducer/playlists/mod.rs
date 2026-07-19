@@ -8,6 +8,7 @@ use crate::app::action::PlaylistAction;
 use crate::app::reducer::Effect;
 use crate::app::state::AppState;
 
+/// Route a playlist action to its focused reducer.
 pub(super) fn reduce(state: &mut AppState, action: PlaylistAction) -> Vec<Effect> {
     match action {
         action @ (PlaylistAction::PickerInput(_)

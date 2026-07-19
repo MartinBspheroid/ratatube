@@ -15,6 +15,7 @@ impl App {
         key: crossterm::event::KeyEvent,
         action_tx: &mpsc::Sender<Action>,
     ) {
+        // The notification log is modal; any documented dismiss key closes it.
         if self.state.show_notification_log {
             if matches!(
                 key.code,
@@ -30,6 +31,8 @@ impl App {
                 .await;
             return;
         }
+        // Esc always cancels an import modal; Enter confirms only a successfully
+        // fetched review, never a loading or failed import.
         if let Some(import) = &self.state.import {
             let action = match (import, key.code) {
                 (ImportState::Review { .. }, KeyCode::Enter) => {
@@ -43,6 +46,7 @@ impl App {
             }
             return;
         }
+        // Confirmation dialogs accept only explicit yes/no input.
         if self.state.confirm.is_some() {
             let action = match key.code {
                 KeyCode::Char('y') | KeyCode::Char('Y') => {
@@ -78,6 +82,7 @@ impl App {
             }
             return;
         }
+        // Text prompt modal.
         if self.state.prompt.is_some() {
             let action = match key.code {
                 KeyCode::Enter => Some(Action::Playlists(PlaylistAction::PromptSubmit)),
@@ -93,6 +98,7 @@ impl App {
             }
             return;
         }
+        // Add-to-playlist picker modal.
         if self.state.picker.is_some() {
             let action = match key.code {
                 KeyCode::Enter => Some(Action::Playlists(PlaylistAction::PickerSubmit)),
@@ -127,6 +133,8 @@ impl App {
                 }
             }
             Focus::ListFilter => match key.code {
+                // Enter locks the filter so list keys operate on matches;
+                // Esc clears the filter entirely.
                 KeyCode::Enter => {
                     if self
                         .state
@@ -157,6 +165,8 @@ impl App {
                     }
                     self.state.selected_index = 0;
                 }
+                // Allow movement while editing so users can filter, then pick,
+                // without leaving the filter bar.
                 KeyCode::Down => {
                     let _ = action_tx
                         .send(Action::Navigation(NavigationAction::SelectNext))
@@ -171,6 +181,8 @@ impl App {
             },
             Focus::Content => {
                 if keymap::focuses_search(&key) {
+                    // In list views `/` filters in place; elsewhere it moves
+                    // focus to the Search tab.
                     if matches!(
                         self.state.view,
                         View::Queue | View::History | View::Playlists | View::PlaylistDetail
@@ -184,6 +196,7 @@ impl App {
                     }
                     return;
                 }
+                // Esc clears a locked list filter and its derived index mapping.
                 if key.code == KeyCode::Esc && self.state.list_filter.is_some() {
                     self.state.list_filter = None;
                     self.state.visible_indices = None;

@@ -17,6 +17,7 @@ pub enum PlaylistAction {
     LoadPlaylistIntoQueue(String),
     AppendPlaylistToQueue(String),
     DeletePlaylist(String),
+    /// Delete the playlist after explicit confirmation (PRD 10.7).
     DeletePlaylistConfirmed(String),
     PlaylistSaved(Playlist),
     StartImport(String),
@@ -41,11 +42,12 @@ pub enum PlaylistAction {
     CancelImport,
     OpenPrompt(PromptPurpose),
     PromptInput(char),
-    /// Insert bracketed-paste content without treating newlines as submit.
+    /// Insert a bracketed-paste payload without treating embedded newlines as submit.
     PromptPaste(String),
     PromptBackspace,
     PromptSubmit,
     PromptCancel,
+    /// Open the metadata editor for the active playlist.
     OpenPlaylistEditor,
     PlaylistEditorInput(char),
     PlaylistEditorBackspace,
@@ -59,9 +61,11 @@ pub enum PlaylistAction {
     PickerBackspace,
     PickerNext,
     PickerPrevious,
+    /// Add the selected track to the chosen playlist, creating one when the
+    /// picker points at its "new" entry, then close the picker.
     PickerSubmit,
     PickerCancel,
     RemoveSelectedFromPlaylist,
-    /// Move the selected playlist track up or down.
+    /// Move the selected playlist track up (-1) or down (+1).
     MoveSelectedInPlaylist(i32),
 }

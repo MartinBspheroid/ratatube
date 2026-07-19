@@ -11,19 +11,19 @@ impl AppState {
             .sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
     }
 
-    /// Whether the now-playing bar should render.
+    /// Whether the now-playing bar should render (PRD section 8).
     pub fn has_now_playing(&self) -> bool {
         self.current_track.is_some()
     }
 
-    /// Chapters of the current track.
+    /// Chapters of the current track, whether uploader-set or parsed from a tracklist.
     pub fn chapters(&self) -> &[crate::media::Chapter] {
         self.current_details
             .as_ref()
             .map_or(&[], |details| details.chapters.as_slice())
     }
 
-    /// Index of the chapter containing the current playhead.
+    /// Index of the chapter the playhead is currently inside.
     pub fn current_chapter_index(&self) -> Option<usize> {
         crate::media::chapter_at(self.chapters(), self.playback.position_seconds)
     }
@@ -38,7 +38,7 @@ impl AppState {
         }
     }
 
-    /// Reset list scroll state after navigation.
+    /// Reset list scroll state; called on navigation between views.
     pub fn reset_list(&mut self) {
         self.list_state = ratatui::widgets::ListState::default();
         self.table_state = ratatui::widgets::TableState::default();
@@ -50,7 +50,8 @@ impl AppState {
         self.spinner_frame = self.spinner_frame.wrapping_add(1);
     }
 
-    /// Map a filtered position back to its underlying-list index.
+    /// Map a position in the possibly filtered visible list back to an index
+    /// into the underlying list.
     pub fn resolve_index(&self, visible: usize) -> usize {
         match &self.visible_indices {
             Some(indices) => indices.get(visible).copied().unwrap_or(visible),

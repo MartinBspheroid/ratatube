@@ -8,6 +8,7 @@ use crate::app::browser::open_browser;
 use crate::app::state::View;
 
 impl App {
+    /// Handle navigation actions that cross process or asynchronous boundaries.
     pub(super) async fn handle_navigation_service(
         &mut self,
         action: NavigationAction,

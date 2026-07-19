@@ -98,10 +98,11 @@ impl App {
             }
             _ => {}
         }
-        tracing::debug!(action_type = ?std::mem::discriminant(&action), "action");
+        tracing::debug!(action = ?action.diagnostic_identity(), "action");
         match &action {
             Action::Playback(PlaybackAction::NextTrack)
             | Action::Playback(PlaybackAction::PreviousTrack) => {
+                // Record skips before the reducer replaces the current track.
                 self.capture_resume_point();
                 self.record_current(PlaybackOutcome::Skipped);
             }
@@ -132,6 +133,7 @@ impl App {
     }
 }
 
+/// Whether an action may change text, order, or membership of a filterable list.
 fn action_changes_filterable_data(action: &Action) -> bool {
     matches!(
         action,

@@ -7,6 +7,7 @@ use crate::playback::PlaybackEvent;
 
 use super::events::reduce_playback_event;
 
+/// Reduce direct playback controls and playback-feel settings.
 pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect> {
     match Action::Playback(action) {
         Action::Playback(PlaybackAction::PlayPause) => {
@@ -107,7 +108,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
     Vec::new()
 }
 
-/// Step playback speed by `delta`, clamped to the supported range.
+/// Step playback speed by `delta`, clamped to 0.5-2.0.
 fn speed_step(state: &mut AppState, delta: f64) -> Vec<Effect> {
     let target = (state.playback.speed + delta).clamp(0.5, 2.0);
     if (target - state.playback.speed).abs() > f64::EPSILON {

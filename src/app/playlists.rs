@@ -29,6 +29,7 @@ impl App {
         }
     }
 
+    /// Clone the tracks belonging to a stored playlist ID.
     pub(super) fn playlist_tracks(&self, id: &str) -> Option<Vec<Track>> {
         self.state
             .playlists
@@ -37,6 +38,7 @@ impl App {
             .map(Playlist::to_tracks)
     }
 
+    /// Save the current queue as a named playlist and refresh presentation order.
     pub(super) fn save_queue_as_playlist(&mut self, name: &str) {
         if self.state.queue.tracks.is_empty() {
             self.state.notify("Queue is empty", true);
@@ -60,6 +62,7 @@ impl App {
         }
     }
 
+    /// Create and persist an empty playlist.
     pub(super) fn create_playlist(&mut self, name: &str) {
         let playlist = Playlist::new(name);
         match self.playlists.save(&playlist) {
@@ -72,6 +75,7 @@ impl App {
         }
     }
 
+    /// Validate and persist every playlist from a pasted JSON import atomically.
     pub(super) fn save_json_playlists(&mut self, playlists: Vec<Playlist>) {
         let requested_playlist_count = playlists.len();
         let requested_track_count = playlists
@@ -166,6 +170,7 @@ impl App {
         );
     }
 
+    /// Rename the selected playlist and persist the updated catalog.
     pub(super) fn rename_selected_playlist(&mut self, name: &str) {
         let Some(id) = self.selected_playlist_id() else {
             return;

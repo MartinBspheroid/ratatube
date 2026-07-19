@@ -12,6 +12,9 @@ use crate::media::Track;
 
 impl App {
     /// Resolve the track at a queue position and start playback (PRD 10.4).
+    ///
+    /// Resolution retries once in an owned, cancellable task. A matching
+    /// failure action advances the queue when `continue_on_error` is enabled.
     pub(super) fn spawn_resolve_and_play(
         &mut self,
         queue_position: usize,
@@ -81,6 +84,7 @@ impl App {
             .attach(OperationKind::Playback, operation_id, handle);
     }
 
+    /// Fetch extended metadata in the background for the now-playing view.
     pub(super) fn spawn_details_fetch(&mut self, track: &Track, action_tx: &mpsc::Sender<Action>) {
         let ticket = self.operations.start(OperationKind::Details);
         let operation_id = ticket.id();

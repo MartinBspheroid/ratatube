@@ -5,7 +5,8 @@ use crate::app::{App, FilterSyncKey};
 use crate::media::Track;
 
 impl App {
-    /// Recompute the filtered view of the active list before rendering.
+    /// Recompute the filtered view of the active list and mirror the History
+    /// length for its presentation mode. The runtime calls this before render.
     pub(super) fn sync_list_view(&mut self) {
         self.state.history_len = match self.state.history_view_mode {
             HistoryViewMode::Recent => self
@@ -134,7 +135,8 @@ impl App {
         self.state.clamp_selection();
     }
 
-    /// Resolve the selected track across track-listing views.
+    /// Resolve the selected track across track-listing views, mapping through
+    /// the in-list filter and History presentation mode.
     pub(super) fn resolve_selected_track(&self) -> Option<Track> {
         let index = self.state.resolve_index(self.state.selected_index);
         match self.state.view {

@@ -1,5 +1,6 @@
 //! Validated operating-system browser dispatch.
 
+/// Open an allow-listed YouTube URL through the platform browser command.
 pub(super) fn open_browser(url: &str) -> std::io::Result<()> {
     if !is_allowed_browser_url(url) {
         return Err(std::io::Error::new(
@@ -10,6 +11,7 @@ pub(super) fn open_browser(url: &str) -> std::io::Result<()> {
     browser_command(url).spawn().map(|_| ())
 }
 
+/// Return whether a URL is HTTP(S) and targets an allow-listed YouTube host.
 pub(super) fn is_allowed_browser_url(url: &str) -> bool {
     let Some(remainder) = url
         .strip_prefix("https://")

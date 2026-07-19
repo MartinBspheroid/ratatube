@@ -4,6 +4,7 @@ use crate::app::action::{Action, PlaybackAction};
 use crate::app::reducer::Effect;
 use crate::app::state::AppState;
 
+/// Reduce mix loading and radio-refill transitions.
 pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect> {
     match Action::Playback(action) {
         Action::Playback(PlaybackAction::MixLoaded { title, tracks, .. }) => {

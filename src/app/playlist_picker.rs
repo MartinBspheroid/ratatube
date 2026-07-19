@@ -4,7 +4,8 @@ use crate::app::App;
 use crate::playlists::Playlist;
 
 impl App {
-    /// Add the picked track to an existing or newly named playlist.
+    /// Apply the picker by adding to an existing playlist or creating one
+    /// named after the filter text first.
     pub(super) async fn submit_picker(&mut self) {
         let Some(picker) = self.state.picker.take() else {
             return;

@@ -5,6 +5,7 @@ use crate::app::reducer::{Effect, reduce as reduce_action};
 use crate::app::state::{AppState, Focus, View};
 use crate::media::search::SearchState;
 
+/// Reduce navigation-domain state transitions.
 pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effect> {
     match Action::Navigation(action) {
         Action::Navigation(NavigationAction::Navigate(view)) => {

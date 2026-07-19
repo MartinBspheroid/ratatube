@@ -6,6 +6,7 @@ use crate::app::App;
 use crate::app::action::{Action, PlaylistAction};
 
 impl App {
+    /// Route playlist service actions to editing or storage ownership.
     pub(super) async fn handle_playlist_service(
         &mut self,
         action: PlaylistAction,

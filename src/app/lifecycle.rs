@@ -86,6 +86,7 @@ impl App {
         Ok(())
     }
 
+    /// Spawn mpv, await its socket, and return an initialized controller.
     pub(super) async fn connect_playback(
         binary: String,
         socket: std::path::PathBuf,

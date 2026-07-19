@@ -7,7 +7,8 @@ use crate::app::state::View;
 use crate::app::{App, StartupIntent};
 
 impl App {
-    /// Restore the previous session and apply any CLI startup intent.
+    /// Restore the previous session and apply any CLI startup intent once,
+    /// immediately after mpv startup.
     pub(super) async fn init_session(&mut self, action_tx: &mpsc::Sender<Action>) {
         use crate::config::ResumeMode;
 
@@ -52,6 +53,8 @@ impl App {
             .iter()
             .position(|&index| self.state.queue.tracks[index].id == track.id)
         {
+            // Align the restored queue cursor with the session track so
+            // next and previous continue from the expected position.
             self.state.queue.position = Some(position);
         }
 

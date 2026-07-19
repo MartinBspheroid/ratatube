@@ -8,13 +8,14 @@ use crate::queue::RepeatMode;
 /// An intent that controls playback or reports playback-related background work.
 #[derive(Debug, Clone)]
 pub enum PlaybackAction {
-    /// The previous session's stream URL arrived for paused or immediate resume.
+    /// The previous session's stream URL arrived; load it into mpv paused or,
+    /// when requested, playing at the saved position.
     SessionStreamResolved {
         operation_id: OperationId,
         track_id: String,
         url: String,
     },
-    /// Previous-session stream resolution failed.
+    /// Previous-session stream resolution failed; drop the resume card.
     SessionResolveFailed {
         operation_id: OperationId,
         track_id: String,
@@ -55,7 +56,7 @@ pub enum PlaybackAction {
     SeekBackward,
     SeekForwardLarge,
     SeekBackwardLarge,
-    /// Seek to a fraction of the duration.
+    /// Seek to a fraction (0.0-1.0) of the duration, such as a timeline click.
     SeekToFraction(f64),
     VolumeUp,
     VolumeDown,
@@ -68,7 +69,7 @@ pub enum PlaybackAction {
         operation_id: OperationId,
         track_id: String,
     },
-    /// Extended metadata for the now-playing view arrived.
+    /// Extended metadata for the now-playing view arrived (PRD 10.1).
     DetailsLoaded {
         operation_id: OperationId,
         track_id: String,
@@ -94,17 +95,23 @@ pub enum PlaybackAction {
     },
     /// Scroll the now-playing description panel.
     ScrollNowPlaying(i32),
+    /// Jump to the next chapter of the current track (DJ-mix tracklists).
     NextChapter,
+    /// Jump back to the chapter start first, then to the previous chapter.
     PreviousChapter,
+    /// Toggle the Playing view's right pane between chapters and description.
     ToggleNowPlayingPane,
+    /// Switch between info and queue focus in the ultra-wide Playing view.
     CyclePlayingPane,
-    /// Adjust playback speed by a fixed step.
+    /// Increase playback speed by 0.25, clamped to 0.5-2.0.
     SpeedUp,
+    /// Decrease playback speed by 0.25, clamped to 0.5-2.0.
     SpeedDown,
+    /// Restore normal 1.0 playback speed.
     SpeedReset,
-    /// Cycle the sleep timer through its supported durations.
+    /// Cycle the sleep timer: off -> 15 -> 30 -> 60 -> off minutes.
     CycleSleepTimer,
-    /// Toggle radio mode for automatic queue refills.
+    /// Toggle radio mode, which automatically refills the queue from YouTube mixes.
     ToggleRadio,
     /// A background prefetch of the next track's stream URL finished.
     PrefetchResolved {

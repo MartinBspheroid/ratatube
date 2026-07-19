@@ -52,6 +52,7 @@ impl App {
                 }
             }
             MouseEventKind::Down(MouseButton::Left) => {
+                // The header row is reserved for tab hit zones.
                 if mouse.row == 0 {
                     let icons = crate::ui::icons::icons_for(self.state.icon_mode);
                     let narrow =
@@ -69,10 +70,13 @@ impl App {
                     }
                     return;
                 }
+                // A click on the now-playing progress row seeks by fraction.
                 if self.state.has_now_playing() {
                     let layout =
                         crate::ui::layout::AppLayout::new(self.state.screen_area, true, true);
                     let bar = layout.now_playing;
+                    // The five-row bar has three bordered content rows; the
+                    // progress gauge is the middle content row.
                     let gauge_row = bar.y + 2;
                     if bar.height >= 5
                         && mouse.row == gauge_row

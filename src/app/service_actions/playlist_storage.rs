@@ -8,6 +8,7 @@ use crate::app::reducer::Effect;
 use crate::app::state::{ImportState, PromptPurpose};
 
 impl App {
+    /// Apply playlist loading, deletion, prompt, and import-persistence workflows.
     pub(super) async fn handle_playlist_storage(
         &mut self,
         action: PlaylistAction,

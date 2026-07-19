@@ -6,6 +6,7 @@ use crate::app::App;
 use crate::app::action::{Action, PlaylistAction, QueueAction};
 
 impl App {
+    /// Resolve selected queue content through application-owned state and services.
     pub(super) async fn handle_queue_service(
         &mut self,
         action: QueueAction,

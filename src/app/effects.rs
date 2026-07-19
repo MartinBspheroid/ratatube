@@ -63,6 +63,9 @@ impl App {
                 }
                 Effect::QuitMpv => {
                     if let Some(playback) = self.playback.as_mut() {
+                        // The event loop is already exiting; wait for the final
+                        // acknowledgement so dropping the controller cannot abort
+                        // graceful mpv shutdown.
                         let _ = playback.quit().await;
                     }
                 }

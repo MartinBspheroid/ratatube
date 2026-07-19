@@ -4,6 +4,7 @@ use crate::app::action::{Action, PlaybackAction};
 use crate::app::reducer::Effect;
 use crate::app::state::{AppState, DetailsStatus, PlayingPane, View};
 
+/// Reduce metadata, thumbnail, chapter, and playback-pane transitions.
 pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect> {
     match Action::Playback(action) {
         Action::Playback(PlaybackAction::DetailsStarted {

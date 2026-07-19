@@ -113,6 +113,7 @@ impl App {
                     }) {
                         self.state.notification = None;
                     }
+                    // Sleep timer expiry owns the stop action and clears the timer once.
                     if let Some(timer) = self.state.sleep_timer
                         && timer.deadline <= Instant::now()
                     {
@@ -122,6 +123,8 @@ impl App {
                     }
                 }
             }
+            // Keep filter indices and mirrored history length synchronized with
+            // the exact state rendered in this loop iteration.
             self.sync_list_view();
             crate::ui::render_with(terminal, &mut self.state, self.history.as_ref())?;
         }

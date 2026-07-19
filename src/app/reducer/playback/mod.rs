@@ -10,6 +10,7 @@ use crate::app::action::PlaybackAction;
 use crate::app::reducer::Effect;
 use crate::app::state::AppState;
 
+/// Route a playback action to its focused reducer.
 pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect> {
     match action {
         action @ (PlaybackAction::PlayPause

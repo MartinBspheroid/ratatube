@@ -98,7 +98,7 @@ pub enum PlayingPane {
 pub enum Focus {
     /// The search input field is capturing text.
     SearchInput,
-    /// The in-list filter bar is capturing text.
+    /// The in-list filter bar is capturing text (`/` in list views).
     ListFilter,
     /// The main content list.
     #[default]
@@ -111,7 +111,7 @@ pub enum HistoryViewMode {
     /// Chronological log, newest first.
     #[default]
     Recent,
-    /// Aggregated per track.
+    /// Aggregated per track: play counts and total listened time.
     Top,
 }
 

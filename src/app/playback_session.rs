@@ -30,6 +30,7 @@ impl App {
         });
     }
 
+    /// Track playback lifecycle for history recording and resume-session snapshots.
     pub(super) fn on_playback_event(&mut self, event: &PlaybackEvent) {
         match event {
             PlaybackEvent::Started => {
@@ -59,6 +60,7 @@ impl App {
         }
     }
 
+    /// Append the outgoing track to history with the supplied outcome.
     pub(super) fn record_current(&mut self, outcome: PlaybackOutcome) {
         let Some(track) = self.state.current_track.clone() else {
             let _ = self.listening.finish();
@@ -74,6 +76,7 @@ impl App {
         self.persist_history();
     }
 
+    /// Capture a durable per-track resume point when playback is in its resumable range.
     pub(super) fn capture_resume_point(&mut self) {
         let Some(track) = &self.state.current_track else {
             return;

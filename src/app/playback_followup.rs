@@ -8,7 +8,8 @@ use crate::app::operations::OperationKind;
 use crate::app::reducer::reduce;
 
 impl App {
-    /// Prefetch the next stream and refill radio at the queue boundary.
+    /// After a track starts, prefetch the next stream and, in radio mode,
+    /// refill the queue when playback reaches its boundary.
     pub(super) fn after_track_started(&mut self, action_tx: &mpsc::Sender<Action>) {
         let len = self.state.queue.order.len();
         let Some(position) = self.state.queue.position else {
@@ -26,6 +27,7 @@ impl App {
         if self.state.queue.repeat == crate::queue::RepeatMode::Track {
             return;
         }
+        // Prefetching is pointless when repeating the current track.
         let next_position = if position + 1 < len {
             Some(position + 1)
         } else if self.state.queue.repeat == crate::queue::RepeatMode::Queue && len > 0 {
@@ -56,6 +58,7 @@ impl App {
                 () = cancellation.cancelled() => return,
                 result = yt_dlp.resolve_stream(&next_track.webpage_url) => result,
             };
+            // Failures are silent because playback resolves on demand as a fallback.
             if let Ok(url) = result {
                 let _ = tx
                     .send(Action::Playback(PlaybackAction::PrefetchResolved {
@@ -70,6 +73,7 @@ impl App {
             .attach(OperationKind::Prefetch, operation_id, handle);
     }
 
+    /// Fetch more tracks from YouTube's mix for `seed_id` in radio mode.
     pub(super) fn spawn_radio_refill(&mut self, seed_id: String, action_tx: &mpsc::Sender<Action>) {
         self.radio_fetching = true;
         let ticket = self.operations.start(OperationKind::Radio);

@@ -12,6 +12,7 @@ use crate::app::thumbnails::ThumbnailPurpose;
 use crate::playback::PlaybackEvent;
 
 impl App {
+    /// Coordinate playback actions that require mpv, yt-dlp, history, or full state.
     pub(super) async fn handle_playback_service(
         &mut self,
         action: PlaybackAction,
@@ -95,9 +96,11 @@ impl App {
             }
             PlaybackAction::RadioTracksLoaded { .. } => {
                 self.radio_fetching = false;
+                // The reducer already appended; prefetch the fresh next track.
                 self.after_track_started(action_tx);
             }
             PlaybackAction::ToggleRadio if self.state.radio => {
+                // Radio switched on with a finished queue: refill immediately.
                 if self.state.queue.position.is_none() || self.state.current_track.is_none() {
                     let seed = self
                         .state

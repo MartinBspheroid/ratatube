@@ -5,6 +5,7 @@ use crate::app::action::HistoryAction;
 use crate::app::state::HistoryViewMode;
 
 impl App {
+    /// Apply history mutations that require the persistence-backed history service.
     pub(super) fn handle_history_service(&mut self, action: HistoryAction) {
         match action {
             HistoryAction::DeleteSelectedHistoryEntry => {

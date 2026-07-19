@@ -4,6 +4,7 @@ use crate::app::action::{Action, PlaylistAction};
 use crate::app::reducer::Effect;
 use crate::app::state::AppState;
 
+/// Reduce picker, prompt, editor, and confirmation modal transitions.
 pub(super) fn reduce(state: &mut AppState, action: PlaylistAction) -> Vec<Effect> {
     match Action::Playlists(action) {
         Action::Playlists(PlaylistAction::PickerInput(c)) => {

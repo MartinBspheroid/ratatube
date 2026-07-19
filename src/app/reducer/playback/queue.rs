@@ -6,6 +6,7 @@ use crate::app::state::{AppState, OperationStatus, PlayingPane, View};
 use crate::media::search::SearchState;
 use crate::queue::PreviousOutcome;
 
+/// Reduce playback queue selection and stream-resolution transitions.
 pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect> {
     match Action::Playback(action) {
         Action::Playback(PlaybackAction::PlayTrack(track)) => {

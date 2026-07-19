@@ -4,6 +4,7 @@ use crate::app::action::{Action, HistoryAction};
 use crate::app::reducer::Effect;
 use crate::app::state::AppState;
 
+/// Reduce history and notification state transitions.
 pub(super) fn reduce(state: &mut AppState, action: HistoryAction) -> Vec<Effect> {
     match Action::History(action) {
         Action::History(HistoryAction::ClearActivity) => {

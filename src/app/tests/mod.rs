@@ -19,6 +19,7 @@ use crate::persistence::AppPaths;
 use crate::playback::PlaybackEvent;
 use crate::playlists::Playlist;
 
+/// Build an isolated application fixture backed by a temporary data directory.
 pub(super) fn test_app() -> (tempfile::TempDir, App) {
     let temp = tempfile::tempdir().expect("tempdir");
     let paths = AppPaths::with_data_dir(temp.path().to_path_buf());

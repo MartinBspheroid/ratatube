@@ -5,19 +5,25 @@
 pub struct PickerState {
     /// Track to add on submit.
     pub track: crate::media::Track,
-    /// Typed filter over playlist names.
+    /// Typed filter over playlist names; a non-matching name becomes a
+    /// "create new playlist" entry.
     pub filter: String,
-    /// Selection within the visible candidate list.
+    /// Selection within the visible candidate list; index 0 may be "create new".
     pub selected: usize,
 }
 
-/// Purpose of a text prompt.
+/// Purpose of a single-line text prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PromptPurpose {
+    /// Name for saving the current queue as a playlist.
     SaveQueueAsPlaylist,
+    /// Rename the selected playlist.
     RenamePlaylist,
+    /// URL for importing a remote playlist.
     ImportPlaylistUrl,
+    /// Versioned JSON containing one or more local playlists.
     ImportPlaylistJson,
+    /// Name for a new empty playlist.
     NewPlaylist,
 }
 
@@ -43,7 +49,7 @@ pub struct PlaylistEditorState {
     pub field: PlaylistEditorField,
 }
 
-/// A yes/no confirmation dialog.
+/// A yes/no confirmation dialog, such as playlist deletion (PRD 10.7).
 #[derive(Debug, Clone)]
 pub struct ConfirmState {
     pub message: String,

@@ -4,6 +4,7 @@ use crate::app::action::{Action, QueueAction};
 use crate::app::reducer::Effect;
 use crate::app::state::{AppState, View};
 
+/// Reduce queue-domain state transitions.
 pub(super) fn reduce(state: &mut AppState, action: QueueAction) -> Vec<Effect> {
     match Action::Queue(action) {
         Action::Queue(QueueAction::AddToQueue(track)) => {

@@ -4,6 +4,7 @@ use crate::app::action::{Action, PlaylistAction};
 use crate::app::reducer::Effect;
 use crate::app::state::AppState;
 
+/// Reduce playlist import lifecycle transitions.
 pub(super) fn reduce(state: &mut AppState, action: PlaylistAction) -> Vec<Effect> {
     match Action::Playlists(action) {
         // --- Import --------------------------------------------------------
