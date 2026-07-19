@@ -95,7 +95,7 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
         // Resolved by the app layer because it needs the selected track and
         // an operating-system process boundary.
         Action::Navigation(NavigationAction::OpenInBrowser) => {}
-        // Task 5 consumes this typed intent and owns channel navigation.
+        // The service layer consumes these typed intents and owns channel navigation.
         Action::Navigation(
             NavigationAction::VisitChannel(_)
             | NavigationAction::ChannelResolved { .. }

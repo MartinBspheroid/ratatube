@@ -17,7 +17,7 @@ pub enum TrackSource {
         track_index: usize,
     },
     History,
-    /// Reserved for the populated Channel view introduced by Task 5.
+    /// A video selected from the dedicated Channel view.
     Channel,
     Playing,
     Home,
@@ -170,7 +170,7 @@ fn resolve_actions(
     {
         actions.push(TrackContextAction::AddToQueue);
     }
-    // Legacy tracks still offer VisitChannel. Task 5 must resolve complete
+    // Legacy tracks still offer VisitChannel. The navigation service resolves
     // channel metadata from `track.webpage_url` before opening the channel;
     // stored channel identity is only an optimization, not an applicability gate.
     actions.extend([

@@ -24,8 +24,8 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
         }
         NavigationAction::ShowTrackDetails(track) => state.show_track_details(track),
         NavigationAction::CloseTrackDetails => state.track_details_modal = None,
-        // Opening needs HistoryService; Task 3 consumes submit and dispatches
-        // the selected stable action through existing action domains.
+        // Opening needs HistoryService; submission dispatches the selected
+        // stable action through existing action domains.
         NavigationAction::OpenTrackContext | NavigationAction::SubmitTrackContext => {}
         _ => unreachable!("non-context action routed to context reducer"),
     }

@@ -65,9 +65,9 @@ pub enum NavigationAction {
     CloseTrackContext,
     /// Move the context-menu selection by a signed number of rows.
     MoveTrackContext(i32),
-    /// Submit the selected menu action; Task 3 owns execution.
+    /// Submit the selected menu action through the application service layer.
     SubmitTrackContext,
-    /// Carry the selected track to Task 5 channel metadata resolution.
+    /// Resolve channel metadata and open the selected track's channel.
     VisitChannel(Track),
     /// Metadata resolution completed for a legacy track without channel identity.
     ChannelResolved {
