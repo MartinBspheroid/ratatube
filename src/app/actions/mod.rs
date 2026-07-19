@@ -7,7 +7,7 @@ mod playlists;
 mod queue;
 
 pub use history::HistoryAction;
-pub use navigation::NavigationAction;
+pub use navigation::{ExternalCommandKind, ExternalCommandTarget, NavigationAction};
 pub use playback::PlaybackAction;
 pub use playlists::PlaylistAction;
 pub use queue::QueueAction;

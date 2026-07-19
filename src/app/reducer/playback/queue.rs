@@ -11,6 +11,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
     match Action::Playback(action) {
         Action::Playback(PlaybackAction::PlayTrack(track)) => {
             state.queue.push(track);
+            state.bump_queue_revision();
             let pos = state.queue.order.len() - 1;
             state.queue.position = Some(pos);
             return vec![

@@ -8,6 +8,7 @@ mod operations;
 mod selection;
 
 pub use app_state::AppState;
+pub(crate) use modals::ModalCapture;
 pub use modals::{
     ConfirmState, PickerState, PlaylistEditorField, PlaylistEditorState, PromptPurpose,
     PromptState, TrackContextMenuState, TrackDetailsModalState,

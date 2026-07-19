@@ -3,7 +3,9 @@
 use tokio::sync::mpsc;
 
 use crate::app::App;
-use crate::app::action::{Action, HistoryAction, PlaybackAction, PlaylistAction, QueueAction};
+use crate::app::action::{
+    Action, HistoryAction, NavigationAction, PlaybackAction, PlaylistAction, QueueAction,
+};
 use crate::app::operations::OperationKind;
 use crate::app::reducer::reduce;
 use crate::history::model::PlaybackOutcome;
@@ -89,6 +91,16 @@ impl App {
             }
             Action::Playback(PlaybackAction::MixLoaded { operation_id, .. }) => {
                 if !self.operations.complete(OperationKind::Mix, *operation_id) {
+                    return;
+                }
+            }
+            Action::Navigation(NavigationAction::ExternalCommandCompleted {
+                operation_id, ..
+            }) => {
+                if !self
+                    .operations
+                    .complete(OperationKind::ExternalCommand, *operation_id)
+                {
                     return;
                 }
             }

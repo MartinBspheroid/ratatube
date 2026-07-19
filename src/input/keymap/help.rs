@@ -39,6 +39,7 @@ pub const HELP_SECTIONS: &[(&str, &[(&str, &str)])] = &[
             ("a / A", "Add to queue / play next"),
             ("J / K", "Move item down / up"),
             ("d / u", "Remove queue item / undo removal"),
+            ("C", "Clear queue (asks first)"),
             ("P", "Add to playlist..."),
             ("/", "Filter the list"),
         ],
@@ -59,7 +60,11 @@ pub const HELP_SECTIONS: &[(&str, &[(&str, &str)])] = &[
     ),
     (
         "History",
-        &[("g", "Toggle recent / top"), ("x", "Delete entry")],
+        &[
+            ("g", "Toggle recent / top"),
+            ("x", "Delete entry"),
+            ("C", "Clear history (asks first)"),
+        ],
     ),
     (
         "Other",

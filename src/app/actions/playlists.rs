@@ -73,6 +73,7 @@ pub enum PlaylistAction {
         playlist_id: String,
         track_index: usize,
         expected_track: Track,
+        expected_revision: u64,
     },
     /// Move the selected playlist track up (-1) or down (+1).
     MoveSelectedInPlaylist(i32),

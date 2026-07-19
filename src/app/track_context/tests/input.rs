@@ -53,13 +53,8 @@ async fn open_menu_for(view: View) {
     let (action_tx, mut action_rx) = mpsc::channel(4);
 
     app.handle_key(key(KeyCode::Char('c')), &action_tx).await;
-    let action = receive_action(&mut action_rx, "open action").await;
-    assert!(matches!(
-        action,
-        Action::Navigation(NavigationAction::OpenTrackContext)
-    ));
-    app.handle_action(action, &action_tx).await;
     assert!(app.state.track_context_menu.is_some(), "view: {view:?}");
+    assert!(action_rx.try_recv().is_err(), "opening is atomic");
     assert_eq!(app.state.playback.status, PlaybackStatus::Playing);
 
     let content_selection = app.state.selected_index;

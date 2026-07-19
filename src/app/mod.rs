@@ -12,6 +12,7 @@ mod action_dispatch;
 mod background;
 mod browser;
 mod effects;
+mod external_command;
 mod input;
 mod lifecycle;
 mod media_tasks;

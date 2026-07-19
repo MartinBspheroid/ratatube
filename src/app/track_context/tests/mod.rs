@@ -6,11 +6,16 @@ use crate::media::Track;
 use super::{TrackContextAction, TrackSource};
 
 mod dispatch;
+mod external_commands;
 mod filtered;
+mod identity;
 mod input;
 mod modal;
+mod playing_queue;
 mod removals;
 mod resolver;
+mod revisions;
+mod routing;
 
 struct ResolverCase {
     name: &'static str,

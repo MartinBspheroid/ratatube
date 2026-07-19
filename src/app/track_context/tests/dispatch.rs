@@ -1,7 +1,10 @@
 use tokio::sync::mpsc;
 use tokio::time::{Duration, timeout};
 
-use crate::app::action::{Action, NavigationAction, PlaybackAction, PlaylistAction, QueueAction};
+use crate::app::action::{
+    Action, ExternalCommandKind, ExternalCommandTarget, NavigationAction, PlaybackAction,
+    QueueAction,
+};
 use crate::app::state::{TrackContextMenuState, View};
 use crate::app::tests::test_app;
 use crate::app::track_context::{TrackContextAction, resolve_track_context};
@@ -11,7 +14,7 @@ use crate::playlists::model::PlaylistTrack;
 
 use super::track;
 
-fn open_menu_for_action(app: &mut crate::app::App, action: TrackContextAction) {
+pub(super) fn open_menu_for_action(app: &mut crate::app::App, action: TrackContextAction) {
     let context = resolve_track_context(&app.state, app.history.as_ref()).expect("context");
     let selected = context
         .actions
@@ -44,9 +47,7 @@ async fn track_context_menu_dispatches_typed_actions_with_the_resolved_track() {
         TrackContextAction::PlayNow,
         TrackContextAction::PlayNext,
         TrackContextAction::AddToQueue,
-        TrackContextAction::AddToPlaylist,
         TrackContextAction::VisitChannel,
-        TrackContextAction::ShowDetails,
     ] {
         let (_temp, mut app) = test_app();
         let selected = track("typed", "Typed track");
@@ -60,25 +61,79 @@ async fn track_context_menu_dispatches_typed_actions_with_the_resolved_track() {
         let (_, mut action_rx) = submit(&mut app).await;
         let dispatched = receive(&mut action_rx).await;
 
-        let track_id = match dispatched {
-            Action::Playback(PlaybackAction::PlayTrack(track))
-            | Action::Queue(QueueAction::AddNext(track))
-            | Action::Queue(QueueAction::AddToQueue(track))
-            | Action::Playlists(PlaylistAction::OpenPlaylistPickerForTrack(track))
-            | Action::Navigation(NavigationAction::VisitChannel(track))
-            | Action::Navigation(NavigationAction::ShowTrackDetails(track)) => track.id,
-            other => panic!("unexpected dispatch: {other:?}"),
+        match (context_action, dispatched) {
+            (TrackContextAction::PlayNow, Action::Playback(PlaybackAction::PlayTrack(track))) => {
+                assert_eq!(track.id, "typed");
+            }
+            (TrackContextAction::PlayNext, Action::Queue(QueueAction::AddNext(track))) => {
+                assert_eq!(track.id, "typed");
+            }
+            (TrackContextAction::AddToQueue, Action::Queue(QueueAction::AddToQueue(track))) => {
+                assert_eq!(track.id, "typed");
+            }
+            (
+                TrackContextAction::VisitChannel,
+                Action::Navigation(NavigationAction::VisitChannel(track)),
+            ) => assert_eq!(track.id, "typed"),
+            (expected, actual) => panic!("{expected:?} dispatched unexpected action: {actual:?}"),
+        }
+        assert!(app.state.track_context_menu.is_none());
+    }
+}
+
+#[tokio::test]
+async fn track_context_menu_dispatches_exact_modal_transition_per_action() {
+    for context_action in [
+        TrackContextAction::AddToPlaylist,
+        TrackContextAction::ShowDetails,
+    ] {
+        let (_temp, mut app) = test_app();
+        let selected = track("typed", "Typed track");
+        app.state.view = View::Search;
+        app.state.search = SearchState::Results {
+            query: "typed".to_string(),
+            tracks: vec![selected],
         };
-        assert_eq!(track_id, "typed");
+        open_menu_for_action(&mut app, context_action.clone());
+
+        let (_, mut action_rx) = submit(&mut app).await;
+
+        assert!(action_rx.try_recv().is_err());
+        match context_action {
+            TrackContextAction::AddToPlaylist => {
+                assert_eq!(
+                    app.state
+                        .picker
+                        .as_ref()
+                        .map(|picker| picker.track.id.as_str()),
+                    Some("typed")
+                );
+                assert!(app.state.track_details_modal.is_none());
+            }
+            TrackContextAction::ShowDetails => {
+                assert_eq!(
+                    app.state
+                        .track_details_modal
+                        .as_ref()
+                        .map(|modal| modal.track.id.as_str()),
+                    Some("typed")
+                );
+                assert!(app.state.picker.is_none());
+            }
+            _ => unreachable!(),
+        }
         assert!(app.state.track_context_menu.is_none());
     }
 }
 
 #[tokio::test]
 async fn track_context_menu_keeps_browser_and_clipboard_failures_open() {
-    for action in [
-        TrackContextAction::OpenInBrowser,
-        TrackContextAction::CopyUrl,
+    for (action, expected_command) in [
+        (
+            TrackContextAction::OpenInBrowser,
+            ExternalCommandKind::Browser,
+        ),
+        (TrackContextAction::CopyUrl, ExternalCommandKind::Clipboard),
     ] {
         let (_temp, mut app) = test_app();
         let mut selected = track("unsafe", "Unsafe URL");
@@ -90,10 +145,21 @@ async fn track_context_menu_keeps_browser_and_clipboard_failures_open() {
         };
         open_menu_for_action(&mut app, action);
 
-        let (_, action_rx) = submit(&mut app).await;
+        let (action_tx, mut action_rx) = submit(&mut app).await;
 
-        assert!(action_rx.is_empty());
         assert!(app.state.track_context_menu.is_some());
+        assert!(app.state.notification.is_none());
+        let completion = receive(&mut action_rx).await;
+        assert!(matches!(
+            completion,
+            Action::Navigation(NavigationAction::ExternalCommandCompleted {
+                command,
+                target: ExternalCommandTarget::TrackContext { ref track_id },
+                result: Err(_),
+                ..
+            }) if command == expected_command && track_id == "unsafe"
+        ));
+        app.handle_action(completion, &action_tx).await;
         assert!(
             app.state
                 .notification

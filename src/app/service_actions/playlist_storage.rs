@@ -25,6 +25,7 @@ impl App {
             PlaylistAction::LoadPlaylistIntoQueue(id) => {
                 if let Some(tracks) = self.playlist_tracks(&id) {
                     self.state.queue.load_tracks(tracks);
+                    self.state.bump_queue_revision();
                     if !self.state.queue.order.is_empty() {
                         self.state.queue.position = Some(0);
                         self.state.current_track = self.state.queue.current().cloned();
@@ -43,8 +44,12 @@ impl App {
             }
             PlaylistAction::AppendPlaylistToQueue(id) => {
                 if let Some(tracks) = self.playlist_tracks(&id) {
+                    let changed = !tracks.is_empty();
                     for track in tracks {
                         self.state.queue.push(track);
+                    }
+                    if changed {
+                        self.state.bump_queue_revision();
                     }
                     self.state.notify("Playlist appended to queue", false);
                     self.execute(vec![Effect::PersistQueue], action_tx).await;
@@ -52,7 +57,11 @@ impl App {
             }
             PlaylistAction::DeletePlaylistConfirmed(id) => match self.playlists.delete(&id) {
                 Ok(()) => {
+                    let previous_len = self.state.playlists.len();
                     self.state.playlists.retain(|playlist| playlist.id != id);
+                    if self.state.playlists.len() != previous_len {
+                        self.state.bump_playlists_revision();
+                    }
                     self.state.selected_playlist = None;
                     self.state.clamp_selection();
                     self.state.notify("Playlist deleted", false);

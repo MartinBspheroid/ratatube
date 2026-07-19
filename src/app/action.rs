@@ -1,7 +1,8 @@
 //! Application action facade for the event-driven architecture in PRD section 13.
 
 pub use crate::app::actions::{
-    HistoryAction, NavigationAction, PlaybackAction, PlaylistAction, QueueAction,
+    ExternalCommandKind, ExternalCommandTarget, HistoryAction, NavigationAction, PlaybackAction,
+    PlaylistAction, QueueAction,
 };
 
 /// A state-changing intent produced by input, timers, or subprocess events and

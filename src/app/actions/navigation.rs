@@ -1,7 +1,22 @@
 //! Navigation, search, and selection actions.
 
+use crate::app::operations::OperationId;
 use crate::app::state::View;
 use crate::media::Track;
+
+/// Operating-system command launched outside the application event loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalCommandKind {
+    Browser,
+    Clipboard,
+}
+
+/// UI surface that receives an external-command completion.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExternalCommandTarget {
+    Direct,
+    TrackContext { track_id: String },
+}
 
 /// An intent that changes the active view, search, or list selection.
 #[derive(Debug, Clone)]
@@ -36,6 +51,13 @@ pub enum NavigationAction {
     ToggleSearchDetail,
     /// Open the selected Search result or current Playing track in a browser.
     OpenInBrowser,
+    /// Complete one bounded browser or clipboard operation.
+    ExternalCommandCompleted {
+        operation_id: OperationId,
+        command: ExternalCommandKind,
+        target: ExternalCommandTarget,
+        result: std::result::Result<(), String>,
+    },
     /// Resolve the selected track and open its universal context menu.
     OpenTrackContext,
     /// Close the universal track context menu without executing an action.

@@ -1,7 +1,9 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use super::{playing_pane_action, route, view_action};
-use crate::app::action::{Action, NavigationAction, PlaybackAction, PlaylistAction};
+use super::{HELP_SECTIONS, playing_pane_action, route, view_action};
+use crate::app::action::{
+    Action, HistoryAction, NavigationAction, PlaybackAction, PlaylistAction, QueueAction,
+};
 use crate::app::state::{Focus, PlayingPane, View};
 use crate::ui::layout::Breakpoint;
 
@@ -111,4 +113,35 @@ fn search_detail_and_browser_keys_dispatch_real_actions() {
             Some(Action::Navigation(NavigationAction::OpenInBrowser))
         ));
     }
+}
+
+#[test]
+fn uppercase_c_clears_queue_and_history_while_lowercase_opens_track_actions() {
+    let key = |character| KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE);
+    assert!(matches!(
+        route(&key('c'), Focus::Content, View::Queue),
+        Some(Action::Navigation(NavigationAction::OpenTrackContext))
+    ));
+    assert!(matches!(
+        route(&key('C'), Focus::Content, View::Queue),
+        Some(Action::Queue(QueueAction::ClearQueue))
+    ));
+    assert!(matches!(
+        route(&key('c'), Focus::Content, View::History),
+        Some(Action::Navigation(NavigationAction::OpenTrackContext))
+    ));
+    assert!(matches!(
+        route(&key('C'), Focus::Content, View::History),
+        Some(Action::History(HistoryAction::ClearHistory))
+    ));
+}
+
+#[test]
+fn help_documents_both_uppercase_clear_shortcuts() {
+    let documented = HELP_SECTIONS
+        .iter()
+        .flat_map(|(_, entries)| entries.iter())
+        .collect::<Vec<_>>();
+    assert!(documented.contains(&&("C", "Clear queue (asks first)")));
+    assert!(documented.contains(&&("C", "Clear history (asks first)")));
 }

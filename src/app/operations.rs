@@ -24,6 +24,7 @@ pub enum OperationKind {
     Mix,
     Session,
     PlaybackRecovery,
+    ExternalCommand,
 }
 
 /// Identity and cooperative cancellation handle returned when work starts.

@@ -16,6 +16,7 @@ pub(super) fn reduce(state: &mut AppState, action: QueueAction) -> Vec<Effect> {
                     track.artist.clone(),
                 ));
             state.queue.push(track);
+            state.bump_queue_revision();
             state.notify("Added to queue", false);
             return vec![Effect::PersistQueue, Effect::PersistSession];
         }
@@ -28,6 +29,7 @@ pub(super) fn reduce(state: &mut AppState, action: QueueAction) -> Vec<Effect> {
                     "Play next",
                 ));
             state.queue.push_next(track);
+            state.bump_queue_revision();
             state.notify("Will play next", false);
             return vec![Effect::PersistQueue, Effect::PersistSession];
         }
@@ -35,6 +37,7 @@ pub(super) fn reduce(state: &mut AppState, action: QueueAction) -> Vec<Effect> {
             if state.view == View::Queue {
                 let real = state.resolve_index(state.selected_index);
                 if let Some(track) = state.queue.remove_at(real) {
+                    state.bump_queue_revision();
                     state.removed_queue_item = Some((real, track));
                     state.notify("Removed from queue — u to undo", false);
                 }
@@ -55,18 +58,21 @@ pub(super) fn reduce(state: &mut AppState, action: QueueAction) -> Vec<Effect> {
         Action::Queue(QueueAction::RemoveTrackOccurrence {
             order_index,
             expected_track,
+            expected_revision,
         }) => {
-            let still_matches = state
-                .queue
-                .order
-                .get(order_index)
-                .and_then(|track_index| state.queue.tracks.get(*track_index))
-                == Some(&expected_track);
+            let still_matches = state.queue_revision == expected_revision
+                && state
+                    .queue
+                    .order
+                    .get(order_index)
+                    .and_then(|track_index| state.queue.tracks.get(*track_index))
+                    == Some(&expected_track);
             if !still_matches {
                 state.notify("Queue changed; removal cancelled", true);
                 return Vec::new();
             }
             if let Some(track) = state.queue.remove_at(order_index) {
+                state.bump_queue_revision();
                 state.removed_queue_item = Some((order_index, track));
                 state.notify("Removed from queue — u to undo", false);
                 state.visible_indices = None;
@@ -77,6 +83,7 @@ pub(super) fn reduce(state: &mut AppState, action: QueueAction) -> Vec<Effect> {
         Action::Queue(QueueAction::UndoQueueRemoval) => {
             if let Some((position, track)) = state.removed_queue_item.take() {
                 state.queue.insert_at(position, track);
+                state.bump_queue_revision();
                 state.selected_index = position;
                 state.notify("Queue removal undone", false);
                 return vec![Effect::PersistQueue];
@@ -95,6 +102,7 @@ pub(super) fn reduce(state: &mut AppState, action: QueueAction) -> Vec<Effect> {
                 let to = from.saturating_add_signed(delta as isize).min(len - 1);
                 if from != to {
                     state.queue.reorder(from, to);
+                    state.bump_queue_revision();
                     // Keep the cursor on the item that moved.
                     state.selected_index = to;
                     return vec![Effect::PersistQueue];
@@ -108,7 +116,11 @@ pub(super) fn reduce(state: &mut AppState, action: QueueAction) -> Vec<Effect> {
             });
         }
         Action::Queue(QueueAction::ClearQueueConfirmed) => {
+            let changed = !state.queue.tracks.is_empty();
             state.queue.clear();
+            if changed {
+                state.bump_queue_revision();
+            }
             state.removed_queue_item = None;
             state.selected_index = 0;
             return vec![Effect::PersistQueue];

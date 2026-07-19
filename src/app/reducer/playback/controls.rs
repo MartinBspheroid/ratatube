@@ -78,6 +78,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
         }
         Action::Playback(PlaybackAction::ToggleShuffle) => {
             state.queue.set_shuffle(!state.queue.shuffle);
+            state.bump_queue_revision();
             return vec![Effect::PersistQueue];
         }
         Action::Playback(PlaybackAction::CycleRepeat) => {

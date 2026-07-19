@@ -19,6 +19,7 @@ impl App {
                 match self.playlists.save(&playlist) {
                     Ok(()) => {
                         self.state.playlists.push(playlist);
+                        self.state.bump_playlists_revision();
                         Some(self.state.playlists.len() - 1)
                     }
                     Err(err) => {
@@ -53,6 +54,7 @@ impl App {
             .push(crate::playlists::model::PlaylistTrack::from(&picker.track));
         playlist.updated_at = chrono::Utc::now();
         let snapshot = playlist.clone();
+        self.state.bump_playlists_revision();
         match self.playlists.save(&snapshot) {
             Ok(()) => {
                 self.state

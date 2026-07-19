@@ -49,6 +49,15 @@ pub struct TrackContext {
     pub track: Track,
     pub source: TrackSource,
     pub actions: Vec<TrackContextAction>,
+    /// Collection generation captured with a removable occurrence.
+    pub collection_revision: Option<CollectionRevision>,
+}
+
+/// Collection generation that distinguishes otherwise identical occurrences.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollectionRevision {
+    Queue(u64),
+    Playlists(u64),
 }
 
 /// Resolve the selected track for every currently available track-bearing view.
@@ -95,6 +104,20 @@ pub fn resolve_track_context(
             };
             (track, TrackSource::History)
         }
+        View::NowPlaying
+            if state.playing_pane == crate::app::state::PlayingPane::Queue
+                && crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+                    == crate::ui::layout::Breakpoint::UltraWide =>
+        {
+            let track_index = *state.queue.order.get(selected)?;
+            let track = state.queue.tracks.get(track_index)?.clone();
+            (
+                track,
+                TrackSource::Queue {
+                    order_index: selected,
+                },
+            )
+        }
         View::NowPlaying => (state.current_track.clone()?, TrackSource::Playing),
         View::Home if state.home_section == HomeSection::Recent => {
             let history = history?;
@@ -107,10 +130,18 @@ pub fn resolve_track_context(
         View::Home | View::Playlists | View::Help => return None,
     };
     let actions = resolve_actions(state, &track, &source);
+    let collection_revision = match source {
+        TrackSource::Queue { .. } => Some(CollectionRevision::Queue(state.queue_revision)),
+        TrackSource::Playlist { .. } => {
+            Some(CollectionRevision::Playlists(state.playlists_revision))
+        }
+        _ => None,
+    };
     Some(TrackContext {
         track,
         source,
         actions,
+        collection_revision,
     })
 }
 

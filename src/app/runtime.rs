@@ -7,7 +7,7 @@ use futures_util::StreamExt;
 use tokio::sync::mpsc;
 
 use crate::app::App;
-use crate::app::action::{Action, PlaybackAction, PlaylistAction};
+use crate::app::action::{Action, PlaybackAction};
 use crate::app::operations::OperationKind;
 use crate::error::Result;
 use crate::playback::PlaybackEvent;
@@ -49,8 +49,8 @@ impl App {
                         Some(Ok(Event::Mouse(mouse))) => {
                             self.handle_mouse(mouse, &action_tx).await;
                         }
-                        Some(Ok(Event::Paste(text))) if self.state.prompt.is_some() => {
-                            let _ = action_tx.send(Action::Playlists(PlaylistAction::PromptPaste(text))).await;
+                        Some(Ok(Event::Paste(text))) => {
+                            self.handle_paste(text, &action_tx).await;
                         }
                         _ => {}
                     }

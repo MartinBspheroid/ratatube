@@ -3,6 +3,8 @@
 pub mod activity;
 pub mod components;
 pub mod context_menu;
+pub mod footer;
+pub mod header;
 pub mod icons;
 pub mod layout;
 pub mod theme;
@@ -70,10 +72,10 @@ where
                 return;
             }
             let regions = AppLayout::new(area, state.has_now_playing(), true);
-            widgets::render_header(frame, regions.header, state, &icons, &theme);
+            header::render_header(frame, regions.header, state, &icons, &theme);
             views::render_main(frame, regions.main, state, history, &icons, &theme);
             widgets::render_now_playing(frame, regions.now_playing, state, &icons, &theme);
-            widgets::render_footer(frame, regions.footer, state, &theme);
+            footer::render_footer(frame, regions.footer, state, &theme);
 
             // Below the documented minimum, note it at the bottom-right; the UI
             // stays fully usable (PRD 20).

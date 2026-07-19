@@ -16,12 +16,7 @@ impl App {
         action_tx: &mpsc::Sender<Action>,
     ) {
         use crossterm::event::{MouseButton, MouseEventKind};
-        if self.state.prompt.is_some()
-            || self.state.confirm.is_some()
-            || self.state.import.is_some()
-            || self.state.picker.is_some()
-            || self.state.search_detail_open
-        {
+        if self.state.modal_capture().is_some() {
             return;
         }
         match mouse.kind {
@@ -59,7 +54,7 @@ impl App {
                         crate::ui::layout::Breakpoint::from_width(self.state.screen_area.width)
                             == crate::ui::layout::Breakpoint::Narrow;
                     for (view, start, end) in
-                        crate::ui::widgets::tab_hit_zones(&icons, self.state.view, narrow)
+                        crate::ui::header::tab_hit_zones(&icons, self.state.view, narrow)
                     {
                         if mouse.column >= start && mouse.column < end {
                             let _ = action_tx

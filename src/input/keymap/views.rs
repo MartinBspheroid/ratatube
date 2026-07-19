@@ -37,6 +37,7 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
             crate::app::state::PromptPurpose::NewPlaylist,
         )),
         (View::Queue, KeyCode::Char('d')) => Action::Queue(QueueAction::RemoveSelectedFromQueue),
+        (View::Queue, KeyCode::Char('C')) => Action::Queue(QueueAction::ClearQueue),
         (View::Queue, KeyCode::Char('u')) => Action::Queue(QueueAction::UndoQueueRemoval),
         (View::Queue, KeyCode::Char('J')) => Action::Queue(QueueAction::MoveSelectedInQueue(1)),
         (View::Queue, KeyCode::Char('K')) => Action::Queue(QueueAction::MoveSelectedInQueue(-1)),
@@ -136,6 +137,7 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
         (View::History, KeyCode::Char('x')) => {
             Action::History(HistoryAction::DeleteSelectedHistoryEntry)
         }
+        (View::History, KeyCode::Char('C')) => Action::History(HistoryAction::ClearHistory),
         (View::History, KeyCode::Char('g')) => {
             Action::History(HistoryAction::ToggleHistoryViewMode)
         }

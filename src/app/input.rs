@@ -15,7 +15,8 @@ impl App {
         key: crossterm::event::KeyEvent,
         action_tx: &mpsc::Sender<Action>,
     ) {
-        if self.handle_modal_key(&key, action_tx).await {
+        if let Some(capture) = self.state.modal_capture() {
+            self.handle_modal_key(capture, &key, action_tx).await;
             return;
         }
         match self.state.focus {
@@ -115,7 +116,14 @@ impl App {
                     return;
                 }
                 if let Some(action) = keymap::route(&key, Focus::Content, self.state.view) {
-                    let _ = action_tx.send(action).await;
+                    if matches!(
+                        action,
+                        Action::Navigation(NavigationAction::OpenTrackContext)
+                    ) {
+                        self.handle_action(action, action_tx).await;
+                    } else {
+                        let _ = action_tx.send(action).await;
+                    }
                 }
             }
         }

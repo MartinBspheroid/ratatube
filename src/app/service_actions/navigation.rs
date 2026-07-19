@@ -3,8 +3,9 @@
 use tokio::sync::mpsc;
 
 use crate::app::App;
-use crate::app::action::{Action, NavigationAction, PlaybackAction};
-use crate::app::browser::open_browser;
+use crate::app::action::{
+    Action, ExternalCommandKind, ExternalCommandTarget, NavigationAction, PlaybackAction,
+};
 use crate::app::state::View;
 
 impl App {
@@ -24,15 +25,21 @@ impl App {
                     _ => None,
                 };
                 match track {
-                    Some(track) => match open_browser(&track.webpage_url) {
-                        Ok(()) => self.state.notify("Opened in browser", false),
-                        Err(error) => self
-                            .state
-                            .notify(&format!("Couldn't open browser: {error}"), true),
-                    },
+                    Some(track) => self.spawn_external_command(
+                        ExternalCommandKind::Browser,
+                        ExternalCommandTarget::Direct,
+                        track.webpage_url,
+                        action_tx.clone(),
+                    ),
                     None => self.state.notify("No track selected", true),
                 }
             }
+            NavigationAction::ExternalCommandCompleted {
+                command,
+                target,
+                result,
+                ..
+            } => self.finish_external_command(command, target, result),
             NavigationAction::SearchCompleted { .. } if self.autoplay_first_search => {
                 self.autoplay_first_search = false;
                 if self.state.active_list_len() > 0 {

@@ -23,16 +23,20 @@ impl App {
                 track,
                 position_seconds,
             } => {
-                let queue_position = self
+                let existing_position = self
                     .state
                     .queue
                     .order
                     .iter()
-                    .position(|&index| self.state.queue.tracks[index].id == track.id)
-                    .unwrap_or_else(|| {
+                    .position(|&index| self.state.queue.tracks[index].id == track.id);
+                let queue_position = match existing_position {
+                    Some(position) => position,
+                    None => {
                         self.state.queue.push(track.clone());
+                        self.state.bump_queue_revision();
                         self.state.queue.order.len() - 1
-                    });
+                    }
+                };
                 self.state.queue.position = Some(queue_position);
                 self.state.current_track = Some(track.clone());
                 self.state.playback.position_seconds = position_seconds;

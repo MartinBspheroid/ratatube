@@ -55,6 +55,7 @@ impl App {
         match self.playlists.save(&playlist) {
             Ok(()) => {
                 self.state.playlists.push(playlist);
+                self.state.bump_playlists_revision();
                 self.state.sort_playlists_by_updated();
                 self.state.notify("Queue saved as playlist", false);
             }
@@ -68,6 +69,7 @@ impl App {
         match self.playlists.save(&playlist) {
             Ok(()) => {
                 self.state.playlists.push(playlist);
+                self.state.bump_playlists_revision();
                 self.state.sort_playlists_by_updated();
                 self.state.notify("Playlist created", false);
             }
@@ -141,6 +143,7 @@ impl App {
             }
             saved_ids.push(playlist.id.clone());
         }
+        let changed = !staged.is_empty();
         for playlist in staged {
             match self
                 .state
@@ -151,6 +154,9 @@ impl App {
                 Some(index) => self.state.playlists[index] = playlist,
                 None => self.state.playlists.push(playlist),
             }
+        }
+        if changed {
+            self.state.bump_playlists_revision();
         }
         self.state.sort_playlists_by_updated();
         self.state

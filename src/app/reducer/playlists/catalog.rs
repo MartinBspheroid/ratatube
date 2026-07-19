@@ -21,6 +21,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaylistAction) -> Vec<Effect
                 Some(i) => state.playlists[i] = playlist,
                 None => state.playlists.push(playlist),
             }
+            state.bump_playlists_revision();
             state.sort_playlists_by_updated();
         }
         Action::Playlists(PlaylistAction::DeletePlaylist(id)) => {

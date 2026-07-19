@@ -1,9 +1,33 @@
 //! Operating-system adapters with validated, bounded process boundaries.
 
+pub(crate) mod child;
 pub mod clipboard;
+
+/// Maximum accepted byte length for a URL passed to an operating-system command.
+pub(crate) const MAX_EXTERNAL_URL_BYTES: usize = 2_048;
+
+/// Validate one credential-free HTTPS YouTube video URL for process dispatch.
+pub(crate) fn validate_youtube_video_url(url: &str) -> crate::error::Result<()> {
+    if url.len() > MAX_EXTERNAL_URL_BYTES {
+        return Err(crate::error::AppError::ResourceLimit {
+            resource: "external URL".to_string(),
+            limit: MAX_EXTERNAL_URL_BYTES,
+        });
+    }
+    if is_safe_youtube_video_url(url) {
+        Ok(())
+    } else {
+        Err(crate::error::AppError::InvalidUrl(
+            "expected an HTTPS YouTube video URL".to_string(),
+        ))
+    }
+}
 
 /// Return whether `url` is a credential-free HTTPS YouTube video URL.
 pub(crate) fn is_safe_youtube_video_url(url: &str) -> bool {
+    if url.len() > MAX_EXTERNAL_URL_BYTES {
+        return false;
+    }
     if url.chars().any(char::is_whitespace) || url.chars().any(char::is_control) {
         return false;
     }

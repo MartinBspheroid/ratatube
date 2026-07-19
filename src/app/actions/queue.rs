@@ -12,6 +12,7 @@ pub enum QueueAction {
     RemoveTrackOccurrence {
         order_index: usize,
         expected_track: Track,
+        expected_revision: u64,
     },
     /// Restore the most recently removed queue item.
     UndoQueueRemoval,

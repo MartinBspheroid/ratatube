@@ -18,11 +18,7 @@ impl App {
                 }
             }
             PlaylistAction::OpenPlaylistPickerForTrack(track) => {
-                self.state.picker = Some(crate::app::state::PickerState {
-                    track,
-                    filter: String::new(),
-                    selected: 0,
-                });
+                self.state.show_playlist_picker(track);
             }
             PlaylistAction::PickerSubmit => self.submit_picker().await,
             PlaylistAction::RemoveSelectedFromPlaylist => {
@@ -43,6 +39,7 @@ impl App {
                 playlist.tracks.remove(index);
                 playlist.updated_at = chrono::Utc::now();
                 let snapshot = playlist.clone();
+                self.state.bump_playlists_revision();
                 match self.playlists.save(&snapshot) {
                     Ok(()) => self.state.notify("Removed from playlist", false),
                     Err(err) => self.state.notify(&format!("Save failed: {err}"), true),
@@ -53,7 +50,13 @@ impl App {
                 playlist_id,
                 track_index,
                 expected_track,
+                expected_revision,
             } => {
+                if self.state.playlists_revision != expected_revision {
+                    self.state
+                        .notify("Playlist changed; removal cancelled", true);
+                    return;
+                }
                 let Some(playlist_index) = self
                     .state
                     .playlists
@@ -80,6 +83,7 @@ impl App {
                 playlist.tracks.remove(track_index);
                 playlist.updated_at = chrono::Utc::now();
                 let snapshot = playlist.clone();
+                self.state.bump_playlists_revision();
                 match self.playlists.save(&snapshot) {
                     Ok(()) => self.state.notify("Removed from playlist", false),
                     Err(error) => {
@@ -150,6 +154,7 @@ impl App {
                 playlist.tracks.insert(to, track);
                 playlist.updated_at = chrono::Utc::now();
                 let snapshot = playlist.clone();
+                self.state.bump_playlists_revision();
                 self.state.selected_index = to;
                 if let Err(err) = self.playlists.save(&snapshot) {
                     self.state.notify(&format!("Save failed: {err}"), true);

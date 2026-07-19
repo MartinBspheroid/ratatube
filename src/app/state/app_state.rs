@@ -52,9 +52,13 @@ pub struct AppState {
     /// Last rendered full screen area, for mouse hit-testing.
     pub screen_area: ratatui::layout::Rect,
     pub queue: Queue,
+    /// Monotonic identity for queue membership and play-order occurrences.
+    pub(crate) queue_revision: u64,
     /// Single-level undo for accidental queue deletion.
     pub removed_queue_item: Option<(usize, Track)>,
     pub playlists: Vec<Playlist>,
+    /// Monotonic identity for stored playlist membership and track ordering.
+    pub(crate) playlists_revision: u64,
     pub selected_playlist: Option<usize>,
 
     // Modal UI
@@ -146,5 +150,15 @@ impl AppState {
     pub fn with_queue(mut self, queue: Queue) -> Self {
         self.queue = queue;
         self
+    }
+
+    /// Invalidate queue occurrence tokens after a membership or order change.
+    pub(crate) fn bump_queue_revision(&mut self) {
+        self.queue_revision = self.queue_revision.wrapping_add(1);
+    }
+
+    /// Invalidate playlist occurrence tokens after a stored collection change.
+    pub(crate) fn bump_playlists_revision(&mut self) {
+        self.playlists_revision = self.playlists_revision.wrapping_add(1);
     }
 }

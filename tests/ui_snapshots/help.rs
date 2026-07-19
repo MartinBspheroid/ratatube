@@ -24,3 +24,20 @@ fn renderer_exposes_exact_search_result_hit_rows() {
     assert!(state.list_hit_area.y > state.main_area.y + 3);
     assert!(state.list_hit_area.height > 0);
 }
+
+#[test]
+fn queue_and_history_footers_document_uppercase_clear_shortcut() {
+    for view in [
+        ytm_tui::app::state::View::Queue,
+        ytm_tui::app::state::View::History,
+    ] {
+        let mut state = AppState::new();
+        state.view = view;
+        let rendered = render_to_string(&mut state, None, 100, 24);
+
+        assert!(
+            rendered.contains(" C clear"),
+            "missing uppercase clear hint for {view:?}:\n{rendered}"
+        );
+    }
+}

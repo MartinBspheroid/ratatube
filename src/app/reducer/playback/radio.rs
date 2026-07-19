@@ -13,6 +13,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
                 return Vec::new();
             }
             state.queue.load_tracks(tracks);
+            state.bump_queue_revision();
             state.queue.position = Some(0);
             state.current_details = None;
             state.thumbnail = None;
@@ -52,6 +53,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
             for track in fresh {
                 state.queue.push(track);
             }
+            state.bump_queue_revision();
             state.notify(&format!("Radio: added {count} tracks"), false);
             // If playback had already run dry, start on the new tracks.
             if state.queue.position.is_none() || state.current_track.is_none() {
