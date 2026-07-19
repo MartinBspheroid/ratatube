@@ -67,3 +67,12 @@ Use one filter per invocation or run the whole target (`cargo test --lib`, `carg
 - **Fix:** Calculate the full vertical budget including borders, margins, and spacing, then size the popup to preserve every input row.
 - **Prevention check:** For each popup breakpoint, assert that every field label and a distinctive field value are both rendered; sum constraints, spacing, margins, and borders before choosing modal height.
 - **Tags:** ratatui, layout, popup, forms, visual-regression
+
+## Learning: Probe alternate YouTube channel surfaces
+
+- **Context:** Channel browsing normalized every YouTube channel URL to its `/videos` tab.
+- **Symptom:** Valid `- Topic` channels opened the Channel view but failed with yt-dlp's “does not have a videos tab” error.
+- **Root cause:** A valid channel identity does not guarantee that every channel type exposes the same tab surface; YouTube Topic channels may publish uploads only through the channel root.
+- **Fix:** Keep `/videos` as the primary newest-first surface, but retry the validated channel root only when yt-dlp explicitly reports that the videos tab is absent.
+- **Prevention check:** Test both a normal channel and a Topic channel against real yt-dlp, and keep a deterministic fake-process regression that proves unrelated yt-dlp failures do not trigger fallback.
+- **Tags:** youtube, yt-dlp, channel, fallback, integration-testing

@@ -25,6 +25,28 @@ printf '%s\n' '{"id":"topic-video","title":"Topic upload","channel":"Artist - To
 }
 
 #[tokio::test]
+async fn unrelated_channel_failure_does_not_probe_channel_root() {
+    let script = r#"
+last="${!#}"
+if [[ "$last" == */videos ]]; then
+  printf '%s\n' 'ERROR: network unavailable' >&2
+  exit 1
+fi
+printf '%s\n' '{"id":"must-not-load","title":"Unexpected fallback"}'
+"#;
+    let (_directory, client) = mock_yt_dlp(script);
+    let error = client
+        .fetch_channel_page(&ChannelPageRequest {
+            channel_url: "https://www.youtube.com/channel/UCNormal".into(),
+            page: 0,
+        })
+        .await
+        .expect_err("unrelated failure must be preserved");
+
+    assert!(error.to_string().contains("network unavailable"));
+}
+
+#[tokio::test]
 async fn channel_page_uses_exact_zero_based_bounds_and_normalized_url() {
     for (page, start, end) in [(0, "1", "30"), (1, "31", "60")] {
         let (_directory, client, arguments) = capturing_yt_dlp_with_output("");
