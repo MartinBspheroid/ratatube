@@ -139,6 +139,7 @@ impl PlaybackController {
     pub fn on_event(&mut self, event: &PlaybackEvent) {
         match event {
             PlaybackEvent::Started => self.snapshot.status = PlaybackStatus::Playing,
+            PlaybackEvent::FileLoaded => {}
             PlaybackEvent::PositionChanged(p) => self.snapshot.position_seconds = *p,
             PlaybackEvent::DurationChanged(d) => self.snapshot.duration_seconds = Some(*d),
             PlaybackEvent::PauseChanged(paused) => {

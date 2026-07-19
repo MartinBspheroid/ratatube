@@ -210,6 +210,7 @@ fn event_from_frame(frame: MpvFrame) -> Option<PlaybackEvent> {
     let event = frame.event.as_deref()?;
     match event {
         "playback-restart" => Some(PlaybackEvent::Started),
+        "file-loaded" => Some(PlaybackEvent::FileLoaded),
         "end-file" => Some(PlaybackEvent::EndFile {
             reason: frame.reason.unwrap_or_else(|| "unknown".to_string()),
         }),
@@ -284,6 +285,18 @@ mod tests {
         let event =
             parse_frame(r#"{"event":"property-change","name":"time-pos","data":12.5}"#).expect("e");
         assert_eq!(event, PlaybackEvent::PositionChanged(12.5));
+    }
+
+    #[test]
+    fn parses_file_loaded_as_media_boundary() {
+        let event = parse_frame(r#"{"event":"file-loaded"}"#).expect("event");
+        assert_eq!(event, PlaybackEvent::FileLoaded);
+    }
+
+    #[test]
+    fn preserves_playback_restart_as_started_status() {
+        let event = parse_frame(r#"{"event":"playback-restart"}"#).expect("event");
+        assert_eq!(event, PlaybackEvent::Started);
     }
 
     #[test]

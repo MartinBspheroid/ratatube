@@ -18,4 +18,5 @@ mod navigation_queue;
 mod playback_core;
 mod playback_features;
 mod playback_transition;
+mod playback_transition_races;
 mod playlists;

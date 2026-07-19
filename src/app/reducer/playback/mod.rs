@@ -34,6 +34,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
         action @ (PlaybackAction::PlaySelected
         | PlaybackAction::PlayTrack(_)
         | PlaybackAction::ResumeTrack { .. }
+        | PlaybackAction::SessionStreamResolved { .. }
         | PlaybackAction::PlaybackResolveStarted { .. }
         | PlaybackAction::PlaybackResolved { .. }
         | PlaybackAction::PlaybackResolveFailed { .. }
@@ -50,8 +51,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
         action @ (PlaybackAction::MixLoaded { .. }
         | PlaybackAction::RadioRefillStarted { .. }
         | PlaybackAction::RadioTracksLoaded { .. }) => radio::reduce(state, action),
-        PlaybackAction::SessionStreamResolved { .. }
-        | PlaybackAction::SessionResolveFailed { .. }
+        PlaybackAction::SessionResolveFailed { .. }
         | PlaybackAction::ThumbnailLoaded { .. }
         | PlaybackAction::SearchThumbnailLoaded { .. }
         | PlaybackAction::PrefetchResolved { .. }

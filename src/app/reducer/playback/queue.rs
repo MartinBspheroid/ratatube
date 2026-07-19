@@ -23,6 +23,15 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
         }
         // Resolved by the app layer through the existing pending-session flow.
         Action::Playback(PlaybackAction::ResumeTrack { .. }) => {}
+        Action::Playback(PlaybackAction::SessionStreamResolved { track_id, .. }) => {
+            if state
+                .pending_resume
+                .as_ref()
+                .is_some_and(|pending| pending.track.id == track_id)
+            {
+                state.begin_playback_occurrence();
+            }
+        }
         Action::Playback(PlaybackAction::PlaySelected) => {
             if matches!(state.view, View::Queue)
                 || (state.view == View::NowPlaying

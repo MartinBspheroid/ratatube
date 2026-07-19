@@ -36,21 +36,11 @@ impl AppState {
         match event {
             PlaybackEvent::Started => {
                 self.playback.status = PlaybackStatus::Playing;
-                self.mark_playback_started();
+                self.discard_unloaded_timing();
             }
-            PlaybackEvent::PositionChanged(p)
-                if self.playback_started_occurrence == Some(self.playback_occurrence) =>
-            {
-                self.playback.position_seconds = *p;
-                self.mark_position_fresh();
-            }
-            PlaybackEvent::DurationChanged(d)
-                if self.playback_started_occurrence == Some(self.playback_occurrence) =>
-            {
-                self.playback.duration_seconds = Some(*d);
-                self.mark_duration_fresh();
-            }
-            PlaybackEvent::PositionChanged(_) | PlaybackEvent::DurationChanged(_) => {}
+            PlaybackEvent::FileLoaded => self.mark_file_loaded(),
+            PlaybackEvent::PositionChanged(position) => self.record_position(*position),
+            PlaybackEvent::DurationChanged(duration) => self.record_duration(*duration),
             PlaybackEvent::PauseChanged(paused) => {
                 self.playback.status = if *paused {
                     PlaybackStatus::Paused

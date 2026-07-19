@@ -37,28 +37,57 @@ impl AppState {
     /// Start a distinct playback occurrence and invalidate all prior timing.
     pub(crate) fn begin_playback_occurrence(&mut self) {
         self.playback_occurrence = self.playback_occurrence.wrapping_add(1).max(1);
-        self.playback_started_occurrence = None;
+        self.playback_loaded_occurrence = None;
         self.position_occurrence = None;
         self.duration_occurrence = None;
+        self.staged_position = None;
+        self.staged_duration = None;
         self.playback.position_seconds = 0.0;
         self.playback.duration_seconds = None;
     }
 
-    /// Mark mpv's start boundary for the current accepted load.
-    pub(crate) fn mark_playback_started(&mut self) {
+    /// Claim staged timing at mpv's genuine media-load boundary.
+    pub(crate) fn mark_file_loaded(&mut self) {
         if self.playback_occurrence != 0 {
-            self.playback_started_occurrence = Some(self.playback_occurrence);
+            let occurrence = self.playback_occurrence;
+            self.playback_loaded_occurrence = Some(occurrence);
+            if let Some(position) = self.staged_position.take() {
+                self.playback.position_seconds = position;
+                self.position_occurrence = Some(occurrence);
+            }
+            if let Some(duration) = self.staged_duration.take() {
+                self.playback.duration_seconds = Some(duration);
+                self.duration_occurrence = Some(occurrence);
+            }
         }
     }
 
-    /// Associate the latest position with the started occurrence.
-    pub(crate) fn mark_position_fresh(&mut self) {
-        self.position_occurrence = self.playback_started_occurrence;
+    /// Drop pre-load snapshots when mpv restarts without loading the expected file.
+    pub(crate) fn discard_unloaded_timing(&mut self) {
+        if self.playback_loaded_occurrence != Some(self.playback_occurrence) {
+            self.staged_position = None;
+            self.staged_duration = None;
+        }
     }
 
-    /// Associate the latest duration with the started occurrence.
-    pub(crate) fn mark_duration_fresh(&mut self) {
-        self.duration_occurrence = self.playback_started_occurrence;
+    /// Record position for the active load, staging it before `file-loaded`.
+    pub(crate) fn record_position(&mut self, position: f64) {
+        if self.playback_loaded_occurrence == Some(self.playback_occurrence) {
+            self.playback.position_seconds = position;
+            self.position_occurrence = Some(self.playback_occurrence);
+        } else if self.playback_occurrence != 0 {
+            self.staged_position = Some(position);
+        }
+    }
+
+    /// Record duration for the active load, staging it before `file-loaded`.
+    pub(crate) fn record_duration(&mut self, duration: f64) {
+        if self.playback_loaded_occurrence == Some(self.playback_occurrence) {
+            self.playback.duration_seconds = Some(duration);
+            self.duration_occurrence = Some(self.playback_occurrence);
+        } else if self.playback_occurrence != 0 {
+            self.staged_duration = Some(duration);
+        }
     }
 
     /// Keep playlist presentation and selection order newest-updated first.

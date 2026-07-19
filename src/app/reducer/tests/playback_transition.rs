@@ -32,9 +32,8 @@ fn playing_state() -> AppState {
     state.queue.position = Some(0);
     state.current_track = state.queue.current().cloned();
     state.begin_playback_occurrence();
-    state.mark_playback_started();
-    state.playback.duration_seconds = Some(100.0);
-    state.mark_duration_fresh();
+    state.mark_file_loaded();
+    state.record_duration(100.0);
     state.playback.status = PlaybackStatus::Playing;
     state
 }
@@ -105,13 +104,11 @@ fn new_resolution_rejects_previous_timing_until_fresh_events_arrive() {
     let mut operations = OperationRegistry::default();
     let ticket = operations.start(OperationKind::Playback);
     resolve_current(&mut state, ticket.id());
-    reduce(
-        &mut state,
-        Action::Playback(PlaybackAction::PlaybackEvent(PlaybackEvent::Started)),
-    );
+    reduce(&mut state, playback_event(PlaybackEvent::Started));
 
     assert_eq!(state.track_transition.progress(Instant::now()), None);
 
+    reduce(&mut state, playback_event(PlaybackEvent::FileLoaded));
     reduce(
         &mut state,
         Action::Playback(PlaybackAction::PlaybackEvent(
@@ -128,7 +125,7 @@ fn new_resolution_rejects_previous_timing_until_fresh_events_arrive() {
 }
 
 #[test]
-fn timing_events_before_started_are_rejected_as_stale() {
+fn timing_before_file_loaded_is_staged_for_the_new_occurrence() {
     let mut state = AppState::new();
     state.queue.push(track("current"));
     state.queue.push(track("next"));
@@ -150,6 +147,12 @@ fn timing_events_before_started_are_rejected_as_stale() {
     assert_eq!(state.playback.duration_seconds, None);
     assert_eq!(state.playback.position_seconds, 0.0);
     assert_eq!(state.track_transition.progress(Instant::now()), None);
+
+    reduce(&mut state, playback_event(PlaybackEvent::FileLoaded));
+    reduce(&mut state, playback_event(PlaybackEvent::Started));
+    assert_eq!(state.playback.duration_seconds, Some(100.0));
+    assert_eq!(state.playback.position_seconds, 90.0);
+    assert!(state.track_transition.progress(Instant::now()).is_some());
 }
 
 #[test]
@@ -167,6 +170,7 @@ fn consecutive_same_track_occurrences_each_fire_once() {
         resolve_current(&mut state, ticket.id());
         assert_eq!(state.track_transition.progress(Instant::now()), None);
         for event in [
+            PlaybackEvent::FileLoaded,
             PlaybackEvent::Started,
             PlaybackEvent::DurationChanged(100.0),
             PlaybackEvent::PositionChanged(85.0),
@@ -193,6 +197,7 @@ fn one_track_replay_gets_a_new_transition_occurrence() {
         resolve_current(&mut state, ticket.id());
         assert_eq!(state.track_transition.progress(Instant::now()), None);
         for event in [
+            PlaybackEvent::FileLoaded,
             PlaybackEvent::Started,
             PlaybackEvent::DurationChanged(100.0),
             PlaybackEvent::PositionChanged(85.0),

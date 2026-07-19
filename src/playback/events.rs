@@ -7,6 +7,8 @@ pub enum PlaybackEvent {
     Connected,
     /// A new file started playing.
     Started,
+    /// mpv completed loading a new media file.
+    FileLoaded,
     /// Playback position changed (seconds).
     PositionChanged(f64),
     /// Media duration became known (seconds).
