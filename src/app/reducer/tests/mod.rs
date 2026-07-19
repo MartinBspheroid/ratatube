@@ -14,6 +14,10 @@ fn track(id: &str) -> Track {
     Track::new(id, id, "artist")
 }
 
+fn playback_event(event: PlaybackEvent) -> Action {
+    Action::Playback(PlaybackAction::PlaybackEvent(event))
+}
+
 mod navigation_queue;
 mod playback_core;
 mod playback_features;

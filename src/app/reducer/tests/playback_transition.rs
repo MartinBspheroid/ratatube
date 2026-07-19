@@ -125,7 +125,7 @@ fn new_resolution_rejects_previous_timing_until_fresh_events_arrive() {
 }
 
 #[test]
-fn timing_before_file_loaded_is_staged_for_the_new_occurrence() {
+fn timing_before_file_loaded_is_discarded_and_never_claimed() {
     let mut state = AppState::new();
     state.queue.push(track("current"));
     state.queue.push(track("next"));
@@ -150,8 +150,18 @@ fn timing_before_file_loaded_is_staged_for_the_new_occurrence() {
 
     reduce(&mut state, playback_event(PlaybackEvent::FileLoaded));
     reduce(&mut state, playback_event(PlaybackEvent::Started));
-    assert_eq!(state.playback.duration_seconds, Some(100.0));
-    assert_eq!(state.playback.position_seconds, 90.0);
+    assert_eq!(state.playback.duration_seconds, None);
+    assert_eq!(state.playback.position_seconds, 0.0);
+    assert_eq!(state.track_transition.progress(Instant::now()), None);
+
+    reduce(
+        &mut state,
+        playback_event(PlaybackEvent::DurationChanged(100.0)),
+    );
+    reduce(
+        &mut state,
+        playback_event(PlaybackEvent::PositionChanged(90.0)),
+    );
     assert!(state.track_transition.progress(Instant::now()).is_some());
 }
 

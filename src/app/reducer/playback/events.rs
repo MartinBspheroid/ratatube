@@ -36,7 +36,6 @@ impl AppState {
         match event {
             PlaybackEvent::Started => {
                 self.playback.status = PlaybackStatus::Playing;
-                self.discard_unloaded_timing();
             }
             PlaybackEvent::FileLoaded => self.mark_file_loaded(),
             PlaybackEvent::PositionChanged(position) => self.record_position(*position),

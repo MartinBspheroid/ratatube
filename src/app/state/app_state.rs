@@ -110,10 +110,6 @@ pub struct AppState {
     pub(crate) position_occurrence: Option<u64>,
     /// Occurrence owning the current duration snapshot.
     pub(crate) duration_occurrence: Option<u64>,
-    /// Position observed after resolution but before `file-loaded`.
-    pub(crate) staged_position: Option<f64>,
-    /// Duration observed after resolution but before `file-loaded`.
-    pub(crate) staged_duration: Option<f64>,
     /// Resolution state for the track requested by the queue cursor.
     pub playback_resolution: OperationStatus,
     /// Extended metadata for the current track, loaded in the background.

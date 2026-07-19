@@ -3,10 +3,6 @@ use std::time::Instant;
 use super::*;
 use crate::playback::PlaybackStatus;
 
-fn playback_event(event: PlaybackEvent) -> Action {
-    Action::Playback(PlaybackAction::PlaybackEvent(event))
-}
-
 fn resolve_current(state: &mut AppState, operation_id: crate::app::operations::OperationId) {
     let position = state.queue.position.expect("queue position");
     let track_id = state.queue.current().expect("current track").id.clone();
@@ -104,9 +100,9 @@ fn accepted_session_resume_creates_an_occurrence_that_can_fire() {
         }),
     );
     for event in [
+        PlaybackEvent::FileLoaded,
         PlaybackEvent::DurationChanged(100.0),
         PlaybackEvent::PositionChanged(85.0),
-        PlaybackEvent::FileLoaded,
         PlaybackEvent::Started,
     ] {
         reduce(&mut state, playback_event(event));

@@ -40,53 +40,30 @@ impl AppState {
         self.playback_loaded_occurrence = None;
         self.position_occurrence = None;
         self.duration_occurrence = None;
-        self.staged_position = None;
-        self.staged_duration = None;
         self.playback.position_seconds = 0.0;
         self.playback.duration_seconds = None;
     }
 
-    /// Claim staged timing at mpv's genuine media-load boundary.
+    /// Mark mpv's genuine media-load boundary for the accepted occurrence.
     pub(crate) fn mark_file_loaded(&mut self) {
         if self.playback_occurrence != 0 {
-            let occurrence = self.playback_occurrence;
-            self.playback_loaded_occurrence = Some(occurrence);
-            if let Some(position) = self.staged_position.take() {
-                self.playback.position_seconds = position;
-                self.position_occurrence = Some(occurrence);
-            }
-            if let Some(duration) = self.staged_duration.take() {
-                self.playback.duration_seconds = Some(duration);
-                self.duration_occurrence = Some(occurrence);
-            }
+            self.playback_loaded_occurrence = Some(self.playback_occurrence);
         }
     }
 
-    /// Drop pre-load snapshots when mpv restarts without loading the expected file.
-    pub(crate) fn discard_unloaded_timing(&mut self) {
-        if self.playback_loaded_occurrence != Some(self.playback_occurrence) {
-            self.staged_position = None;
-            self.staged_duration = None;
-        }
-    }
-
-    /// Record position for the active load, staging it before `file-loaded`.
+    /// Record position only after the active load's `file-loaded` boundary.
     pub(crate) fn record_position(&mut self, position: f64) {
         if self.playback_loaded_occurrence == Some(self.playback_occurrence) {
             self.playback.position_seconds = position;
             self.position_occurrence = Some(self.playback_occurrence);
-        } else if self.playback_occurrence != 0 {
-            self.staged_position = Some(position);
         }
     }
 
-    /// Record duration for the active load, staging it before `file-loaded`.
+    /// Record duration only after the active load's `file-loaded` boundary.
     pub(crate) fn record_duration(&mut self, duration: f64) {
         if self.playback_loaded_occurrence == Some(self.playback_occurrence) {
             self.playback.duration_seconds = Some(duration);
             self.duration_occurrence = Some(self.playback_occurrence);
-        } else if self.playback_occurrence != 0 {
-            self.staged_duration = Some(duration);
         }
     }
 
