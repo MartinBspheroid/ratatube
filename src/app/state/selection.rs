@@ -5,6 +5,30 @@ use crate::media::search::SearchState;
 use crate::ui::layout::Breakpoint;
 
 impl AppState {
+    /// Reconcile final-window timing with the current playback and queue facts.
+    pub(crate) fn sync_track_transition(&mut self, now: std::time::Instant) {
+        let remaining_seconds = self
+            .playback
+            .duration_seconds
+            .filter(|duration| duration.is_finite() && *duration >= 0.0)
+            .zip(
+                self.playback
+                    .position_seconds
+                    .is_finite()
+                    .then_some(self.playback.position_seconds),
+            )
+            .map(|(duration, position)| (duration - position).max(0.0));
+        self.track_transition.update(
+            crate::playback::TransitionInput {
+                track_id: self.current_track.as_ref().map(|track| track.id.as_str()),
+                remaining_seconds,
+                playing: self.playback.status == crate::playback::PlaybackStatus::Playing,
+                has_next: self.queue.effective_next().is_some(),
+            },
+            now,
+        );
+    }
+
     /// Keep playlist presentation and selection order newest-updated first.
     pub fn sort_playlists_by_updated(&mut self) {
         self.playlists

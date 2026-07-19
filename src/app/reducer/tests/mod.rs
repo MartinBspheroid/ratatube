@@ -17,4 +17,5 @@ fn track(id: &str) -> Track {
 mod navigation_queue;
 mod playback_core;
 mod playback_features;
+mod playback_transition;
 mod playlists;

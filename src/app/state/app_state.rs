@@ -9,7 +9,7 @@ use crate::app::state::{
 use crate::media::Track;
 use crate::media::import::InputKind;
 use crate::media::search::SearchState;
-use crate::playback::PlaybackSnapshot;
+use crate::playback::{PlaybackSnapshot, TrackTransitionState};
 use crate::playlists::Playlist;
 use crate::queue::Queue;
 
@@ -100,6 +100,8 @@ pub struct AppState {
     // Playback
     pub playback: PlaybackSnapshot,
     pub current_track: Option<Track>,
+    /// One-shot final-window title transition timing.
+    pub track_transition: TrackTransitionState,
     /// Resolution state for the track requested by the queue cursor.
     pub playback_resolution: OperationStatus,
     /// Extended metadata for the current track, loaded in the background.
