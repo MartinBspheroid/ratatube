@@ -1,5 +1,95 @@
 use super::*;
 
+fn activate_transition(state: &mut AppState) {
+    let now = std::time::Instant::now();
+    state.track_transition.update(
+        ytm_tui::playback::TransitionInput {
+            occurrence: Some(1),
+            remaining_seconds: Some(15.0),
+            playing: true,
+            has_next: true,
+        },
+        now - ytm_tui::playback::TRANSITION_DURATION,
+    );
+}
+
+#[test]
+fn playback_transition_replaces_title_in_shared_player() {
+    let mut state = AppState::new();
+    state.view = ytm_tui::app::state::View::NowPlaying;
+    let current = Track::new("current", "Current title", "Current channel");
+    state.current_track = Some(current.clone());
+    state.queue.push(current);
+    state
+        .queue
+        .push(Track::new("next", "Next title", "Next channel"));
+    state.queue.position = Some(0);
+    activate_transition(&mut state);
+
+    let out = render_to_string(&mut state, None, 80, 24);
+    assert!(
+        out.contains("Current title < Next title"),
+        "transition title:\n{out}"
+    );
+    assert!(
+        !out.contains("Current title — Current channel"),
+        "normal title replaced:\n{out}"
+    );
+}
+
+#[test]
+fn playback_transition_is_width_safe_and_sanitized() {
+    let mut state = AppState::new();
+    let current = Track::new("current", "Current\u{1b}[2J 世界 title", "Channel");
+    state.current_track = Some(current.clone());
+    state.queue.push(current);
+    state.queue.push(Track::new(
+        "next",
+        "Next 🎵 title with deliberately excessive width",
+        "Next channel",
+    ));
+    state.queue.position = Some(0);
+    activate_transition(&mut state);
+
+    for width in [60, 80] {
+        let out = render_to_string(&mut state, None, width, 24);
+        assert!(out.contains("Current[2J"), "sanitized:\n{out}");
+        assert!(!out.contains('\u{1b}'), "control removed:\n{out}");
+        assert!(out.contains(" < "), "visible separator at {width}:\n{out}");
+        assert!(
+            out.lines()
+                .all(|line| line.chars().count() == width as usize),
+            "buffer remains exactly {width} cells wide:\n{out}"
+        );
+    }
+}
+
+#[test]
+fn playback_transition_requires_a_real_next_track() {
+    for repeat_track in [false, true] {
+        let mut state = AppState::new();
+        state.view = ytm_tui::app::state::View::NowPlaying;
+        let current = Track::new("current", "Regular title", "Channel");
+        state.current_track = Some(current.clone());
+        state.queue.push(current);
+        if repeat_track {
+            state
+                .queue
+                .push(Track::new("next", "Suppressed next", "Channel"));
+            state.queue.repeat = ytm_tui::queue::RepeatMode::Track;
+        }
+        state.queue.position = Some(0);
+        activate_transition(&mut state);
+
+        let out = render_to_string(&mut state, None, 80, 24);
+        assert!(
+            out.contains("Regular title — Channel"),
+            "normal title:\n{out}"
+        );
+        assert!(!out.contains(" < "), "transition suppressed:\n{out}");
+    }
+}
+
 #[test]
 fn playing_view_shows_chapters_and_up_next() {
     let mut state = AppState::new();
