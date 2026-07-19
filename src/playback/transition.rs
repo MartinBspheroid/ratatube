@@ -9,9 +9,9 @@ pub const TRANSITION_DURATION: Duration = Duration::from_secs(4);
 
 /// Playback and queue facts consumed by [`TrackTransitionState::update`].
 #[derive(Debug, Clone, Copy)]
-pub struct TransitionInput<'a> {
-    /// Stable identity of the current track.
-    pub track_id: Option<&'a str>,
+pub struct TransitionInput {
+    /// Unique identity of the current playback load occurrence.
+    pub occurrence: Option<u64>,
     /// Known duration minus current playback position.
     pub remaining_seconds: Option<f64>,
     /// Whether playback is actively progressing.
@@ -23,7 +23,7 @@ pub struct TransitionInput<'a> {
 /// One-shot transition timing owned by application state.
 #[derive(Debug, Clone, Default)]
 pub struct TrackTransitionState {
-    track_id: Option<String>,
+    occurrence: Option<u64>,
     fired: bool,
     active: bool,
     playing: bool,
@@ -33,9 +33,9 @@ pub struct TrackTransitionState {
 
 impl TrackTransitionState {
     /// Reconcile the transition with a playback snapshot and queue state.
-    pub fn update(&mut self, input: TransitionInput<'_>, now: Instant) {
-        if self.track_id.as_deref() != input.track_id {
-            self.reset(input.track_id);
+    pub fn update(&mut self, input: TransitionInput, now: Instant) {
+        if self.occurrence != input.occurrence {
+            self.reset(input.occurrence);
         }
         self.capture_elapsed(now);
 
@@ -46,7 +46,7 @@ impl TrackTransitionState {
 
         if !input.has_next || !inside_window {
             self.active = false;
-        } else if !self.fired && input.playing && input.track_id.is_some() {
+        } else if !self.fired && input.playing && input.occurrence.is_some() {
             self.fired = true;
             self.active = true;
             self.accumulated = Duration::ZERO;
@@ -74,8 +74,8 @@ impl TrackTransitionState {
         }
     }
 
-    fn reset(&mut self, track_id: Option<&str>) {
-        self.track_id = track_id.map(str::to_owned);
+    fn reset(&mut self, occurrence: Option<u64>) {
+        self.occurrence = occurrence;
         self.fired = false;
         self.active = false;
         self.playing = false;

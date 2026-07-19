@@ -95,6 +95,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
                 .filter(|track| track.id == track_id)
                 .cloned();
             if let Some(track) = track {
+                state.begin_playback_occurrence();
                 state.current_track = Some(track);
                 state.current_details = None;
                 state.thumbnail = None;

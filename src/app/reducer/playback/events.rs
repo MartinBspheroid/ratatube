@@ -34,9 +34,23 @@ impl AppState {
     fn playback_status_from(&mut self, event: &PlaybackEvent) {
         use crate::playback::PlaybackStatus;
         match event {
-            PlaybackEvent::Started => self.playback.status = PlaybackStatus::Playing,
-            PlaybackEvent::PositionChanged(p) => self.playback.position_seconds = *p,
-            PlaybackEvent::DurationChanged(d) => self.playback.duration_seconds = Some(*d),
+            PlaybackEvent::Started => {
+                self.playback.status = PlaybackStatus::Playing;
+                self.mark_playback_started();
+            }
+            PlaybackEvent::PositionChanged(p)
+                if self.playback_started_occurrence == Some(self.playback_occurrence) =>
+            {
+                self.playback.position_seconds = *p;
+                self.mark_position_fresh();
+            }
+            PlaybackEvent::DurationChanged(d)
+                if self.playback_started_occurrence == Some(self.playback_occurrence) =>
+            {
+                self.playback.duration_seconds = Some(*d);
+                self.mark_duration_fresh();
+            }
+            PlaybackEvent::PositionChanged(_) | PlaybackEvent::DurationChanged(_) => {}
             PlaybackEvent::PauseChanged(paused) => {
                 self.playback.status = if *paused {
                     PlaybackStatus::Paused

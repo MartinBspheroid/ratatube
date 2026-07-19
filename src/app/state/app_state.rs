@@ -102,6 +102,14 @@ pub struct AppState {
     pub current_track: Option<Track>,
     /// One-shot final-window title transition timing.
     pub track_transition: TrackTransitionState,
+    /// Unique generation for each accepted playback load.
+    pub(crate) playback_occurrence: u64,
+    /// Occurrence for which mpv has emitted `Started`.
+    pub(crate) playback_started_occurrence: Option<u64>,
+    /// Occurrence owning the current position snapshot.
+    pub(crate) position_occurrence: Option<u64>,
+    /// Occurrence owning the current duration snapshot.
+    pub(crate) duration_occurrence: Option<u64>,
     /// Resolution state for the track requested by the queue cursor.
     pub playback_resolution: OperationStatus,
     /// Extended metadata for the current track, loaded in the background.

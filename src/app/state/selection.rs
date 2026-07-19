@@ -7,9 +7,14 @@ use crate::ui::layout::Breakpoint;
 impl AppState {
     /// Reconcile final-window timing with the current playback and queue facts.
     pub(crate) fn sync_track_transition(&mut self, now: std::time::Instant) {
-        let remaining_seconds = self
-            .playback
-            .duration_seconds
+        let occurrence = (self.current_track.is_some() && self.playback_occurrence != 0)
+            .then_some(self.playback_occurrence);
+        let timing_is_current = occurrence.is_some()
+            && self.position_occurrence == occurrence
+            && self.duration_occurrence == occurrence;
+        let remaining_seconds = timing_is_current
+            .then_some(self.playback.duration_seconds)
+            .flatten()
             .filter(|duration| duration.is_finite() && *duration >= 0.0)
             .zip(
                 self.playback
@@ -20,13 +25,40 @@ impl AppState {
             .map(|(duration, position)| (duration - position).max(0.0));
         self.track_transition.update(
             crate::playback::TransitionInput {
-                track_id: self.current_track.as_ref().map(|track| track.id.as_str()),
+                occurrence,
                 remaining_seconds,
                 playing: self.playback.status == crate::playback::PlaybackStatus::Playing,
                 has_next: self.queue.effective_next().is_some(),
             },
             now,
         );
+    }
+
+    /// Start a distinct playback occurrence and invalidate all prior timing.
+    pub(crate) fn begin_playback_occurrence(&mut self) {
+        self.playback_occurrence = self.playback_occurrence.wrapping_add(1).max(1);
+        self.playback_started_occurrence = None;
+        self.position_occurrence = None;
+        self.duration_occurrence = None;
+        self.playback.position_seconds = 0.0;
+        self.playback.duration_seconds = None;
+    }
+
+    /// Mark mpv's start boundary for the current accepted load.
+    pub(crate) fn mark_playback_started(&mut self) {
+        if self.playback_occurrence != 0 {
+            self.playback_started_occurrence = Some(self.playback_occurrence);
+        }
+    }
+
+    /// Associate the latest position with the started occurrence.
+    pub(crate) fn mark_position_fresh(&mut self) {
+        self.position_occurrence = self.playback_started_occurrence;
+    }
+
+    /// Associate the latest duration with the started occurrence.
+    pub(crate) fn mark_duration_fresh(&mut self) {
+        self.duration_occurrence = self.playback_started_occurrence;
     }
 
     /// Keep playlist presentation and selection order newest-updated first.

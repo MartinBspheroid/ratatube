@@ -2,14 +2,14 @@ use std::time::{Duration, Instant};
 
 use super::{TRANSITION_DURATION, TrackTransitionState, TransitionInput};
 
-fn input<'a>(
-    track_id: Option<&'a str>,
+fn input(
+    occurrence: Option<u64>,
     remaining_seconds: Option<f64>,
     playing: bool,
     has_next: bool,
-) -> TransitionInput<'a> {
+) -> TransitionInput {
     TransitionInput {
-        track_id,
+        occurrence,
         remaining_seconds,
         playing,
         has_next,
@@ -20,13 +20,13 @@ fn input<'a>(
 fn enters_final_window_once_for_current_track() {
     let now = Instant::now();
     let mut state = TrackTransitionState::default();
-    state.update(input(Some("a"), Some(16.0), true, true), now);
+    state.update(input(Some(1), Some(16.0), true, true), now);
     assert_eq!(state.progress(now), None);
 
-    state.update(input(Some("a"), Some(15.0), true, true), now);
+    state.update(input(Some(1), Some(15.0), true, true), now);
     assert_eq!(state.progress(now), Some(0.0));
     state.update(
-        input(Some("a"), Some(14.0), true, true),
+        input(Some(1), Some(14.0), true, true),
         now + Duration::from_secs(1),
     );
     assert_eq!(
@@ -39,16 +39,16 @@ fn enters_final_window_once_for_current_track() {
 fn pause_freezes_and_resume_continues_progress() {
     let now = Instant::now();
     let mut state = TrackTransitionState::default();
-    state.update(input(Some("a"), Some(15.0), true, true), now);
+    state.update(input(Some(1), Some(15.0), true, true), now);
     state.update(
-        input(Some("a"), Some(14.0), false, true),
+        input(Some(1), Some(14.0), false, true),
         now + Duration::from_secs(1),
     );
     let paused = state.progress(now + Duration::from_secs(20));
     assert_eq!(paused, Some(1.0 / TRANSITION_DURATION.as_secs_f64()));
 
     state.update(
-        input(Some("a"), Some(14.0), true, true),
+        input(Some(1), Some(14.0), true, true),
         now + Duration::from_secs(20),
     );
     assert_eq!(
@@ -61,13 +61,13 @@ fn pause_freezes_and_resume_continues_progress() {
 fn seek_out_and_back_in_does_not_replay_for_same_track() {
     let now = Instant::now();
     let mut state = TrackTransitionState::default();
-    state.update(input(Some("a"), Some(15.0), true, true), now);
+    state.update(input(Some(1), Some(15.0), true, true), now);
     state.update(
-        input(Some("a"), Some(30.0), true, true),
+        input(Some(1), Some(30.0), true, true),
         now + TRANSITION_DURATION,
     );
     state.update(
-        input(Some("a"), Some(10.0), true, true),
+        input(Some(1), Some(10.0), true, true),
         now + TRANSITION_DURATION + Duration::from_secs(1),
     );
     assert_eq!(
@@ -80,19 +80,19 @@ fn seek_out_and_back_in_does_not_replay_for_same_track() {
 fn track_change_resets_and_unknown_or_missing_next_is_safe() {
     let now = Instant::now();
     let mut state = TrackTransitionState::default();
-    state.update(input(Some("a"), Some(10.0), true, true), now);
+    state.update(input(Some(1), Some(10.0), true, true), now);
     state.update(
-        input(Some("b"), None, true, true),
+        input(Some(2), None, true, true),
         now + Duration::from_secs(1),
     );
     assert_eq!(state.progress(now + Duration::from_secs(1)), None);
     state.update(
-        input(Some("b"), Some(10.0), true, false),
+        input(Some(2), Some(10.0), true, false),
         now + Duration::from_secs(2),
     );
     assert_eq!(state.progress(now + Duration::from_secs(2)), None);
     state.update(
-        input(Some("b"), Some(9.0), true, true),
+        input(Some(2), Some(9.0), true, true),
         now + Duration::from_secs(3),
     );
     assert_eq!(state.progress(now + Duration::from_secs(3)), Some(0.0));
@@ -102,14 +102,14 @@ fn track_change_resets_and_unknown_or_missing_next_is_safe() {
 fn removing_next_ends_transition_without_restarting_it() {
     let now = Instant::now();
     let mut state = TrackTransitionState::default();
-    state.update(input(Some("a"), Some(15.0), true, true), now);
+    state.update(input(Some(1), Some(15.0), true, true), now);
     state.update(
-        input(Some("a"), Some(14.0), true, false),
+        input(Some(1), Some(14.0), true, false),
         now + Duration::from_secs(1),
     );
     assert_eq!(state.progress(now + Duration::from_secs(1)), None);
     state.update(
-        input(Some("a"), Some(13.0), true, true),
+        input(Some(1), Some(13.0), true, true),
         now + Duration::from_secs(2),
     );
     assert_eq!(state.progress(now + Duration::from_secs(2)), None);
