@@ -202,6 +202,7 @@ fn resolve_actions(
 pub(super) fn open_track_context(state: &mut AppState, history: Option<&HistoryService>) {
     match resolve_track_context(state, history) {
         Some(context) => {
+            state.track_context_generation = state.track_context_generation.wrapping_add(1).max(1);
             state.track_context_menu = Some(crate::app::state::TrackContextMenuState {
                 context,
                 selected: 0,

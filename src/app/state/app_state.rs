@@ -70,6 +70,8 @@ pub struct AppState {
     pub picker: Option<PickerState>,
     /// Universal context actions for the currently resolved track.
     pub track_context_menu: Option<TrackContextMenuState>,
+    /// Unique ownership generation for each successfully opened track menu.
+    pub(crate) track_context_generation: u64,
     /// Selected-track details that do not replace now-playing metadata.
     pub track_details_modal: Option<TrackDetailsModalState>,
 

@@ -344,3 +344,45 @@ the largest touched file is 236 lines, below the 250-line limit.
   details state before the handler yields.
 - **Prevention check:** When one modal atomically replaces another, use a small
   synchronous transition helper; reserve queued dispatch for independent work.
+
+## Blocking re-review lifecycle fixes
+
+- External-command targets opened from a track menu now carry the menu's unique
+  monotonic generation. Successful completion closes the menu only when both the
+  track ID and generation still match, so an old command for track A cannot close
+  a newly reopened menu for the same track.
+- Superseded external commands now receive cooperative cancellation instead of an
+  immediate task abort. Cancellation is handled inside the shared child lifecycle,
+  which kills and waits for every started process before returning. The operation
+  registry retains teardown handles and shutdown waits for them within its bound.
+- Regression tests cover same-track close/reopen ownership, cooperative completion
+  after rapid replacement, and a real slow child whose PID is confirmed absent
+  after cancellation.
+
+Verification executed after the fixes:
+
+```sh
+cargo test replacing_external_command_allows_cooperative_teardown_to_finish
+cargo test stale_success_does_not_close_reopened_menu_for_the_same_track
+cargo test cancellation_kills_and_reaps_started_child_before_returning
+cargo test --all-targets
+cargo fmt --check
+cargo clippy --all-targets --all-features -- -D warnings
+git diff --check
+```
+
+All commands exited zero. The full all-target suite passed 283 tests with zero
+failures; 3 live-network yt-dlp tests remained intentionally ignored. Clippy
+passed with warnings denied. Every touched/new Rust file is at most 250 lines;
+the largest is `src/app/operations.rs` at 244 lines.
+
+### Learning Record: cancellation must stay inside child ownership
+
+- **Context:** Rapidly replacing browser or clipboard commands while a child is running.
+- **Symptom:** Aborting the outer task bypassed the explicit child wait/reap path.
+- **Root cause (rule):** Never race cancellation outside a resource-owning future when
+  cancellation cleanup requires awaiting that resource.
+- **Fix:** Route cancellation into `run_before`, then kill and wait before it returns;
+  retain superseded task handles until cooperative teardown completes.
+- **Prevention check:** Every cancellable child-process test must record a real PID,
+  cancel through the production token, and assert the PID no longer exists.

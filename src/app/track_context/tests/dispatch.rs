@@ -154,7 +154,7 @@ async fn track_context_menu_keeps_browser_and_clipboard_failures_open() {
             completion,
             Action::Navigation(NavigationAction::ExternalCommandCompleted {
                 command,
-                target: ExternalCommandTarget::TrackContext { ref track_id },
+                target: ExternalCommandTarget::TrackContext { ref track_id, .. },
                 result: Err(_),
                 ..
             }) if command == expected_command && track_id == "unsafe"

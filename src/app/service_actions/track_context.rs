@@ -32,14 +32,20 @@ impl App {
         match action {
             TrackContextAction::OpenInBrowser => self.spawn_external_command(
                 ExternalCommandKind::Browser,
-                ExternalCommandTarget::TrackContext { track_id: track.id },
+                ExternalCommandTarget::TrackContext {
+                    track_id: track.id,
+                    generation: self.state.track_context_generation,
+                },
                 track.webpage_url,
                 action_tx.clone(),
             ),
             TrackContextAction::CopyUrl => {
                 self.spawn_external_command(
                     ExternalCommandKind::Clipboard,
-                    ExternalCommandTarget::TrackContext { track_id: track.id },
+                    ExternalCommandTarget::TrackContext {
+                        track_id: track.id,
+                        generation: self.state.track_context_generation,
+                    },
                     track.webpage_url,
                     action_tx.clone(),
                 );

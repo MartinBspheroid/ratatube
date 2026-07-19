@@ -32,6 +32,7 @@ fn every_external_command_failure_keeps_the_track_menu_open() {
             ExternalCommandKind::Browser,
             ExternalCommandTarget::TrackContext {
                 track_id: "selected".to_string(),
+                generation: app.state.track_context_generation,
             },
             Err(failure.to_string()),
         );
@@ -49,11 +50,13 @@ fn every_external_command_failure_keeps_the_track_menu_open() {
 #[test]
 fn zero_exit_completion_closes_only_the_matching_track_menu() {
     let mut app = app_with_open_browser_menu();
+    let generation = app.state.track_context_generation;
 
     app.finish_external_command(
         ExternalCommandKind::Browser,
         ExternalCommandTarget::TrackContext {
             track_id: "selected".to_string(),
+            generation,
         },
         Ok(()),
     );
@@ -65,4 +68,24 @@ fn zero_exit_completion_closes_only_the_matching_track_menu() {
             .as_ref()
             .is_some_and(|notice| !notice.is_error)
     );
+}
+
+#[test]
+fn stale_success_does_not_close_reopened_menu_for_the_same_track() {
+    let mut app = app_with_open_browser_menu();
+    let stale_generation = app.state.track_context_generation;
+    app.state.track_context_menu = None;
+    crate::app::track_context::open_track_context(&mut app.state, app.history.as_ref());
+
+    app.finish_external_command(
+        ExternalCommandKind::Browser,
+        ExternalCommandTarget::TrackContext {
+            track_id: "selected".to_string(),
+            generation: stale_generation,
+        },
+        Ok(()),
+    );
+
+    assert!(app.state.track_context_menu.is_some());
+    assert_ne!(app.state.track_context_generation, stale_generation);
 }

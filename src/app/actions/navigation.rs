@@ -15,7 +15,7 @@ pub enum ExternalCommandKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExternalCommandTarget {
     Direct,
-    TrackContext { track_id: String },
+    TrackContext { track_id: String, generation: u64 },
 }
 
 /// An intent that changes the active view, search, or list selection.

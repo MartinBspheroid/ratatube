@@ -58,11 +58,14 @@ struct RunningOperation {
 pub struct OperationRegistry {
     next_id: u64,
     running: HashMap<OperationKind, RunningOperation>,
+    cooperative_teardowns: Vec<JoinHandle<()>>,
 }
 
 impl OperationRegistry {
     /// Cancel prior work of this kind and allocate a fresh operation ticket.
     pub fn start(&mut self, kind: OperationKind) -> OperationTicket {
+        self.cooperative_teardowns
+            .retain(|handle| !handle.is_finished());
         self.cancel(kind);
         self.next_id = self.next_id.wrapping_add(1).max(1);
         let id = OperationId(self.next_id);
@@ -78,7 +81,7 @@ impl OperationRegistry {
         OperationTicket { id, cancellation }
     }
 
-    /// Attach the spawned task so shutdown and supersession can abort it.
+    /// Attach spawned work so shutdown and supersession can own its teardown.
     pub fn attach(&mut self, kind: OperationKind, id: OperationId, handle: JoinHandle<()>) {
         match self.running.get_mut(&kind) {
             Some(operation) if operation.id == id => operation.handle = Some(handle),
@@ -102,33 +105,43 @@ impl OperationRegistry {
         true
     }
 
-    /// Cancel and abort the active operation of one kind.
+    /// Cancel active work, allowing external processes to reap cooperatively.
     pub fn cancel(&mut self, kind: OperationKind) {
         if let Some(operation) = self.running.remove(&kind) {
             operation.cancellation.cancel();
             if let Some(handle) = operation.handle {
-                handle.abort();
+                if kind == OperationKind::ExternalCommand {
+                    self.cooperative_teardowns.push(handle);
+                } else {
+                    handle.abort();
+                }
             }
         }
     }
 
-    /// Cancel and abort every operation owned by the application.
+    /// Cancel every operation, preserving cooperative external teardown.
     pub fn cancel_all(&mut self) {
-        for (_, operation) in self.running.drain() {
+        for (kind, operation) in self.running.drain() {
             operation.cancellation.cancel();
             if let Some(handle) = operation.handle {
-                handle.abort();
+                if kind == OperationKind::ExternalCommand {
+                    self.cooperative_teardowns.push(handle);
+                } else {
+                    handle.abort();
+                }
             }
         }
     }
 
     /// Cancel every operation and wait up to `timeout` for task teardown.
     pub async fn shutdown(&mut self, timeout: Duration) {
-        let mut handles = Vec::new();
-        for (_, operation) in self.running.drain() {
+        let mut handles = std::mem::take(&mut self.cooperative_teardowns);
+        for (kind, operation) in self.running.drain() {
             operation.cancellation.cancel();
             if let Some(handle) = operation.handle {
-                handle.abort();
+                if kind != OperationKind::ExternalCommand {
+                    handle.abort();
+                }
                 handles.push(handle);
             }
         }
@@ -203,5 +216,29 @@ mod tests {
         assert!(details.cancellation().is_cancelled());
         assert!(!registry.is_current(OperationKind::Playback, playback.id()));
         assert!(!registry.is_current(OperationKind::Details, details.id()));
+    }
+
+    #[tokio::test]
+    async fn replacing_external_command_allows_cooperative_teardown_to_finish() {
+        let mut registry = OperationRegistry::default();
+        let first = registry.start(OperationKind::ExternalCommand);
+        let cancellation = first.cancellation().clone();
+        let (teardown_tx, teardown_rx) = tokio::sync::oneshot::channel();
+        registry.attach(
+            OperationKind::ExternalCommand,
+            first.id(),
+            tokio::spawn(async move {
+                cancellation.cancelled().await;
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                let _ = teardown_tx.send(());
+            }),
+        );
+
+        let _replacement = registry.start(OperationKind::ExternalCommand);
+
+        tokio::time::timeout(Duration::from_millis(100), teardown_rx)
+            .await
+            .expect("superseded command must finish cooperative teardown")
+            .expect("teardown task must not be aborted");
     }
 }

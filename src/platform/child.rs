@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::{Child, ChildStderr, Command};
 use tokio::time::Instant;
+use tokio_util::sync::CancellationToken;
 
 use crate::error::{AppError, Result};
 
@@ -20,7 +21,11 @@ pub(crate) struct ChildRequest {
 }
 
 /// Run a child before `deadline`, reaping it on every started-process path.
-pub(crate) async fn run_before(deadline: Instant, request: ChildRequest) -> Result<()> {
+pub(crate) async fn run_before(
+    deadline: Instant,
+    request: ChildRequest,
+    cancellation: &CancellationToken,
+) -> Result<()> {
     let command_name = request.program.display().to_string();
     let mut command = Command::new(&request.program);
     command
@@ -36,23 +41,30 @@ pub(crate) async fn run_before(deadline: Instant, request: ChildRequest) -> Resu
     let mut child = command.spawn()?;
     let mut stdin = child.stdin.take();
     let stderr = child.stderr.take();
-    let lifecycle = async {
-        if let Some(payload) = request.stdin {
-            let mut pipe = stdin.take().ok_or_else(|| AppError::Process {
-                command: command_name.clone(),
-                message: "child stdin was unavailable".to_string(),
-            })?;
-            pipe.write_all(&payload).await?;
-            pipe.shutdown().await?;
+    let outcome = {
+        let lifecycle = async {
+            if let Some(payload) = request.stdin {
+                let mut pipe = stdin.take().ok_or_else(|| AppError::Process {
+                    command: command_name.clone(),
+                    message: "child stdin was unavailable".to_string(),
+                })?;
+                pipe.write_all(&payload).await?;
+                pipe.shutdown().await?;
+            }
+            drop(stdin);
+            let (status, stderr) = tokio::join!(child.wait(), read_stderr(stderr));
+            Ok::<_, AppError>((status?, stderr?))
+        };
+        tokio::pin!(lifecycle);
+        tokio::select! {
+            biased;
+            () = cancellation.cancelled() => None,
+            outcome = tokio::time::timeout_at(deadline, &mut lifecycle) => Some(outcome),
         }
-        drop(stdin);
-        let (status, stderr) = tokio::join!(child.wait(), read_stderr(stderr));
-        Ok::<_, AppError>((status?, stderr?))
     };
-    let outcome = tokio::time::timeout_at(deadline, lifecycle).await;
     match outcome {
-        Ok(Ok((status, _stderr))) if status.success() => Ok(()),
-        Ok(Ok((status, stderr))) => {
+        Some(Ok(Ok((status, _stderr)))) if status.success() => Ok(()),
+        Some(Ok(Ok((status, stderr)))) => {
             let detail = String::from_utf8_lossy(&stderr);
             let detail = detail.trim();
             let message = if detail.is_empty() {
@@ -65,16 +77,23 @@ pub(crate) async fn run_before(deadline: Instant, request: ChildRequest) -> Resu
                 message,
             })
         }
-        Ok(Err(error)) => {
+        Some(Ok(Err(error))) => {
             terminate_and_reap(&mut child).await;
             Err(error)
         }
-        Err(_) => {
+        Some(Err(_)) => {
             terminate_and_reap(&mut child).await;
             Err(AppError::Timeout(format!(
                 "{} command exceeded its deadline",
                 request.label
             )))
+        }
+        None => {
+            terminate_and_reap(&mut child).await;
+            Err(AppError::Process {
+                command: command_name,
+                message: "cancelled".to_string(),
+            })
         }
     }
 }
@@ -101,3 +120,6 @@ async fn terminate_and_reap(child: &mut Child) {
         let _ = child.wait().await;
     }
 }
+
+#[cfg(all(test, unix))]
+mod tests;

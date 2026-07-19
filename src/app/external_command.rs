@@ -19,12 +19,9 @@ impl App {
         let operation_id = ticket.id();
         let cancellation = ticket.cancellation().clone();
         let handle = tokio::spawn(async move {
-            let result = tokio::select! {
-                () = cancellation.cancelled() => return,
-                result = run_external_command(command, &url) => {
-                    result.map_err(|error| error.to_string())
-                }
-            };
+            let result = run_external_command(command, &url, &cancellation)
+                .await
+                .map_err(|error| error.to_string());
             let _ = action_tx
                 .send(Action::Navigation(
                     NavigationAction::ExternalCommandCompleted {
@@ -53,12 +50,16 @@ impl App {
         };
         match result {
             Ok(()) => {
-                if let ExternalCommandTarget::TrackContext { track_id } = target
+                if let ExternalCommandTarget::TrackContext {
+                    track_id,
+                    generation,
+                } = target
                     && self
                         .state
                         .track_context_menu
                         .as_ref()
                         .is_some_and(|menu| menu.context.track.id == track_id)
+                    && self.state.track_context_generation == generation
                 {
                     self.state.track_context_menu = None;
                 }
@@ -69,9 +70,15 @@ impl App {
     }
 }
 
-async fn run_external_command(command: ExternalCommandKind, url: &str) -> crate::error::Result<()> {
+async fn run_external_command(
+    command: ExternalCommandKind,
+    url: &str,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> crate::error::Result<()> {
     match command {
-        ExternalCommandKind::Browser => crate::app::browser::open_browser(url).await,
-        ExternalCommandKind::Clipboard => crate::platform::clipboard::copy_url(url).await,
+        ExternalCommandKind::Browser => crate::app::browser::open_browser(url, cancellation).await,
+        ExternalCommandKind::Clipboard => {
+            crate::platform::clipboard::copy_url(url, cancellation).await
+        }
     }
 }

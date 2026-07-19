@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use tokio::time::Instant;
+use tokio_util::sync::CancellationToken;
 
 use crate::error::{AppError, Result};
 use crate::platform::child::{ChildRequest, run_before};
@@ -17,10 +18,10 @@ const CLIPBOARD_TIMEOUT: Duration = Duration::from_secs(2);
 type ClipboardCommand = (PathBuf, Vec<OsString>);
 
 /// Copy one validated YouTube video URL through the native clipboard command.
-pub async fn copy_url(url: &str) -> Result<()> {
+pub async fn copy_url(url: &str, cancellation: &CancellationToken) -> Result<()> {
     let deadline = Instant::now() + CLIPBOARD_TIMEOUT;
     crate::platform::validate_youtube_video_url(url)?;
-    copy_url_before(url, native_clipboard_commands()?, deadline).await
+    copy_url_before(url, native_clipboard_commands()?, deadline, cancellation).await
 }
 
 #[cfg(test)]
@@ -34,13 +35,15 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
+    let cancellation = CancellationToken::new();
+    crate::platform::validate_youtube_video_url(url)?;
     let commands = vec![(
         program.to_path_buf(),
         args.into_iter()
             .map(|arg| arg.as_ref().to_os_string())
             .collect(),
     )];
-    copy_url_with_commands(url, commands, timeout).await
+    copy_url_before(url, commands, Instant::now() + timeout, &cancellation).await
 }
 
 #[cfg(test)]
@@ -50,14 +53,16 @@ async fn copy_url_with_commands(
     timeout: Duration,
 ) -> Result<()> {
     let deadline = Instant::now() + timeout;
+    let cancellation = CancellationToken::new();
     crate::platform::validate_youtube_video_url(url)?;
-    copy_url_before(url, commands, deadline).await
+    copy_url_before(url, commands, deadline, &cancellation).await
 }
 
 async fn copy_url_before(
     url: &str,
     commands: Vec<ClipboardCommand>,
     deadline: Instant,
+    cancellation: &CancellationToken,
 ) -> Result<()> {
     let mut last_error = None;
     for (program, args) in commands {
@@ -72,8 +77,9 @@ async fn copy_url_before(
             stdin: Some(url.as_bytes().to_vec()),
             label: "clipboard",
         };
-        match run_before(deadline, request).await {
+        match run_before(deadline, request, cancellation).await {
             Ok(()) => return Ok(()),
+            Err(error) if cancellation.is_cancelled() => return Err(error),
             Err(error) => last_error = Some(error),
         }
     }

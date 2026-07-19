@@ -1,10 +1,13 @@
 //! Validated operating-system browser dispatch.
 
-use std::ffi::{OsStr, OsString};
-use std::path::{Path, PathBuf};
+use std::ffi::OsStr;
+use std::ffi::OsString;
+use std::path::Path;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use tokio::time::Instant;
+use tokio_util::sync::CancellationToken;
 
 use crate::error::Result;
 use crate::platform::child::{ChildRequest, run_before};
@@ -12,16 +15,32 @@ use crate::platform::child::{ChildRequest, run_before};
 const BROWSER_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Open an allow-listed YouTube URL through the platform browser command.
-pub(super) async fn open_browser(url: &str) -> Result<()> {
+pub(super) async fn open_browser(url: &str, cancellation: &CancellationToken) -> Result<()> {
     let (program, args) = browser_command();
-    open_browser_with_command(url, &program, args, BROWSER_TIMEOUT).await
+    open_browser_before(url, &program, args, BROWSER_TIMEOUT, cancellation).await
 }
 
+#[cfg(test)]
 pub(super) async fn open_browser_with_command<I, S>(
     url: &str,
     program: &Path,
     args: I,
     timeout: Duration,
+) -> Result<()>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let cancellation = CancellationToken::new();
+    open_browser_before(url, program, args, timeout, &cancellation).await
+}
+
+async fn open_browser_before<I, S>(
+    url: &str,
+    program: &Path,
+    args: I,
+    timeout: Duration,
+    cancellation: &CancellationToken,
 ) -> Result<()>
 where
     I: IntoIterator<Item = S>,
@@ -42,6 +61,7 @@ where
             stdin: None,
             label: "browser",
         },
+        cancellation,
     )
     .await
 }
