@@ -129,3 +129,39 @@ fn later_failure_preserves_rows_and_back_restores_navigation() {
     assert_eq!(app.state.focus, Focus::Content);
     assert_eq!(app.state.selected_index, 3);
 }
+
+#[tokio::test]
+async fn nested_channel_back_restores_original_channel_and_selection() {
+    let (_temp, mut app) = test_app();
+    let mut original = state();
+    original.append(page(&["first", "selected"], true));
+    original.loading = true;
+    app.state.channel = Some(original);
+    app.state.view = View::Channel;
+    app.state.selected_index = 1;
+    let mut nested_track = Track::new("nested", "Nested", "Other channel");
+    nested_track.channel_url = Some("https://www.youtube.com/channel/UC2".into());
+    let (action_tx, _action_rx) = tokio::sync::mpsc::channel(4);
+
+    app.open_channel(
+        nested_track,
+        "https://www.youtube.com/channel/UC2".into(),
+        action_tx,
+    );
+    assert_eq!(
+        app.state.channel.as_ref().expect("nested").name,
+        "Other channel"
+    );
+
+    app.leave_channel();
+
+    let restored = app.state.channel.as_ref().expect("original channel");
+    assert_eq!(restored.url, "https://www.youtube.com/channel/UC1/videos");
+    assert_eq!(restored.tracks[1].id, "selected");
+    assert!(
+        !restored.loading,
+        "cancelled page must not restore a stale spinner"
+    );
+    assert_eq!(app.state.view, View::Channel);
+    assert_eq!(app.state.selected_index, 1);
+}

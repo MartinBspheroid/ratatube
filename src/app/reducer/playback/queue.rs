@@ -153,6 +153,11 @@ fn selected_track(state: &AppState) -> Option<crate::media::Track> {
             .and_then(|i| state.playlists.get(i))
             .and_then(|p| p.tracks.get(index))
             .map(crate::media::Track::from),
+        View::Channel => state
+            .channel
+            .as_ref()
+            .and_then(|channel| channel.tracks.get(index))
+            .cloned(),
         _ => None,
     }
 }

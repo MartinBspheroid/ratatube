@@ -18,6 +18,7 @@ fn channel_state(tracks: Vec<Track>) -> AppState {
             focus: Focus::Content,
             selected_index: 2,
         },
+        previous: None,
     });
     state
 }

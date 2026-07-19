@@ -93,7 +93,7 @@ impl App {
                     && mouse.row >= area.y
                     && mouse.row < area.y + area.height
                 {
-                    let offset = if self.state.view == View::Search {
+                    let offset = if matches!(self.state.view, View::Search | View::Channel) {
                         self.state.table_state.offset()
                     } else {
                         self.state.list_state.offset()

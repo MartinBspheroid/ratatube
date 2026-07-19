@@ -170,6 +170,43 @@ fn ultra_wide_playing_queue_focus_selects_without_duplicating() {
 }
 
 #[test]
+fn channel_selection_queues_and_plays_exact_track() {
+    let mut state = AppState::new();
+    state.view = View::Channel;
+    state.selected_index = 1;
+    state.channel = Some(crate::app::channel::ChannelState {
+        name: "Channel".into(),
+        url: "https://www.youtube.com/channel/UC1/videos".into(),
+        tracks: vec![track("first"), track("selected")],
+        next_page: 1,
+        exhausted: true,
+        loading: false,
+        error: None,
+        return_to: crate::app::channel::ChannelNavigationSnapshot {
+            view: View::Search,
+            focus: crate::app::state::Focus::Content,
+            selected_index: 0,
+        },
+        previous: None,
+    });
+
+    let effects = reduce(&mut state, Action::Playback(PlaybackAction::PlaySelected));
+
+    assert_eq!(state.queue.tracks.len(), 1);
+    assert_eq!(state.queue.tracks[0].id, "selected");
+    assert_eq!(state.queue.position, Some(0));
+    assert_eq!(
+        effects,
+        vec![
+            Effect::ResolveAndPlay {
+                track_index_in_queue: 0
+            },
+            Effect::PersistQueue
+        ]
+    );
+}
+
+#[test]
 fn queue_and_playback_actions_emit_only_truthful_activity_kinds() {
     use crate::history::activity::ActivityKind;
 

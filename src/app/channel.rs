@@ -41,6 +41,8 @@ pub struct ChannelState {
     pub error: Option<String>,
     /// Navigation state restored by Back.
     pub return_to: ChannelNavigationSnapshot,
+    /// Previous channel browser restored when navigating between channels.
+    pub previous: Option<Box<ChannelState>>,
 }
 
 impl ChannelState {
@@ -54,6 +56,7 @@ impl ChannelState {
             loading: false,
             error: None,
             return_to,
+            previous: None,
         }
     }
 
@@ -134,7 +137,15 @@ impl App {
             focus: self.state.focus,
             selected_index: self.state.selected_index,
         };
-        self.state.channel = Some(ChannelState::new(&track, url, return_to));
+        let previous = self.state.channel.take().map(|mut previous| {
+            // Opening a nested channel supersedes its page operation. Make the
+            // restored page actionable instead of leaving a stale spinner.
+            previous.loading = false;
+            Box::new(previous)
+        });
+        let mut channel = ChannelState::new(&track, url, return_to);
+        channel.previous = previous;
+        self.state.channel = Some(channel);
         self.state.view = View::Channel;
         self.state.focus = Focus::Content;
         self.state.selected_index = 0;
@@ -203,7 +214,15 @@ impl App {
     pub(super) fn leave_channel(&mut self) {
         self.operations.cancel(OperationKind::ChannelResolve);
         self.operations.cancel(OperationKind::ChannelPage);
-        if let Some(channel) = self.state.channel.take() {
+        if let Some(mut channel) = self.state.channel.take() {
+            if let Some(previous) = channel.previous.take() {
+                self.state.channel = Some(*previous);
+                self.state.view = View::Channel;
+                self.state.focus = channel.return_to.focus;
+                self.state.reset_list();
+                self.state.selected_index = channel.return_to.selected_index;
+                return;
+            }
             self.state.view = channel.return_to.view;
             self.state.focus = channel.return_to.focus;
             self.state.reset_list();

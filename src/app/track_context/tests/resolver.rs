@@ -209,6 +209,7 @@ fn populated_channel_resolves_selected_track_without_synthetic_row_fallback() {
             focus: Focus::Content,
             selected_index: 0,
         },
+        previous: None,
     });
 
     let context = resolve_track_context(&state, None).expect("channel context");

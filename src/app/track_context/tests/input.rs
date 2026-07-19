@@ -63,6 +63,7 @@ async fn open_menu_for(view: View) {
                     focus: Focus::Content,
                     selected_index: 0,
                 },
+                previous: None,
             });
         }
         View::Playlists | View::Help => panic!("not a track-bearing view"),

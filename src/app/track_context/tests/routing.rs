@@ -1,8 +1,9 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use tokio::sync::mpsc;
 
-use crate::app::action::{Action, NavigationAction};
-use crate::app::state::{TrackContextMenuState, TrackDetailsModalState, View};
+use crate::app::action::{Action, NavigationAction, PlaybackAction};
+use crate::app::channel::{ChannelNavigationSnapshot, ChannelState};
+use crate::app::state::{Focus, TrackContextMenuState, TrackDetailsModalState, View};
 use crate::app::tests::test_app;
 use crate::app::track_context::{TrackContextAction, resolve_track_context};
 use crate::media::search::SearchState;
@@ -18,6 +19,15 @@ fn mouse(kind: MouseEventKind) -> MouseEvent {
         kind,
         column: 1,
         row: 1,
+        modifiers: KeyModifiers::NONE,
+    }
+}
+
+fn mouse_at(kind: MouseEventKind, column: u16, row: u16) -> MouseEvent {
+    MouseEvent {
+        kind,
+        column,
+        row,
         modifiers: KeyModifiers::NONE,
     }
 }
@@ -121,6 +131,50 @@ async fn context_and_details_modals_block_all_background_mouse_actions() {
     )
     .await;
     assert!(action_rx.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn scrolled_channel_double_click_targets_exact_visible_row() {
+    let (_temp, mut app) = test_app();
+    app.state.view = View::Channel;
+    app.state.channel = Some(ChannelState {
+        name: "Channel".into(),
+        url: "https://www.youtube.com/channel/UC1/videos".into(),
+        tracks: (0..6)
+            .map(|index| track(&format!("track-{index}"), &format!("Track {index}")))
+            .collect(),
+        next_page: 1,
+        exhausted: true,
+        loading: false,
+        error: None,
+        return_to: ChannelNavigationSnapshot {
+            view: View::Search,
+            focus: Focus::Content,
+            selected_index: 0,
+        },
+        previous: None,
+    });
+    app.state.list_hit_area = ratatui::layout::Rect::new(4, 5, 40, 3);
+    *app.state.table_state.offset_mut() = 2;
+    let (action_tx, mut action_rx) = mpsc::channel(2);
+    let click = mouse_at(
+        MouseEventKind::Down(crossterm::event::MouseButton::Left),
+        6,
+        6,
+    );
+
+    app.handle_mouse(click, &action_tx).await;
+    assert_eq!(app.state.selected_index, 3);
+    assert!(action_rx.try_recv().is_err());
+    app.handle_mouse(click, &action_tx).await;
+
+    assert!(matches!(
+        action_rx.try_recv(),
+        Ok(Action::Playback(PlaybackAction::PlaySelected))
+    ));
+    app.handle_action(Action::Playback(PlaybackAction::PlaySelected), &action_tx)
+        .await;
+    assert_eq!(app.state.queue.tracks[0].id, "track-3");
 }
 
 #[tokio::test]
