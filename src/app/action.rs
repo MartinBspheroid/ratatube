@@ -8,7 +8,7 @@ pub use crate::app::actions::{
 /// grouped by the responsibility that handles it.
 #[derive(Debug, Clone)]
 pub enum Action {
-    /// Navigation, search, and selection intent.
+    /// Navigation, search, selection, and context-menu intent.
     Navigation(NavigationAction),
     /// Playback and media-lifecycle intent.
     Playback(PlaybackAction),

@@ -7,6 +7,15 @@ use crate::media::search::SearchState;
 
 /// Reduce navigation-domain state transitions.
 pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effect> {
+    if matches!(
+        action,
+        NavigationAction::OpenTrackContext
+            | NavigationAction::CloseTrackContext
+            | NavigationAction::MoveTrackContext(_)
+            | NavigationAction::SubmitTrackContext
+    ) {
+        return super::track_context::reduce(state, action);
+    }
     match Action::Navigation(action) {
         Action::Navigation(NavigationAction::Navigate(view)) => {
             state.view = view;

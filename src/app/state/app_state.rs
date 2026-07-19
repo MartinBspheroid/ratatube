@@ -4,7 +4,7 @@ use crate::app::operations::OperationId;
 use crate::app::state::{
     ConfirmState, DetailsStatus, Focus, HistoryViewMode, HomeSection, ImportState, Notification,
     OperationStatus, PendingResume, PickerState, PlayingPane, PlaylistEditorState, PromptState,
-    SleepTimer, View,
+    SleepTimer, TrackContextMenuState, View,
 };
 use crate::media::Track;
 use crate::media::import::InputKind;
@@ -64,6 +64,8 @@ pub struct AppState {
     pub import: Option<ImportState>,
     /// Add-to-playlist picker (`P` in track lists).
     pub picker: Option<PickerState>,
+    /// Universal context actions for the currently resolved track.
+    pub track_context_menu: Option<TrackContextMenuState>,
 
     // In-list filtering (`/` in list views)
     /// Active filter text; `None` when no filter is applied.

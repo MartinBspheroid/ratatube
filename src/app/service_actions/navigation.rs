@@ -15,6 +15,7 @@ impl App {
         action_tx: &mpsc::Sender<Action>,
     ) {
         match action {
+            NavigationAction::OpenTrackContext => self.open_track_context(),
             NavigationAction::OpenInBrowser => {
                 let track = match self.state.view {
                     View::Search => self.resolve_selected_track(),

@@ -36,6 +36,14 @@ pub enum NavigationAction {
     ToggleSearchDetail,
     /// Open the selected Search result or current Playing track in a browser.
     OpenInBrowser,
+    /// Resolve the selected track and open its universal context menu.
+    OpenTrackContext,
+    /// Close the universal track context menu without executing an action.
+    CloseTrackContext,
+    /// Move the context-menu selection by a signed number of rows.
+    MoveTrackContext(i32),
+    /// Submit the selected menu action; Task 3 owns execution.
+    SubmitTrackContext,
     SelectNext,
     SelectPrevious,
 }

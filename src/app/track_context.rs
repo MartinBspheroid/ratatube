@@ -1,0 +1,177 @@
+//! Resolve the selected track and its source-specific context actions.
+
+use crate::app::state::{AppState, HistoryViewMode, HomeSection, View};
+use crate::history::HistoryService;
+use crate::media::Track;
+use crate::media::search::SearchState;
+
+/// Surface and exact occurrence from which a track context was resolved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TrackSource {
+    Search,
+    Queue {
+        order_index: usize,
+    },
+    Playlist {
+        playlist_id: String,
+        track_index: usize,
+    },
+    History,
+    /// Reserved for the populated Channel view introduced by Task 5.
+    Channel,
+    Playing,
+    Home,
+}
+
+/// Stable data describing one operation offered by a track context menu.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TrackContextAction {
+    PlayNow,
+    PlayNext,
+    AddToQueue,
+    AddToPlaylist,
+    VisitChannel,
+    ShowDetails,
+    OpenInBrowser,
+    CopyUrl,
+    RemoveFromQueue {
+        order_index: usize,
+    },
+    RemoveFromPlaylist {
+        playlist_id: String,
+        track_index: usize,
+    },
+}
+
+/// Selected track, its exact source, and ordered valid operations.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrackContext {
+    pub track: Track,
+    pub source: TrackSource,
+    pub actions: Vec<TrackContextAction>,
+}
+
+/// Resolve the selected track for every currently available track-bearing view.
+pub fn resolve_track_context(
+    state: &AppState,
+    history: Option<&HistoryService>,
+) -> Option<TrackContext> {
+    let selected = state.resolve_index(state.selected_index);
+    let (track, source) = match state.view {
+        View::Search => match &state.search {
+            SearchState::Results { tracks, .. } => {
+                (tracks.get(selected)?.clone(), TrackSource::Search)
+            }
+            _ => return None,
+        },
+        View::Queue => {
+            let track_index = *state.queue.order.get(selected)?;
+            let track = state.queue.tracks.get(track_index)?.clone();
+            (
+                track,
+                TrackSource::Queue {
+                    order_index: selected,
+                },
+            )
+        }
+        View::PlaylistDetail => {
+            let playlist = state
+                .selected_playlist
+                .and_then(|index| state.playlists.get(index))?;
+            let track = Track::from(playlist.tracks.get(selected)?);
+            (
+                track,
+                TrackSource::Playlist {
+                    playlist_id: playlist.id.clone(),
+                    track_index: selected,
+                },
+            )
+        }
+        View::History => {
+            let history = history?;
+            let track = match state.history_view_mode {
+                HistoryViewMode::Recent => history.entries().get(selected)?.to_track(),
+                HistoryViewMode::Top => history.aggregate().get(selected)?.entry.to_track(),
+            };
+            (track, TrackSource::History)
+        }
+        View::NowPlaying => (state.current_track.clone()?, TrackSource::Playing),
+        View::Home if state.home_section == HomeSection::Recent => {
+            let history = history?;
+            let entry_index = *history.recent_unique_indices().get(selected)?;
+            (
+                history.entries().get(entry_index)?.to_track(),
+                TrackSource::Home,
+            )
+        }
+        View::Home | View::Playlists | View::Help => return None,
+    };
+    let actions = resolve_actions(state, &track, &source);
+    Some(TrackContext {
+        track,
+        source,
+        actions,
+    })
+}
+
+fn resolve_actions(
+    state: &AppState,
+    track: &Track,
+    source: &TrackSource,
+) -> Vec<TrackContextAction> {
+    let mut actions = vec![TrackContextAction::PlayNow, TrackContextAction::PlayNext];
+    if !state
+        .queue
+        .tracks
+        .iter()
+        .any(|queued| queued.id == track.id)
+    {
+        actions.push(TrackContextAction::AddToQueue);
+    }
+    actions.extend([
+        TrackContextAction::AddToPlaylist,
+        TrackContextAction::VisitChannel,
+        TrackContextAction::ShowDetails,
+        TrackContextAction::OpenInBrowser,
+        TrackContextAction::CopyUrl,
+    ]);
+    match source {
+        TrackSource::Queue { order_index } => {
+            actions.push(TrackContextAction::RemoveFromQueue {
+                order_index: *order_index,
+            });
+        }
+        TrackSource::Playlist {
+            playlist_id,
+            track_index,
+        } => actions.push(TrackContextAction::RemoveFromPlaylist {
+            playlist_id: playlist_id.clone(),
+            track_index: *track_index,
+        }),
+        TrackSource::Search
+        | TrackSource::History
+        | TrackSource::Channel
+        | TrackSource::Playing
+        | TrackSource::Home => {}
+    }
+    actions
+}
+
+/// Open a resolved menu or report the exact empty-selection error.
+pub(super) fn open_track_context(state: &mut AppState, history: Option<&HistoryService>) {
+    match resolve_track_context(state, history) {
+        Some(context) => {
+            state.track_context_menu = Some(crate::app::state::TrackContextMenuState {
+                context,
+                selected: 0,
+            });
+        }
+        None => {
+            state.track_context_menu = None;
+            state.notify("No track selected", true);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests;

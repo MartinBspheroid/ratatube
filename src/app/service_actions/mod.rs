@@ -7,6 +7,7 @@ mod playlist_editing;
 mod playlist_storage;
 mod playlists;
 mod queue;
+mod track_context;
 
 use tokio::sync::mpsc;
 

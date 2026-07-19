@@ -1,5 +1,14 @@
 //! Prompt, picker, editor, and confirmation modal state.
 
+/// State of the universal track context menu.
+#[derive(Debug, Clone)]
+pub struct TrackContextMenuState {
+    /// Resolved track, exact source occurrence, and ordered actions.
+    pub context: crate::app::track_context::TrackContext,
+    /// Selected action index.
+    pub selected: usize,
+}
+
 /// State of the add-to-playlist picker modal.
 #[derive(Debug, Clone)]
 pub struct PickerState {

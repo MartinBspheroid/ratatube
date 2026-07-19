@@ -9,6 +9,7 @@ mod navigation;
 mod playback;
 mod playlists;
 mod queue;
+mod track_context;
 
 pub use effect::Effect;
 
