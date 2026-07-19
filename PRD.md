@@ -8,11 +8,13 @@ This checked-in contract replaces references to an unavailable external PRD. Sou
 
 ## 8–9. Layout and input
 
-The application is keyboard-first and remains functional at 80x24. Views are Home, Search, Queue, Playlists, History, Now Playing, and Help. Help must expose reachable commands, support scrolling, and return to the opening view.
+The application is keyboard-first and remains functional at 80x24. Primary views are Home, Search, Queue, Playlists, History, Now Playing, and Help. Channel is a contextual, non-tab destination that restores the previous view on Back. Help must expose reachable commands, support scrolling, and return to the opening view.
 
 ## 10. User workflows
 
 Search accepts free text and structurally valid supported YouTube URLs. Exact video URLs preserve video identity. Queue order, repeat, shuffle, Previous history, local playlists, imports, resume, history, and metadata details must remain usable while external work is pending. Import reviews report exact rejection categories. Displayed listening time means advancing media-position seconds while playing, excluding pauses and seeks.
+
+`c` opens a universal, non-blocking menu for the selected track on every track-bearing surface. Source-specific destructive actions target the exact queue or playlist occurrence. Channel browsing is newest-first, paginated in bounded 30-video pages, deduplicated across pages, retryable after partial failure, and leaves playback uninterrupted. The shared player presents a one-shot current-to-effective-next title transition in the final 15 seconds; it is disabled when no effective next track exists or repeat-track is active.
 
 ## 11. Local data
 

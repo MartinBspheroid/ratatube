@@ -11,7 +11,13 @@ The executable is an event-driven terminal client with four explicit boundaries:
 
 Input becomes an `Action`. The pure reducer updates `AppState` and emits `Effect` values. The app runtime executes effects and sends completion actions back through the same channel. Network/process work never runs inline in the event loop. `OperationRegistry` owns cancellation tokens and join handles; a completion is accepted only when its operation ID is still current.
 
+Track actions are resolved from the active view by `resolve_track_context`, which captures a cloned track plus exact source occurrence. The overlay owns input while open but does not pause playback. Browser and clipboard children use bounded cooperative cancellation, explicit kill-and-reap teardown, and a unique menu generation so an old completion cannot close a newer menu for the same track.
+
+Channel navigation has two supervised operation domains: metadata resolution for legacy tracks and bounded page fetching. `ChannelState` owns newest-first append, cross-page video-ID deduplication, selection, retry, exhaustion, and a navigation snapshot. Completions must match both the active normalized channel URL and requested page; stale results are discarded. A nested channel visit preserves the previous `ChannelState` for Back restoration.
+
 Playback control has two stages. Resolution obtains a temporary stream URL in a supervised task. `PlaybackController` then serializes acknowledged commands to one `mpv` IPC client. `MpvIpc` correlates every response by request ID and fails pending requests on timeout, malformed input, or disconnect. The selected/current track changes only after the matching resolution succeeds.
+
+`Queue::effective_next` is a non-mutating projection of queue position, repeat, and shuffle state. `TrackTransitionState` is keyed by a unique accepted mpv file-load occurrence and requires fresh duration and position data for that occurrence. It fires once inside the final 15-second window, freezes while paused, and is consumed only by the shared bottom-player renderer; rendering has no playback or queue side effects.
 
 ## Persistence invariants
 

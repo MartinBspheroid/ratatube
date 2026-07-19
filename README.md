@@ -7,6 +7,7 @@
 - Rust 1.88 or newer; the repository pins the verified toolchain in `rust-toolchain.toml`.
 - `mpv` and `yt-dlp` on `PATH`, or absolute executable paths in the config.
 - `curl` is optional and enables thumbnails. `ffmpeg` is optional but may be required by `mpv` for some formats.
+- URL copying uses the first available platform clipboard tool: `pbcopy` on macOS, `wl-copy` on Wayland, or `xclip`/`xsel` on X11. The menu reports a bounded failure when none is available.
 - An interactive terminal. The tested minimum is 80 columns by 24 rows; smaller terminals use a reduced layout.
 
 Install platform packages first, then build:
@@ -18,6 +19,10 @@ cargo build --locked --release
 ```
 
 Use `/` to enter a search, type a query or supported YouTube URL, and press Enter. Select a result with `j`/`k` and press Enter to play. Press `?` for the complete scrollable command list. Immediate repeated `+`/`-` presses adjust volume cumulatively.
+
+Press `c` on a track in Home, Search, Queue, a playlist, History, Channel, or Now Playing to open its non-blocking action menu. Playback continues while the menu is open; use `j`/`k`, Enter, and Esc. Available actions depend on the source and can include play now/next, queue or playlist insertion, channel browsing, details, browser opening, URL copying, and removal from the current queue or playlist occurrence.
+
+Channel browsing lists videos newest first in bounded pages of 30. Select the final `Load more` row and press Enter for the next page; a failed page becomes a `Retry` row. Backspace or Esc returns to the exact previous view. During the final 15 seconds of a track, the shared player rolls in the effective next title once; repeat-track and an empty next position suppress it.
 
 The command-line shortcut requires a query:
 
