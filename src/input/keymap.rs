@@ -4,7 +4,9 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::app::action::Action;
+use crate::app::action::{
+    Action, HistoryAction, NavigationAction, PlaybackAction, PlaylistAction, QueueAction,
+};
 use crate::app::state::{Focus, PlayingPane, View};
 use crate::ui::layout::Breakpoint;
 
@@ -85,44 +87,44 @@ pub const HELP_SECTIONS: &[(&str, &[(&str, &str)])] = &[
 pub fn global_action(key: &KeyEvent) -> Option<Action> {
     if key.modifiers.contains(KeyModifiers::CONTROL) {
         if let KeyCode::Char('c') = key.code {
-            return Some(Action::Quit);
+            return Some(Action::Navigation(NavigationAction::Quit));
         }
         return None;
     }
     let action = match key.code {
-        KeyCode::Char('1') => Action::Navigate(View::Home),
-        KeyCode::Char('2') => Action::Navigate(View::Search),
-        KeyCode::Char('3') => Action::Navigate(View::Queue),
-        KeyCode::Char('4') => Action::Navigate(View::Playlists),
-        KeyCode::Char('5') => Action::Navigate(View::History),
-        KeyCode::Char('6') => Action::Navigate(View::NowPlaying),
-        KeyCode::Tab => Action::NextView,
-        KeyCode::BackTab => Action::PreviousView,
-        KeyCode::Char(' ') => Action::PlayPause,
-        KeyCode::Char('n') => Action::NextTrack,
-        KeyCode::Char('b') => Action::PreviousTrack,
-        KeyCode::Char('+') => Action::VolumeUp,
-        KeyCode::Char('-') => Action::VolumeDown,
-        KeyCode::Char('m') => Action::ToggleMute,
-        KeyCode::Char('s') => Action::ToggleShuffle,
-        KeyCode::Char('r') => Action::CycleRepeat,
-        KeyCode::Char('h') => Action::SeekBackward,
-        KeyCode::Char('l') => Action::SeekForward,
-        KeyCode::Char('H') => Action::SeekBackwardLarge,
-        KeyCode::Char('L') => Action::SeekForwardLarge,
-        KeyCode::Char('.') => Action::NextChapter,
-        KeyCode::Char(',') => Action::PreviousChapter,
-        KeyCode::Char('>') => Action::SpeedUp,
-        KeyCode::Char('<') => Action::SpeedDown,
-        KeyCode::Char('=') => Action::SpeedReset,
-        KeyCode::Char('Z') => Action::CycleSleepTimer,
-        KeyCode::Char('t') => Action::ToggleRadio,
-        KeyCode::Char('!') => Action::ToggleNotificationLog,
-        KeyCode::Char('?') => Action::OpenHelp,
-        KeyCode::Char('q') => Action::Quit,
-        KeyCode::Char('j') | KeyCode::Down => Action::SelectNext,
-        KeyCode::Char('k') | KeyCode::Up => Action::SelectPrevious,
-        KeyCode::Enter => Action::PlaySelected,
+        KeyCode::Char('1') => Action::Navigation(NavigationAction::Navigate(View::Home)),
+        KeyCode::Char('2') => Action::Navigation(NavigationAction::Navigate(View::Search)),
+        KeyCode::Char('3') => Action::Navigation(NavigationAction::Navigate(View::Queue)),
+        KeyCode::Char('4') => Action::Navigation(NavigationAction::Navigate(View::Playlists)),
+        KeyCode::Char('5') => Action::Navigation(NavigationAction::Navigate(View::History)),
+        KeyCode::Char('6') => Action::Navigation(NavigationAction::Navigate(View::NowPlaying)),
+        KeyCode::Tab => Action::Navigation(NavigationAction::NextView),
+        KeyCode::BackTab => Action::Navigation(NavigationAction::PreviousView),
+        KeyCode::Char(' ') => Action::Playback(PlaybackAction::PlayPause),
+        KeyCode::Char('n') => Action::Playback(PlaybackAction::NextTrack),
+        KeyCode::Char('b') => Action::Playback(PlaybackAction::PreviousTrack),
+        KeyCode::Char('+') => Action::Playback(PlaybackAction::VolumeUp),
+        KeyCode::Char('-') => Action::Playback(PlaybackAction::VolumeDown),
+        KeyCode::Char('m') => Action::Playback(PlaybackAction::ToggleMute),
+        KeyCode::Char('s') => Action::Playback(PlaybackAction::ToggleShuffle),
+        KeyCode::Char('r') => Action::Playback(PlaybackAction::CycleRepeat),
+        KeyCode::Char('h') => Action::Playback(PlaybackAction::SeekBackward),
+        KeyCode::Char('l') => Action::Playback(PlaybackAction::SeekForward),
+        KeyCode::Char('H') => Action::Playback(PlaybackAction::SeekBackwardLarge),
+        KeyCode::Char('L') => Action::Playback(PlaybackAction::SeekForwardLarge),
+        KeyCode::Char('.') => Action::Playback(PlaybackAction::NextChapter),
+        KeyCode::Char(',') => Action::Playback(PlaybackAction::PreviousChapter),
+        KeyCode::Char('>') => Action::Playback(PlaybackAction::SpeedUp),
+        KeyCode::Char('<') => Action::Playback(PlaybackAction::SpeedDown),
+        KeyCode::Char('=') => Action::Playback(PlaybackAction::SpeedReset),
+        KeyCode::Char('Z') => Action::Playback(PlaybackAction::CycleSleepTimer),
+        KeyCode::Char('t') => Action::Playback(PlaybackAction::ToggleRadio),
+        KeyCode::Char('!') => Action::History(HistoryAction::ToggleNotificationLog),
+        KeyCode::Char('?') => Action::Navigation(NavigationAction::OpenHelp),
+        KeyCode::Char('q') => Action::Navigation(NavigationAction::Quit),
+        KeyCode::Char('j') | KeyCode::Down => Action::Navigation(NavigationAction::SelectNext),
+        KeyCode::Char('k') | KeyCode::Up => Action::Navigation(NavigationAction::SelectPrevious),
+        KeyCode::Enter => Action::Playback(PlaybackAction::PlaySelected),
         _ => return None,
     };
     Some(action)
@@ -132,14 +134,14 @@ pub fn global_action(key: &KeyEvent) -> Option<Action> {
 pub fn search_input_action(key: &KeyEvent) -> Option<Action> {
     if key.modifiers.contains(KeyModifiers::CONTROL) {
         if let KeyCode::Char('c') = key.code {
-            return Some(Action::Quit);
+            return Some(Action::Navigation(NavigationAction::Quit));
         }
         return None;
     }
     match key.code {
         KeyCode::Enter | KeyCode::Esc => None, // handled by the app layer
-        KeyCode::Backspace => Some(Action::SearchBackspace),
-        KeyCode::Char(c) => Some(Action::SearchInput(c)),
+        KeyCode::Backspace => Some(Action::Navigation(NavigationAction::SearchBackspace)),
+        KeyCode::Char(c) => Some(Action::Navigation(NavigationAction::SearchInput(c))),
         _ => None,
     }
 }
@@ -168,82 +170,126 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
         // Home: h/l move between sections instead of seeking; seeking from
         // the dashboard is a non-goal.
         (View::Home, KeyCode::Char('h')) | (View::Home, KeyCode::Left) => {
-            Action::CycleHomeSection(-1)
+            Action::Navigation(NavigationAction::CycleHomeSection(-1))
         }
         (View::Home, KeyCode::Char('l')) | (View::Home, KeyCode::Right) => {
-            Action::CycleHomeSection(1)
+            Action::Navigation(NavigationAction::CycleHomeSection(1))
         }
-        (View::Home, KeyCode::Char('a')) => Action::AddSelectedToQueue,
-        (View::Home, KeyCode::Char('p')) => Action::LoadSelectedPlaylistIntoQueue,
-        (View::Home, KeyCode::Char('P')) => Action::OpenPlaylistPicker,
-        (View::Home, KeyCode::Char('N')) => {
-            Action::OpenPrompt(crate::app::state::PromptPurpose::NewPlaylist)
+        (View::Home, KeyCode::Char('a')) => Action::Queue(QueueAction::AddSelectedToQueue),
+        (View::Home, KeyCode::Char('p')) => {
+            Action::Queue(QueueAction::LoadSelectedPlaylistIntoQueue)
         }
-        (View::Queue, KeyCode::Char('d')) => Action::RemoveSelectedFromQueue,
-        (View::Queue, KeyCode::Char('u')) => Action::UndoQueueRemoval,
-        (View::Queue, KeyCode::Char('J')) => Action::MoveSelectedInQueue(1),
-        (View::Queue, KeyCode::Char('K')) => Action::MoveSelectedInQueue(-1),
-        (View::Queue, KeyCode::Char('P')) => Action::OpenPlaylistPicker,
-        (View::Queue, KeyCode::Char('c')) => Action::ClearQueue,
-        (View::Queue, KeyCode::Char('w')) => {
-            Action::OpenPrompt(crate::app::state::PromptPurpose::SaveQueueAsPlaylist)
+        (View::Home, KeyCode::Char('P')) => Action::Playlists(PlaylistAction::OpenPlaylistPicker),
+        (View::Home, KeyCode::Char('N')) => Action::Playlists(PlaylistAction::OpenPrompt(
+            crate::app::state::PromptPurpose::NewPlaylist,
+        )),
+        (View::Queue, KeyCode::Char('d')) => Action::Queue(QueueAction::RemoveSelectedFromQueue),
+        (View::Queue, KeyCode::Char('u')) => Action::Queue(QueueAction::UndoQueueRemoval),
+        (View::Queue, KeyCode::Char('J')) => Action::Queue(QueueAction::MoveSelectedInQueue(1)),
+        (View::Queue, KeyCode::Char('K')) => Action::Queue(QueueAction::MoveSelectedInQueue(-1)),
+        (View::Queue, KeyCode::Char('P')) => Action::Playlists(PlaylistAction::OpenPlaylistPicker),
+        (View::Queue, KeyCode::Char('c')) => Action::Queue(QueueAction::ClearQueue),
+        (View::Queue, KeyCode::Char('w')) => Action::Playlists(PlaylistAction::OpenPrompt(
+            crate::app::state::PromptPurpose::SaveQueueAsPlaylist,
+        )),
+        (View::Playlists, KeyCode::Enter) => Action::Playlists(PlaylistAction::OpenPlaylistDetail),
+        (View::Playlists, KeyCode::Char('v')) => {
+            Action::Playlists(PlaylistAction::OpenPlaylistDetail)
         }
-        (View::Playlists, KeyCode::Enter) => Action::OpenPlaylistDetail,
-        (View::Playlists, KeyCode::Char('v')) => Action::OpenPlaylistDetail,
-        (View::Playlists, KeyCode::Char('p')) => Action::LoadSelectedPlaylistIntoQueue,
-        (View::Playlists, KeyCode::Char('a')) => Action::AppendSelectedPlaylistToQueue,
-        (View::Playlists, KeyCode::Char('x')) => Action::DeleteSelectedPlaylist,
-        (View::Playlists, KeyCode::Char('i')) => {
-            Action::OpenPrompt(crate::app::state::PromptPurpose::ImportPlaylistUrl)
+        (View::Playlists, KeyCode::Char('p')) => {
+            Action::Queue(QueueAction::LoadSelectedPlaylistIntoQueue)
         }
-        (View::Playlists, KeyCode::Char('I')) => {
-            Action::OpenPrompt(crate::app::state::PromptPurpose::ImportPlaylistJson)
+        (View::Playlists, KeyCode::Char('a')) => {
+            Action::Queue(QueueAction::AppendSelectedPlaylistToQueue)
         }
-        (View::Playlists, KeyCode::Char('N')) => {
-            Action::OpenPrompt(crate::app::state::PromptPurpose::NewPlaylist)
+        (View::Playlists, KeyCode::Char('x')) => {
+            Action::Playlists(PlaylistAction::DeleteSelectedPlaylist)
         }
-        (View::Playlists, KeyCode::Char('R')) => {
-            Action::OpenPrompt(crate::app::state::PromptPurpose::RenamePlaylist)
+        (View::Playlists, KeyCode::Char('i')) => Action::Playlists(PlaylistAction::OpenPrompt(
+            crate::app::state::PromptPurpose::ImportPlaylistUrl,
+        )),
+        (View::Playlists, KeyCode::Char('I')) => Action::Playlists(PlaylistAction::OpenPrompt(
+            crate::app::state::PromptPurpose::ImportPlaylistJson,
+        )),
+        (View::Playlists, KeyCode::Char('N')) => Action::Playlists(PlaylistAction::OpenPrompt(
+            crate::app::state::PromptPurpose::NewPlaylist,
+        )),
+        (View::Playlists, KeyCode::Char('R')) => Action::Playlists(PlaylistAction::OpenPrompt(
+            crate::app::state::PromptPurpose::RenamePlaylist,
+        )),
+        (View::PlaylistDetail, KeyCode::Char('p')) => {
+            Action::Queue(QueueAction::LoadSelectedPlaylistIntoQueue)
         }
-        (View::PlaylistDetail, KeyCode::Char('p')) => Action::LoadSelectedPlaylistIntoQueue,
-        (View::PlaylistDetail, KeyCode::Char('a')) => Action::AddSelectedToQueue,
-        (View::PlaylistDetail, KeyCode::Char('A')) => Action::AddSelectedAsNext,
-        (View::PlaylistDetail, KeyCode::Char('d')) => Action::RemoveSelectedFromPlaylist,
-        (View::PlaylistDetail, KeyCode::Char('J')) => Action::MoveSelectedInPlaylist(1),
-        (View::PlaylistDetail, KeyCode::Char('K')) => Action::MoveSelectedInPlaylist(-1),
-        (View::PlaylistDetail, KeyCode::Char('P')) => Action::OpenPlaylistPicker,
-        (View::PlaylistDetail, KeyCode::Char('e')) => Action::OpenPlaylistEditor,
-        (View::PlaylistDetail, KeyCode::Backspace) => Action::Navigate(View::Playlists),
+        (View::PlaylistDetail, KeyCode::Char('a')) => {
+            Action::Queue(QueueAction::AddSelectedToQueue)
+        }
+        (View::PlaylistDetail, KeyCode::Char('A')) => Action::Queue(QueueAction::AddSelectedAsNext),
+        (View::PlaylistDetail, KeyCode::Char('d')) => {
+            Action::Playlists(PlaylistAction::RemoveSelectedFromPlaylist)
+        }
+        (View::PlaylistDetail, KeyCode::Char('J')) => {
+            Action::Playlists(PlaylistAction::MoveSelectedInPlaylist(1))
+        }
+        (View::PlaylistDetail, KeyCode::Char('K')) => {
+            Action::Playlists(PlaylistAction::MoveSelectedInPlaylist(-1))
+        }
+        (View::PlaylistDetail, KeyCode::Char('P')) => {
+            Action::Playlists(PlaylistAction::OpenPlaylistPicker)
+        }
+        (View::PlaylistDetail, KeyCode::Char('e')) => {
+            Action::Playlists(PlaylistAction::OpenPlaylistEditor)
+        }
+        (View::PlaylistDetail, KeyCode::Backspace) => {
+            Action::Navigation(NavigationAction::Navigate(View::Playlists))
+        }
         (View::NowPlaying, KeyCode::Char('j')) | (View::NowPlaying, KeyCode::Down) => {
-            Action::ScrollNowPlaying(3)
+            Action::Playback(PlaybackAction::ScrollNowPlaying(3))
         }
         (View::NowPlaying, KeyCode::Char('k')) | (View::NowPlaying, KeyCode::Up) => {
-            Action::ScrollNowPlaying(-3)
+            Action::Playback(PlaybackAction::ScrollNowPlaying(-3))
         }
         (View::NowPlaying, KeyCode::Char('d')) | (View::NowPlaying, KeyCode::PageDown) => {
-            Action::ScrollNowPlaying(15)
+            Action::Playback(PlaybackAction::ScrollNowPlaying(15))
         }
         (View::NowPlaying, KeyCode::Char('u')) | (View::NowPlaying, KeyCode::PageUp) => {
-            Action::ScrollNowPlaying(-15)
+            Action::Playback(PlaybackAction::ScrollNowPlaying(-15))
         }
-        (View::NowPlaying, KeyCode::Char('v')) => Action::ToggleNowPlayingPane,
-        (View::Help, KeyCode::Esc | KeyCode::Char('?')) => Action::CloseHelp,
-        (View::Help, KeyCode::Char('j') | KeyCode::Down) => Action::ScrollHelp(1),
-        (View::Help, KeyCode::Char('k') | KeyCode::Up) => Action::ScrollHelp(-1),
-        (View::Help, KeyCode::PageDown) => Action::ScrollHelp(10),
-        (View::Help, KeyCode::PageUp) => Action::ScrollHelp(-10),
-        (View::Search, KeyCode::Char('a')) => Action::AddSelectedToQueue,
-        (View::Search, KeyCode::Char('A')) => Action::AddSelectedAsNext,
-        (View::Search, KeyCode::Char('P')) => Action::OpenPlaylistPicker,
-        (View::Search, KeyCode::Char('i')) => Action::ToggleSearchDetail,
-        (View::Search, KeyCode::Char('o')) => Action::OpenInBrowser,
-        (View::NowPlaying, KeyCode::Char('o')) => Action::OpenInBrowser,
-        (View::History, KeyCode::Char('a')) => Action::AddSelectedToQueue,
-        (View::History, KeyCode::Char('A')) => Action::AddSelectedAsNext,
-        (View::History, KeyCode::Char('P')) => Action::OpenPlaylistPicker,
-        (View::History, KeyCode::Char('x')) => Action::DeleteSelectedHistoryEntry,
-        (View::History, KeyCode::Char('g')) => Action::ToggleHistoryViewMode,
-        (View::History, KeyCode::Char('c')) => Action::ClearHistory,
+        (View::NowPlaying, KeyCode::Char('v')) => {
+            Action::Playback(PlaybackAction::ToggleNowPlayingPane)
+        }
+        (View::Help, KeyCode::Esc | KeyCode::Char('?')) => {
+            Action::Navigation(NavigationAction::CloseHelp)
+        }
+        (View::Help, KeyCode::Char('j') | KeyCode::Down) => {
+            Action::Navigation(NavigationAction::ScrollHelp(1))
+        }
+        (View::Help, KeyCode::Char('k') | KeyCode::Up) => {
+            Action::Navigation(NavigationAction::ScrollHelp(-1))
+        }
+        (View::Help, KeyCode::PageDown) => Action::Navigation(NavigationAction::ScrollHelp(10)),
+        (View::Help, KeyCode::PageUp) => Action::Navigation(NavigationAction::ScrollHelp(-10)),
+        (View::Search, KeyCode::Char('a')) => Action::Queue(QueueAction::AddSelectedToQueue),
+        (View::Search, KeyCode::Char('A')) => Action::Queue(QueueAction::AddSelectedAsNext),
+        (View::Search, KeyCode::Char('P')) => Action::Playlists(PlaylistAction::OpenPlaylistPicker),
+        (View::Search, KeyCode::Char('i')) => {
+            Action::Navigation(NavigationAction::ToggleSearchDetail)
+        }
+        (View::Search, KeyCode::Char('o')) => Action::Navigation(NavigationAction::OpenInBrowser),
+        (View::NowPlaying, KeyCode::Char('o')) => {
+            Action::Navigation(NavigationAction::OpenInBrowser)
+        }
+        (View::History, KeyCode::Char('a')) => Action::Queue(QueueAction::AddSelectedToQueue),
+        (View::History, KeyCode::Char('A')) => Action::Queue(QueueAction::AddSelectedAsNext),
+        (View::History, KeyCode::Char('P')) => {
+            Action::Playlists(PlaylistAction::OpenPlaylistPicker)
+        }
+        (View::History, KeyCode::Char('x')) => {
+            Action::History(HistoryAction::DeleteSelectedHistoryEntry)
+        }
+        (View::History, KeyCode::Char('g')) => {
+            Action::History(HistoryAction::ToggleHistoryViewMode)
+        }
+        (View::History, KeyCode::Char('c')) => Action::History(HistoryAction::ClearHistory),
         _ => return None,
     };
     Some(action)
@@ -260,11 +306,17 @@ pub fn playing_pane_action(
     }
     match (pane, key.code) {
         (_, KeyCode::Char('h') | KeyCode::Char('l') | KeyCode::Left | KeyCode::Right) => {
-            Some(Action::CyclePlayingPane)
+            Some(Action::Playback(PlaybackAction::CyclePlayingPane))
         }
-        (PlayingPane::Queue, KeyCode::Char('j') | KeyCode::Down) => Some(Action::SelectNext),
-        (PlayingPane::Queue, KeyCode::Char('k') | KeyCode::Up) => Some(Action::SelectPrevious),
-        (PlayingPane::Queue, KeyCode::Enter) => Some(Action::PlaySelected),
+        (PlayingPane::Queue, KeyCode::Char('j') | KeyCode::Down) => {
+            Some(Action::Navigation(NavigationAction::SelectNext))
+        }
+        (PlayingPane::Queue, KeyCode::Char('k') | KeyCode::Up) => {
+            Some(Action::Navigation(NavigationAction::SelectPrevious))
+        }
+        (PlayingPane::Queue, KeyCode::Enter) => {
+            Some(Action::Playback(PlaybackAction::PlaySelected))
+        }
         _ => None,
     }
 }
@@ -288,9 +340,9 @@ mod tests {
         let key = KeyEvent::new(KeyCode::Char('N'), KeyModifiers::NONE);
         assert!(matches!(
             route(&key, Focus::Content, View::Home),
-            Some(Action::OpenPrompt(
+            Some(Action::Playlists(PlaylistAction::OpenPrompt(
                 crate::app::state::PromptPurpose::NewPlaylist
-            ))
+            )))
         ));
     }
 
@@ -299,42 +351,42 @@ mod tests {
         let action = |code| view_action(&KeyEvent::new(code, KeyModifiers::NONE), View::Playlists);
         assert!(matches!(
             action(KeyCode::Enter),
-            Some(Action::OpenPlaylistDetail)
+            Some(Action::Playlists(PlaylistAction::OpenPlaylistDetail))
         ));
         assert!(matches!(
             action(KeyCode::Char('N')),
-            Some(Action::OpenPrompt(
+            Some(Action::Playlists(PlaylistAction::OpenPrompt(
                 crate::app::state::PromptPurpose::NewPlaylist
-            ))
+            )))
         ));
         assert!(matches!(
             action(KeyCode::Char('i')),
-            Some(Action::OpenPrompt(
+            Some(Action::Playlists(PlaylistAction::OpenPrompt(
                 crate::app::state::PromptPurpose::ImportPlaylistUrl
-            ))
+            )))
         ));
         assert!(matches!(
             action(KeyCode::Char('I')),
-            Some(Action::OpenPrompt(
+            Some(Action::Playlists(PlaylistAction::OpenPrompt(
                 crate::app::state::PromptPurpose::ImportPlaylistJson
-            ))
+            )))
         ));
         assert!(matches!(
             action(KeyCode::Char('R')),
-            Some(Action::OpenPrompt(
+            Some(Action::Playlists(PlaylistAction::OpenPrompt(
                 crate::app::state::PromptPurpose::RenamePlaylist
-            ))
+            )))
         ));
         assert!(matches!(
             action(KeyCode::Char('x')),
-            Some(Action::DeleteSelectedPlaylist)
+            Some(Action::Playlists(PlaylistAction::DeleteSelectedPlaylist))
         ));
         assert!(matches!(
             view_action(
                 &KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE),
                 View::PlaylistDetail
             ),
-            Some(Action::OpenPlaylistEditor)
+            Some(Action::Playlists(PlaylistAction::OpenPlaylistEditor))
         ));
     }
 
@@ -344,11 +396,11 @@ mod tests {
         let down = KeyEvent::new(KeyCode::Down, KeyModifiers::NONE);
         assert!(matches!(
             route(&close, Focus::Content, View::Help),
-            Some(Action::CloseHelp)
+            Some(Action::Navigation(NavigationAction::CloseHelp))
         ));
         assert!(matches!(
             route(&down, Focus::Content, View::Help),
-            Some(Action::ScrollHelp(1))
+            Some(Action::Navigation(NavigationAction::ScrollHelp(1)))
         ));
     }
 
@@ -361,7 +413,7 @@ mod tests {
                 PlayingPane::Info,
                 Breakpoint::UltraWide
             ),
-            Some(Action::CyclePlayingPane)
+            Some(Action::Playback(PlaybackAction::CyclePlayingPane))
         ));
         assert!(matches!(
             playing_pane_action(
@@ -369,7 +421,7 @@ mod tests {
                 PlayingPane::Queue,
                 Breakpoint::UltraWide
             ),
-            Some(Action::SelectNext)
+            Some(Action::Navigation(NavigationAction::SelectNext))
         ));
         assert!(matches!(
             playing_pane_action(
@@ -377,7 +429,7 @@ mod tests {
                 PlayingPane::Queue,
                 Breakpoint::UltraWide
             ),
-            Some(Action::PlaySelected)
+            Some(Action::Playback(PlaybackAction::PlaySelected))
         ));
         assert!(
             playing_pane_action(
@@ -394,15 +446,15 @@ mod tests {
         let key = |character| KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE);
         assert!(matches!(
             route(&key('i'), Focus::Content, View::Search),
-            Some(Action::ToggleSearchDetail)
+            Some(Action::Navigation(NavigationAction::ToggleSearchDetail))
         ));
         assert!(matches!(
             route(&key('o'), Focus::Content, View::Search),
-            Some(Action::OpenInBrowser)
+            Some(Action::Navigation(NavigationAction::OpenInBrowser))
         ));
         assert!(matches!(
             route(&key('o'), Focus::Content, View::NowPlaying),
-            Some(Action::OpenInBrowser)
+            Some(Action::Navigation(NavigationAction::OpenInBrowser))
         ));
     }
 }

@@ -1,0 +1,156 @@
+//! Playback queue selection and stream-resolution transitions.
+
+use crate::app::action::{Action, PlaybackAction};
+use crate::app::reducer::{Effect, reduce as reduce_action};
+use crate::app::state::{AppState, OperationStatus, PlayingPane, View};
+use crate::media::search::SearchState;
+use crate::queue::PreviousOutcome;
+
+pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect> {
+    match Action::Playback(action) {
+        Action::Playback(PlaybackAction::PlayTrack(track)) => {
+            state.queue.push(track);
+            let pos = state.queue.order.len() - 1;
+            state.queue.position = Some(pos);
+            return vec![
+                Effect::ResolveAndPlay {
+                    track_index_in_queue: pos,
+                },
+                Effect::PersistQueue,
+            ];
+        }
+        // Resolved by the app layer through the existing pending-session flow.
+        Action::Playback(PlaybackAction::ResumeTrack { .. }) => {}
+        Action::Playback(PlaybackAction::PlaySelected) => {
+            if matches!(state.view, View::Queue)
+                || (state.view == View::NowPlaying
+                    && state.playing_pane == PlayingPane::Queue
+                    && crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+                        == crate::ui::layout::Breakpoint::UltraWide)
+            {
+                let position = state.resolve_index(state.selected_index);
+                if position < state.queue.order.len() {
+                    state.queue.position = Some(position);
+                    return vec![
+                        Effect::ResolveAndPlay {
+                            track_index_in_queue: position,
+                        },
+                        Effect::PersistQueue,
+                    ];
+                }
+                return Vec::new();
+            }
+            if let Some(track) = selected_track(state) {
+                return reduce_action(state, Action::Playback(PlaybackAction::PlayTrack(track)));
+            }
+        }
+        Action::Playback(PlaybackAction::NextTrack) => {
+            if state.queue.advance().is_some() {
+                let pos = state.queue.position.unwrap_or(0);
+                return vec![
+                    Effect::ResolveAndPlay {
+                        track_index_in_queue: pos,
+                    },
+                    Effect::PersistQueue,
+                ];
+            }
+        }
+        Action::Playback(PlaybackAction::PreviousTrack) => {
+            let position = state.playback.position_seconds as u64;
+            match state.queue.previous(position, 5) {
+                PreviousOutcome::RestartCurrent => return vec![Effect::SeekTo(0.0)],
+                PreviousOutcome::PlayPrevious => {
+                    let pos = state.queue.position.unwrap_or(0);
+                    return vec![
+                        Effect::ResolveAndPlay {
+                            track_index_in_queue: pos,
+                        },
+                        Effect::PersistQueue,
+                    ];
+                }
+            }
+        }
+        Action::Playback(PlaybackAction::PlaybackResolveStarted { operation_id, .. }) => {
+            state.playback_resolution = OperationStatus::Loading { operation_id };
+        }
+        Action::Playback(PlaybackAction::PlaybackResolved {
+            operation_id,
+            queue_position,
+            track_id,
+            ..
+        }) => {
+            if !matches!(
+                state.playback_resolution,
+                OperationStatus::Loading { operation_id: active } if active == operation_id
+            ) {
+                return Vec::new();
+            }
+            let track = state
+                .queue
+                .order
+                .get(queue_position)
+                .and_then(|index| state.queue.tracks.get(*index))
+                .filter(|track| track.id == track_id)
+                .cloned();
+            if let Some(track) = track {
+                state.current_track = Some(track);
+                state.current_details = None;
+                state.thumbnail = None;
+                state.now_playing_scroll = 0;
+                state.playback_resolution = OperationStatus::Idle;
+            }
+        }
+        Action::Playback(PlaybackAction::PlaybackResolveFailed {
+            operation_id,
+            message,
+            ..
+        }) => {
+            if !matches!(
+                state.playback_resolution,
+                OperationStatus::Loading { operation_id: active } if active == operation_id
+            ) {
+                return Vec::new();
+            }
+            state.playback_resolution = OperationStatus::Failed {
+                message: message.clone(),
+            };
+            state.notify(&format!("Playback unavailable: {message}"), true);
+        }
+        _ => {}
+    }
+    Vec::new()
+}
+
+/// Track selected in the active view, if the view lists tracks. The
+/// selection index maps through the in-list filter when one is active.
+fn selected_track(state: &AppState) -> Option<crate::media::Track> {
+    let index = state.resolve_index(state.selected_index);
+    match state.view {
+        View::Search => match &state.search {
+            SearchState::Results { tracks, .. } => tracks.get(index).cloned(),
+            _ => None,
+        },
+        View::Queue => state
+            .queue
+            .order
+            .get(index)
+            .map(|&i| state.queue.tracks[i].clone()),
+        View::NowPlaying
+            if state.playing_pane == PlayingPane::Queue
+                && crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+                    == crate::ui::layout::Breakpoint::UltraWide =>
+        {
+            state
+                .queue
+                .order
+                .get(index)
+                .map(|&i| state.queue.tracks[i].clone())
+        }
+        View::PlaylistDetail => state
+            .selected_playlist
+            .and_then(|i| state.playlists.get(i))
+            .and_then(|p| p.tracks.get(index))
+            .map(crate::media::Track::from),
+        _ => None,
+    }
+}
