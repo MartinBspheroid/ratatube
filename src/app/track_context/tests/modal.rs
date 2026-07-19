@@ -65,6 +65,51 @@ async fn nested_navigation_intents_open_move_submit_and_close_modal() {
     assert!(app.state.track_context_menu.is_none());
 }
 
+#[tokio::test]
+async fn context_menu_movement_handles_i32_boundaries_without_overflow() {
+    let (_temp, mut app) = test_app();
+    app.state.view = View::Search;
+    let selected = track("boundary", "Boundary track");
+    app.state.search = SearchState::Results {
+        query: "boundary".to_string(),
+        tracks: vec![selected.clone()],
+    };
+    app.state.queue.push(selected);
+    let context = resolve_track_context(&app.state, None).expect("context");
+    assert_eq!(context.actions.len(), 7);
+    app.state.track_context_menu = Some(TrackContextMenuState {
+        context,
+        selected: usize::MAX,
+    });
+    let (action_tx, _action_rx) = mpsc::channel(4);
+
+    app.handle_action(
+        Action::Navigation(NavigationAction::MoveTrackContext(i32::MAX)),
+        &action_tx,
+    )
+    .await;
+    assert_eq!(
+        app.state
+            .track_context_menu
+            .as_ref()
+            .map(|menu| menu.selected),
+        Some(2)
+    );
+
+    app.handle_action(
+        Action::Navigation(NavigationAction::MoveTrackContext(i32::MIN)),
+        &action_tx,
+    )
+    .await;
+    assert_eq!(
+        app.state
+            .track_context_menu
+            .as_ref()
+            .map(|menu| menu.selected),
+        Some(0)
+    );
+}
+
 #[test]
 fn modal_state_stores_resolved_context_and_selection() {
     let mut state = AppState::new();

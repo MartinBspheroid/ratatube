@@ -5,6 +5,7 @@ use crate::media::Track;
 
 use super::{TrackContextAction, TrackSource};
 
+mod filtered;
 mod modal;
 mod resolver;
 

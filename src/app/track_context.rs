@@ -56,7 +56,7 @@ pub fn resolve_track_context(
     state: &AppState,
     history: Option<&HistoryService>,
 ) -> Option<TrackContext> {
-    let selected = state.resolve_index(state.selected_index);
+    let selected = selected_track_index(state)?;
     let (track, source) = match state.view {
         View::Search => match &state.search {
             SearchState::Results { tracks, .. } => {
@@ -114,6 +114,13 @@ pub fn resolve_track_context(
     })
 }
 
+fn selected_track_index(state: &AppState) -> Option<usize> {
+    match &state.visible_indices {
+        Some(indices) => indices.get(state.selected_index).copied(),
+        None => Some(state.selected_index),
+    }
+}
+
 fn resolve_actions(
     state: &AppState,
     track: &Track,
@@ -128,6 +135,9 @@ fn resolve_actions(
     {
         actions.push(TrackContextAction::AddToQueue);
     }
+    // Legacy tracks still offer VisitChannel. Task 5 must resolve complete
+    // channel metadata from `track.webpage_url` before opening the channel;
+    // stored channel identity is only an optimization, not an applicability gate.
     actions.extend([
         TrackContextAction::AddToPlaylist,
         TrackContextAction::VisitChannel,

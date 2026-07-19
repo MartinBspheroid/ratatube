@@ -174,6 +174,23 @@ fn hides_add_to_queue_when_video_id_is_already_queued() {
 }
 
 #[test]
+fn legacy_track_without_stored_channel_identity_still_offers_visit_channel() {
+    let mut selected = track("legacy", "Legacy track");
+    selected.channel_id = None;
+    selected.channel_url = None;
+    let mut state = AppState::new();
+    state.view = View::Search;
+    state.search = SearchState::Results {
+        query: "legacy".to_string(),
+        tracks: vec![selected],
+    };
+
+    let context = resolve_track_context(&state, None).expect("legacy search context");
+
+    assert!(context.actions.contains(&TrackContextAction::VisitChannel));
+}
+
+#[test]
 fn defines_channel_source_without_resolving_an_unowned_channel_view() {
     assert_eq!(TrackSource::Channel, TrackSource::Channel);
 }

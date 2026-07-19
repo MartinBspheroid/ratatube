@@ -12,7 +12,13 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
             if let Some(menu) = &mut state.track_context_menu {
                 let len = menu.context.actions.len();
                 if len > 0 {
-                    menu.selected = (menu.selected as i32 + delta).rem_euclid(len as i32) as usize;
+                    let selected = menu.selected % len;
+                    let delta = (i64::from(delta)).rem_euclid(len as i64) as usize;
+                    menu.selected = if selected >= len - delta {
+                        selected - (len - delta)
+                    } else {
+                        selected + delta
+                    };
                 }
             }
         }
