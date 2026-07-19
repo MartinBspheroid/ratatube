@@ -47,6 +47,14 @@ impl ChannelPageRequest {
     pub fn videos_url(&self) -> Result<String> {
         normalize_channel_url(&self.channel_url)
     }
+
+    /// Return the normalized channel root used by Topic channels without a videos tab.
+    pub fn root_url(&self) -> Result<String> {
+        self.videos_url()?
+            .strip_suffix("/videos")
+            .map(str::to_string)
+            .ok_or_else(|| AppError::InvalidUrl(self.channel_url.clone()))
+    }
 }
 
 pub(super) fn parse_channel_page(output: &str) -> ChannelPage {

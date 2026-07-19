@@ -3,6 +3,28 @@ use ytm_tui::media::channel::{CHANNEL_PAGE_SIZE, ChannelPageRequest};
 use super::support::{captured_args, capturing_yt_dlp_with_output, mock_yt_dlp};
 
 #[tokio::test]
+async fn topic_channel_without_videos_tab_falls_back_to_channel_root() {
+    let script = r#"
+last="${!#}"
+if [[ "$last" == */videos ]]; then
+  printf '%s\n' 'ERROR: This channel does not have a videos tab' >&2
+  exit 1
+fi
+printf '%s\n' '{"id":"topic-video","title":"Topic upload","channel":"Artist - Topic"}'
+"#;
+    let (_directory, client) = mock_yt_dlp(script);
+    let page = client
+        .fetch_channel_page(&ChannelPageRequest {
+            channel_url: "https://www.youtube.com/channel/UCTopic".into(),
+            page: 0,
+        })
+        .await
+        .expect("topic channel root fallback");
+
+    assert_eq!(page.tracks[0].id, "topic-video");
+}
+
+#[tokio::test]
 async fn channel_page_uses_exact_zero_based_bounds_and_normalized_url() {
     for (page, start, end) in [(0, "1", "30"), (1, "31", "60")] {
         let (_directory, client, arguments) = capturing_yt_dlp_with_output("");

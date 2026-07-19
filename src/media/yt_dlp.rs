@@ -114,21 +114,30 @@ impl YtDlp {
         let start = start.to_string();
         let end = end.to_string();
         let url = request.videos_url()?;
-        let output = self
-            .run(&[
-                "--dump-json",
-                "--flat-playlist",
-                "--no-download",
-                "--ignore-errors",
-                "--playlist-start",
-                &start,
-                "--playlist-end",
-                &end,
-                "--",
-                &url,
-            ])
-            .await?;
+        let output = match self.fetch_channel_output(&start, &end, &url).await {
+            Err(AppError::YtDlp(message)) if message.contains("does not have a videos tab") => {
+                self.fetch_channel_output(&start, &end, &request.root_url()?)
+                    .await?
+            }
+            result => result?,
+        };
         Ok(parse_channel_page(&output))
+    }
+
+    async fn fetch_channel_output(&self, start: &str, end: &str, url: &str) -> Result<String> {
+        self.run(&[
+            "--dump-json",
+            "--flat-playlist",
+            "--no-download",
+            "--ignore-errors",
+            "--playlist-start",
+            start,
+            "--playlist-end",
+            end,
+            "--",
+            url,
+        ])
+        .await
     }
 
     /// Fetch YouTube's auto-generated mix (radio) for a seed video.
