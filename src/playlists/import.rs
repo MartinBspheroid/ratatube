@@ -218,6 +218,7 @@ mod tests {
             Some("PLx".to_string()),
             vec![track("a"), track("a"), track("b")],
             crate::media::yt_dlp::ImportRejections {
+                malformed: 0,
                 missing_id: 1,
                 missing_title: 1,
                 deleted: 2,

@@ -7,10 +7,11 @@ mod entry;
 mod process;
 mod types;
 
-use entry::YtDlpEntry;
+pub(crate) use entry::YtDlpEntry;
 
 use crate::error::{AppError, Result};
 use crate::media::Track;
+use crate::media::channel::{ChannelPage, ChannelPageRequest, parse_channel_page};
 
 pub use types::{ImportRejections, PlaylistFetch, SkipReason};
 
@@ -105,6 +106,29 @@ impl YtDlp {
             rejections,
             tracks,
         })
+    }
+
+    /// Fetch one bounded, newest-first page from a YouTube channel's videos.
+    pub async fn fetch_channel_page(&self, request: &ChannelPageRequest) -> Result<ChannelPage> {
+        let (start, end) = request.bounds()?;
+        let start = start.to_string();
+        let end = end.to_string();
+        let url = request.videos_url()?;
+        let output = self
+            .run(&[
+                "--dump-json",
+                "--flat-playlist",
+                "--no-download",
+                "--ignore-errors",
+                "--playlist-start",
+                &start,
+                "--playlist-end",
+                &end,
+                "--",
+                &url,
+            ])
+            .await?;
+        Ok(parse_channel_page(&output))
     }
 
     /// Fetch YouTube's auto-generated mix (radio) for a seed video.

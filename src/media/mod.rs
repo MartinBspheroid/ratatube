@@ -1,5 +1,6 @@
 //! Media discovery, metadata, and stream resolution via yt-dlp.
 
+pub mod channel;
 mod chapters;
 mod details;
 mod thumbnail;

@@ -18,6 +18,8 @@ pub enum SkipReason {
 /// Traceable rejection counts from yt-dlp normalization.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ImportRejections {
+    /// Lines that were not valid yt-dlp JSON objects.
+    pub malformed: usize,
     /// Entries without a video identifier.
     pub missing_id: usize,
     /// Entries without a title.
@@ -31,7 +33,7 @@ pub struct ImportRejections {
 }
 
 impl ImportRejections {
-    pub(super) fn record(&mut self, reason: SkipReason) {
+    pub(crate) fn record(&mut self, reason: SkipReason) {
         match reason {
             SkipReason::MissingId => self.missing_id += 1,
             SkipReason::MissingTitle => self.missing_title += 1,
@@ -41,9 +43,18 @@ impl ImportRejections {
         }
     }
 
+    pub(crate) fn record_malformed(&mut self) {
+        self.malformed += 1;
+    }
+
     /// Return the total number of rejected entries.
     pub fn total(&self) -> usize {
-        self.missing_id + self.missing_title + self.deleted + self.private + self.unavailable
+        self.malformed
+            + self.missing_id
+            + self.missing_title
+            + self.deleted
+            + self.private
+            + self.unavailable
     }
 }
 

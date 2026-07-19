@@ -5,7 +5,7 @@ use crate::media::{Availability, Chapter, Track, TrackDetails, parse_chapters_fr
 
 /// Raw yt-dlp JSON shape for a single entry (subset of fields we use).
 #[derive(Debug, Deserialize)]
-pub(super) struct YtDlpEntry {
+pub(crate) struct YtDlpEntry {
     pub(super) id: Option<String>,
     pub(super) title: Option<String>,
     /// yt-dlp emits both `uploader` and `channel`; coalesce on use.
@@ -75,7 +75,7 @@ impl YtDlpEntry {
     }
 
     /// Normalize into a [`Track`] while preserving a concrete rejection reason.
-    pub(super) fn into_track(self) -> std::result::Result<Track, SkipReason> {
+    pub(crate) fn into_track(self) -> std::result::Result<Track, SkipReason> {
         let id = self.id.ok_or(SkipReason::MissingId)?;
         let title = self.title.ok_or(SkipReason::MissingTitle)?;
         if title == "[Deleted video]" {
