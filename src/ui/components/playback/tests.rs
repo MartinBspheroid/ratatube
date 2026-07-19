@@ -73,7 +73,12 @@ fn transition_reveals_next_title_once_from_right() {
     let finish = transition_line("Current", "Following", icons.chevron_l, 30, 1.0, &theme);
 
     assert_eq!(content(&start), "Current");
-    assert!(content(&middle).contains(" < Follo"));
+    let middle = content(&middle);
+    assert!(middle.contains(" < Follo"));
+    assert!(
+        middle.find(" < ").expect("separator") > "Current".len(),
+        "intermediate frame must travel in from the right: {middle:?}"
+    );
     assert_eq!(content(&finish), "Current < Following");
 }
 
@@ -105,7 +110,10 @@ fn transition_preserves_current_and_next_styles() {
     let theme = Theme::from_truecolor(false);
     let line = transition_line("Current", "Next", "<", 20, 1.0, &theme);
     assert_eq!(line.spans[0].style.fg, theme.accent.fg);
-    assert_eq!(line.spans[2].style.fg, theme.value.fg);
+    assert_eq!(
+        line.spans.last().expect("next title").style.fg,
+        theme.value.fg
+    );
 }
 
 #[test]

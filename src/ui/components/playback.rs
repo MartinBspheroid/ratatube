@@ -81,15 +81,19 @@ fn transition_line(
         return Line::from(Span::styled(clip_end(current, width), theme.accent));
     }
     let content_width = width - separator_width;
-    let final_next = (content_width / 2).max(1);
-    let next_width =
-        ((final_next as f64 * progress.clamp(0.0, 1.0)).round() as usize).min(final_next);
-    if next_width == 0 {
-        return Line::from(Span::styled(clip_end(current, width), theme.accent));
+    let final_next_width = (content_width / 2).max(1).min(next.width());
+    let current_width = content_width.saturating_sub(final_next_width);
+    let current = clip_end(current, current_width);
+    let travel = width.saturating_sub(current.width());
+    let offset = ((travel as f64) * (1.0 - progress.clamp(0.0, 1.0))).round() as usize;
+    let available = width.saturating_sub(current.width() + offset);
+    if available <= separator_width {
+        return Line::from(Span::styled(clip_end(&current, width), theme.accent));
     }
-    let current_width = content_width.saturating_sub(next_width);
+    let next_width = (available - separator_width).min(final_next_width);
     Line::from(vec![
-        Span::styled(clip_end(current, current_width), theme.accent),
+        Span::styled(current, theme.accent),
+        Span::raw(" ".repeat(offset)),
         Span::styled(separator, theme.dim),
         Span::styled(clip_end(next, next_width), theme.value),
     ])
