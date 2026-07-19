@@ -1,4 +1,5 @@
-use crate::app::state::{AppState, HistoryViewMode, HomeSection, View};
+use crate::app::channel::{ChannelNavigationSnapshot, ChannelState};
+use crate::app::state::{AppState, Focus, HistoryViewMode, HomeSection, View};
 use crate::media::search::SearchState;
 use crate::playlists::Playlist;
 use crate::playlists::model::PlaylistTrack;
@@ -191,6 +192,29 @@ fn legacy_track_without_stored_channel_identity_still_offers_visit_channel() {
 }
 
 #[test]
-fn defines_channel_source_without_resolving_an_unowned_channel_view() {
-    assert_eq!(TrackSource::Channel, TrackSource::Channel);
+fn populated_channel_resolves_selected_track_without_synthetic_row_fallback() {
+    let selected = track("channel-track", "Channel track");
+    let mut state = AppState::new();
+    state.view = View::Channel;
+    state.channel = Some(ChannelState {
+        name: "Channel".into(),
+        url: "https://www.youtube.com/channel/UC1/videos".into(),
+        tracks: vec![selected.clone()],
+        next_page: 1,
+        exhausted: false,
+        loading: false,
+        error: None,
+        return_to: ChannelNavigationSnapshot {
+            view: View::Search,
+            focus: Focus::Content,
+            selected_index: 0,
+        },
+    });
+
+    let context = resolve_track_context(&state, None).expect("channel context");
+    assert_eq!(context.track.id, selected.id);
+    assert_eq!(context.source, TrackSource::Channel);
+
+    state.selected_index = 1;
+    assert!(resolve_track_context(&state, None).is_none());
 }

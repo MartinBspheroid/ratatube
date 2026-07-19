@@ -3,6 +3,7 @@
 //! Views render from [`AppState`] and mutate only `list_state` so ratatui
 //! can scroll lists naturally; all data changes flow through actions.
 
+mod channel;
 mod history;
 mod home;
 mod home_panels;
@@ -46,6 +47,7 @@ pub fn render_main(
         View::Queue => queue::render_queue(frame, area, state, icons, theme),
         View::Playlists => playlists::render_playlists(frame, area, state, icons, theme),
         View::PlaylistDetail => playlists::render_playlist_detail(frame, area, state, icons, theme),
+        View::Channel => channel::render_channel(frame, area, state, icons, theme),
         View::History => history::render_history(frame, area, state, history, icons, theme),
         View::NowPlaying => playing::render_now_playing_view(frame, area, state, icons, theme),
         View::Help => render_help(frame, area, state, icons, theme),

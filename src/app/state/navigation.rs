@@ -10,6 +10,8 @@ pub enum View {
     Queue,
     Playlists,
     PlaylistDetail,
+    /// Dedicated, non-tab channel browser.
+    Channel,
     History,
     NowPlaying,
     Help,
@@ -24,6 +26,7 @@ impl View {
             Self::Queue => "Queue",
             Self::Playlists => "Playlists",
             Self::PlaylistDetail => "Playlist",
+            Self::Channel => "Channel",
             Self::History => "History",
             Self::NowPlaying => "Now Playing",
             Self::Help => "Help",

@@ -18,10 +18,19 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
             | View::Search
             | View::Queue
             | View::PlaylistDetail
+            | View::Channel
             | View::History
             | View::NowPlaying,
             KeyCode::Char('c'),
         ) => Action::Navigation(NavigationAction::OpenTrackContext),
+        (View::Channel, KeyCode::Backspace | KeyCode::Esc) => {
+            Action::Navigation(NavigationAction::BackFromChannel)
+        }
+        (View::Channel, KeyCode::Char('a')) => Action::Queue(QueueAction::AddSelectedToQueue),
+        (View::Channel, KeyCode::Char('A')) => Action::Queue(QueueAction::AddSelectedAsNext),
+        (View::Channel, KeyCode::Char('P')) => {
+            Action::Playlists(PlaylistAction::OpenPlaylistPicker)
+        }
         (View::Home, KeyCode::Char('h')) | (View::Home, KeyCode::Left) => {
             Action::Navigation(NavigationAction::CycleHomeSection(-1))
         }

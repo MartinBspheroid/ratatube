@@ -25,6 +25,8 @@ pub enum OperationKind {
     Session,
     PlaybackRecovery,
     ExternalCommand,
+    ChannelResolve,
+    ChannelPage,
 }
 
 /// Identity and cooperative cancellation handle returned when work starts.

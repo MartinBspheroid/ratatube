@@ -182,6 +182,12 @@ impl App {
                 .and_then(|playlist_index| self.state.playlists.get(playlist_index))
                 .and_then(|playlist| playlist.tracks.get(index))
                 .map(Track::from),
+            View::Channel => self
+                .state
+                .channel
+                .as_ref()
+                .and_then(|channel| channel.tracks.get(index))
+                .cloned(),
             _ => None,
         }
     }

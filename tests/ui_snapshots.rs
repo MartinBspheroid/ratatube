@@ -10,6 +10,8 @@ use ytm_tui::history::model::{HistoryEntry, PlaybackOutcome};
 use ytm_tui::media::Track;
 use ytm_tui::media::search::SearchState;
 
+#[path = "ui_snapshots/channel.rs"]
+mod channel;
 #[path = "ui_snapshots/context_menu.rs"]
 mod context_menu;
 #[path = "ui_snapshots/help.rs"]

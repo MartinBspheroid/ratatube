@@ -7,6 +7,7 @@ mod notifications;
 mod operations;
 mod selection;
 
+pub use crate::app::channel::{ChannelNavigationSnapshot, ChannelState};
 pub use app_state::AppState;
 pub(crate) use modals::ModalCapture;
 pub use modals::{

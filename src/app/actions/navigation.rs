@@ -3,6 +3,7 @@
 use crate::app::operations::OperationId;
 use crate::app::state::View;
 use crate::media::Track;
+use crate::media::channel::ChannelPage;
 
 /// Operating-system command launched outside the application event loop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,6 +69,24 @@ pub enum NavigationAction {
     SubmitTrackContext,
     /// Carry the selected track to Task 5 channel metadata resolution.
     VisitChannel(Track),
+    /// Metadata resolution completed for a legacy track without channel identity.
+    ChannelResolved {
+        operation_id: OperationId,
+        source_track_id: String,
+        result: std::result::Result<Track, String>,
+    },
+    /// One bounded channel page completed.
+    ChannelPageLoaded {
+        operation_id: OperationId,
+        channel_url: String,
+        page: usize,
+        result: std::result::Result<ChannelPage, String>,
+    },
+    /// Fetch the next page, or retry the failed current page.
+    LoadMoreChannel,
+    RetryChannel,
+    /// Restore the view and selection that opened the channel browser.
+    BackFromChannel,
     /// Show details for the selected track without changing playback ownership.
     ShowTrackDetails(Track),
     /// Close the selected-track details modal.

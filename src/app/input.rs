@@ -82,6 +82,21 @@ impl App {
                 _ => {}
             },
             Focus::Content => {
+                if self.state.view == View::Channel
+                    && key.code == KeyCode::Enter
+                    && let Some(channel) = self.state.channel.as_ref()
+                    && self.state.selected_index == channel.tracks.len()
+                    && !channel.exhausted
+                    && !channel.loading
+                {
+                    let action = if channel.error.is_some() {
+                        NavigationAction::RetryChannel
+                    } else {
+                        NavigationAction::LoadMoreChannel
+                    };
+                    let _ = action_tx.send(Action::Navigation(action)).await;
+                    return;
+                }
                 if keymap::focuses_search(&key) {
                     // In list views `/` filters in place; elsewhere it moves
                     // focus to the Search tab.

@@ -104,6 +104,22 @@ impl App {
                     return;
                 }
             }
+            Action::Navigation(NavigationAction::ChannelResolved { operation_id, .. }) => {
+                if !self
+                    .operations
+                    .complete(OperationKind::ChannelResolve, *operation_id)
+                {
+                    return;
+                }
+            }
+            Action::Navigation(NavigationAction::ChannelPageLoaded { operation_id, .. }) => {
+                if !self
+                    .operations
+                    .complete(OperationKind::ChannelPage, *operation_id)
+                {
+                    return;
+                }
+            }
             Action::Playback(PlaybackAction::ToggleRadio) if self.state.radio => {
                 self.operations.cancel(OperationKind::Radio);
                 self.radio_fetching = false;

@@ -96,6 +96,10 @@ pub fn resolve_track_context(
                 },
             )
         }
+        View::Channel => {
+            let track = state.channel.as_ref()?.tracks.get(selected)?.clone();
+            (track, TrackSource::Channel)
+        }
         View::History => {
             let history = history?;
             let track = match state.history_view_mode {

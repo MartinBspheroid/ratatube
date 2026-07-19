@@ -19,7 +19,7 @@ pub struct ChannelPageRequest {
 }
 
 /// A normalized page of public channel videos.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ChannelPage {
     /// Unique playable tracks in source (newest-first) order.
     pub tracks: Vec<Track>,

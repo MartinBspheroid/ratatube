@@ -96,7 +96,14 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
         // an operating-system process boundary.
         Action::Navigation(NavigationAction::OpenInBrowser) => {}
         // Task 5 consumes this typed intent and owns channel navigation.
-        Action::Navigation(NavigationAction::VisitChannel(_)) => {}
+        Action::Navigation(
+            NavigationAction::VisitChannel(_)
+            | NavigationAction::ChannelResolved { .. }
+            | NavigationAction::ChannelPageLoaded { .. }
+            | NavigationAction::LoadMoreChannel
+            | NavigationAction::RetryChannel
+            | NavigationAction::BackFromChannel,
+        ) => {}
         Action::Navigation(NavigationAction::SubmitSearch(query)) => {
             if query.trim().is_empty() {
                 return Vec::new();

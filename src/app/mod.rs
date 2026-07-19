@@ -2,6 +2,7 @@
 
 pub mod action;
 mod actions;
+pub mod channel;
 pub mod filter;
 pub mod operations;
 pub mod reducer;

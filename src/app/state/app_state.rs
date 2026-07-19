@@ -60,6 +60,8 @@ pub struct AppState {
     /// Monotonic identity for stored playlist membership and track ordering.
     pub(crate) playlists_revision: u64,
     pub selected_playlist: Option<usize>,
+    /// Dedicated channel-browser lifecycle, absent outside that flow.
+    pub channel: Option<crate::app::channel::ChannelState>,
 
     // Modal UI
     pub prompt: Option<PromptState>,

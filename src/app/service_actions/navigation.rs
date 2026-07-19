@@ -40,6 +40,24 @@ impl App {
                 result,
                 ..
             } => self.finish_external_command(command, target, result),
+            NavigationAction::VisitChannel(track) => {
+                self.visit_channel(track, action_tx.clone());
+            }
+            NavigationAction::ChannelResolved { result, .. } => {
+                self.finish_channel_resolve(result, action_tx.clone());
+            }
+            NavigationAction::ChannelPageLoaded {
+                channel_url,
+                page,
+                result,
+                ..
+            } => self.finish_channel_page(&channel_url, page, result),
+            NavigationAction::LoadMoreChannel | NavigationAction::RetryChannel => {
+                if let Some(page) = self.state.channel.as_ref().map(|channel| channel.next_page) {
+                    self.spawn_channel_page(page, action_tx.clone());
+                }
+            }
+            NavigationAction::BackFromChannel => self.leave_channel(),
             NavigationAction::SearchCompleted { .. } if self.autoplay_first_search => {
                 self.autoplay_first_search = false;
                 if self.state.active_list_len() > 0 {

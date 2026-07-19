@@ -3,7 +3,8 @@ use tokio::sync::mpsc;
 use tokio::time::{Duration, timeout};
 
 use crate::app::action::{Action, NavigationAction};
-use crate::app::state::{HomeSection, View};
+use crate::app::channel::{ChannelNavigationSnapshot, ChannelState};
+use crate::app::state::{Focus, HomeSection, View};
 use crate::app::tests::test_app;
 use crate::media::search::SearchState;
 use crate::playback::PlaybackStatus;
@@ -47,6 +48,22 @@ async fn open_menu_for(view: View) {
         View::Home => {
             app.state.home_section = HomeSection::Recent;
             app.history = Some(history(&[selected]));
+        }
+        View::Channel => {
+            app.state.channel = Some(ChannelState {
+                name: "Context channel".to_string(),
+                url: "https://www.youtube.com/channel/UC123".to_string(),
+                tracks: vec![selected],
+                next_page: 1,
+                exhausted: true,
+                loading: false,
+                error: None,
+                return_to: ChannelNavigationSnapshot {
+                    view: View::Search,
+                    focus: Focus::Content,
+                    selected_index: 0,
+                },
+            });
         }
         View::Playlists | View::Help => panic!("not a track-bearing view"),
     }

@@ -80,6 +80,9 @@ impl AppState {
                 .selected_playlist
                 .and_then(|index| self.playlists.get(index))
                 .map_or(0, |playlist| playlist.tracks.len()),
+            View::Channel => self.channel.as_ref().map_or(0, |channel| {
+                channel.tracks.len() + usize::from(!channel.exhausted && !channel.loading)
+            }),
             View::History => self.history_len,
             View::NowPlaying
                 if self.playing_pane == PlayingPane::Queue

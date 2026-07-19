@@ -92,6 +92,13 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             ("P", "copy to"),
             ("Bksp", "back"),
         ],
+        View::Channel => &[
+            ("Enter", "play/load"),
+            ("c", "actions"),
+            ("a/A", "queue/next"),
+            ("P", "playlist"),
+            ("Bksp", "back"),
+        ],
         View::History => match state.history_view_mode {
             crate::app::state::HistoryViewMode::Recent => &[
                 ("Enter", "replay"),
