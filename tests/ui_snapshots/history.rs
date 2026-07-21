@@ -31,7 +31,10 @@ fn history_view_lists_entries() {
         "newest history entry:\n{out}"
     );
     assert!(!out.contains("Song X —"), "older duplicate hidden:\n{out}");
-    assert!(out.contains("Completed"), "outcome:\n{out}");
+    assert!(
+        out.contains("finished"),
+        "human outcome wording (not Debug):\n{out}"
+    );
 }
 
 #[test]
