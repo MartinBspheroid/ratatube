@@ -23,6 +23,24 @@ work lives under `src/app/domain`, which a guard test keeps free of
 client-local navigation, and `service_actions` handlers still run on `App`.
 See `docs/superpowers/specs/2026-07-21-daemon-split-design.md`.
 
+## Daemon and client (daemon phase 2)
+
+`ytm daemon` runs the domain core headless: the same action loop with a
+Unix-socket server front-end (`src/daemon`, `src/app/daemon_runtime.rs`).
+Protocol frames (`src/protocol`) are versioned NDJSON: hello/welcome with a
+full domain snapshot, correlated commands/replies, and broadcast events
+carrying fresh payloads per `DomainEvent`. The default `ytm` invocation
+attaches as a client (`src/client`, `src/app/client_runtime.rs`): a
+`DomainMirror` (an actual `DomainState`) hydrates from the snapshot and
+events so Phase 1 rendering runs unchanged, while `src/app/client_route.rs`
+classifies every action wildcard-free into local UI work, a wire command
+with mirror-resolved context, or a guarded refusal. Search and channel
+data are per-client: search results return on correlated replies; channel
+navigation restoration lives in a client-local snapshot stack. History is
+read from the shared store read-only and reloaded on `HistoryChanged`.
+Slow clients are dropped at a bounded outbound queue; daemon loss triggers
+bounded respawn-and-reattach.
+
 ## Runtime data flow
 
 Input becomes an `Action`. The pure reducer updates `AppState` and emits `Effect` values. The app runtime executes effects and sends completion actions back through the same channel. Network/process work never runs inline in the event loop. `OperationRegistry` owns cancellation tokens and join handles; a completion is accepted only when its operation ID is still current.

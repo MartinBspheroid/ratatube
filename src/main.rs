@@ -15,10 +15,10 @@ struct Cli {
     /// Restore the previous session and start playing immediately.
     #[arg(long)]
     resume: bool,
-    /// Attach the TUI to the background service (experimental; some flows
-    /// are not yet available while attached).
+    /// Run the TUI and playback in one process instead of attaching to the
+    /// background service.
     #[arg(long)]
-    attach: bool,
+    standalone: bool,
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -61,11 +61,11 @@ async fn main() -> Result<()> {
         Some(Command::Stop) => run_control(paths, ytm_tui::protocol::Command::Stop).await,
         Some(Command::Status) => run_status(paths).await,
         Some(Command::Quit) => run_quit(paths).await,
-        None if cli.attach => run_attached(paths).await,
-        None => {
+        None if cli.standalone => {
             let intent = cli.resume.then_some(app::StartupIntent::Resume);
             run_tui(paths, intent).await
         }
+        None => run_attached(paths, cli.resume).await,
     }
 }
 
@@ -160,6 +160,24 @@ fn run_doctor(paths: &persistence::AppPaths) -> Result<()> {
         },
         paths.data_dir.display()
     );
+
+    let socket = ytm_tui::daemon::socket_path(paths);
+    if std::os::unix::net::UnixStream::connect(&socket).is_ok() {
+        let pid = std::fs::read_to_string(paths.data_dir.join(ytm_tui::daemon::PID_FILE_NAME))
+            .map(|raw| raw.trim().to_string())
+            .unwrap_or_else(|_| "unknown pid".to_string());
+        println!(
+            "OK   daemon          running (pid {pid}) at {}",
+            socket.display()
+        );
+    } else if socket.exists() {
+        println!(
+            "WARN daemon          stale socket at {} (removed on next start)",
+            socket.display()
+        );
+    } else {
+        println!("INFO daemon          not running (starts on demand)");
+    }
     if ok {
         println!("\nAll checks passed.");
         Ok(())
@@ -174,7 +192,7 @@ fn run_doctor(paths: &persistence::AppPaths) -> Result<()> {
 /// Send a play request to the daemon (starting it if needed) and report the
 /// resolved track once playback resolution lands.
 async fn run_play(paths: persistence::AppPaths, query: String) -> Result<()> {
-    let mut connection = ytm_tui::client::connect_or_spawn(&paths).await?;
+    let mut connection = ytm_tui::client::connect_or_spawn(&paths, false).await?;
     connection
         .request(ytm_tui::protocol::Command::PlayQuery {
             query: query.clone(),
@@ -260,7 +278,7 @@ async fn run_quit(paths: persistence::AppPaths) -> Result<()> {
 /// The client keeps no local playback or persistence; the mirror hydrates
 /// from the daemon's snapshot. Client-side tracing is skipped for now: the
 /// daemon owns `ytm-tui.log` (a separate `ytm-ui.log` lands in phase 3).
-async fn run_attached(paths: persistence::AppPaths) -> Result<()> {
+async fn run_attached(paths: persistence::AppPaths, resume: bool) -> Result<()> {
     paths.ensure_dirs()?;
     let config = match config::load(&paths.config_file()) {
         Ok(config) => config,
@@ -270,7 +288,7 @@ async fn run_attached(paths: persistence::AppPaths) -> Result<()> {
         }
         Err(err) => return Err(err),
     };
-    let connection = ytm_tui::client::connect_or_spawn(&paths).await?;
+    let connection = ytm_tui::client::connect_or_spawn(&paths, resume).await?;
     let state = app::state::AppState::new();
     let mut app = app::App::new(config, paths, state, Some(create_picker()));
 

@@ -134,7 +134,21 @@ Tasks 1–4 are implemented and gated. Task 4 shipped as designed in the
 blueprint: `ytm --attach` runs the TUI as a daemon client (mirror hydration,
 exhaustive wildcard-free routing table in `src/app/client_route.rs`,
 client-owned search over deferred replies, read-only history reload on
-`HistoryChanged`, bounded respawn-reattach). Task 5a closed most of the deferred list with concrete-id actions shared by
+`HistoryChanged`, bounded respawn-reattach). Tasks 5b–5d (2026-07-22): imports travel as `WireImport` payloads on
+`ImportChanged` events with `ImportStart/Confirm/Cancel/Json` commands;
+channel browsing works attached via daemon-owned channel data broadcast as
+`WireChannel` with a client-local navigation-snapshot stack (closing the
+`return_to` debt); the deferred list is now empty. `ytm` attaches by
+default (`--standalone` opts out); `--resume` passes through to a freshly
+spawned daemon. `doctor` reports daemon liveness/pid/stale sockets.
+Multi-client broadcast and slow-client disconnect are integration-tested
+(the latter needs >1024 broadcasts to trip the bound). README,
+ARCHITECTURE, and PRD (§27) document the service. Remaining phase 3 items:
+`OperationFailed` error propagation to clients (client notifications are
+optimistic today), a separate `ytm-ui.log`, and retiring the daemon's inert
+`UiState`.
+
+Task 5a closed most of the deferred list with concrete-id actions shared by
 both modes (`AddTrackToPlaylist`, `AddTrackToNewPlaylist`, `RenamePlaylist`,
 `EditPlaylist`, `MoveTrackInPlaylist`, `DeleteHistoryEntry`) and their wire
 commands: the picker, rename/edit/reorder, history deletion, and activity

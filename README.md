@@ -24,13 +24,28 @@ Press `c` on a track in Home, Search, Queue, a playlist, History, Channel, or No
 
 Channel browsing lists videos newest first in bounded pages of 30. Select the final `Load more` row and press Enter for the next page; a failed page becomes a `Retry` row. Backspace or Esc returns to the exact previous view. During the final 15 seconds of a track, the shared player rolls in the effective next title once; repeat-track and an empty next position suppress it.
 
-The command-line shortcut requires a query:
+## Background service
+
+Playback runs in a background daemon; the TUI is a control layer that
+attaches to it. Plain `ytm-tui` starts the daemon transparently when it is
+not running and reattaches to the live session otherwise — quitting the TUI
+leaves the music playing. `--standalone` runs the historic single process.
 
 ```sh
+ytm-tui daemon     # run the service in the foreground (auto-spawn runs this)
 ytm-tui play massive attack teardrop
-ytm-tui play 'https://www.youtube.com/watch?v=...'
+ytm-tui status     # what is playing, from any terminal
+ytm-tui pause
+ytm-tui stop
+ytm-tui quit       # stop the service (flushes persistence, stops mpv)
 ytm-tui --resume
 ```
+
+The control socket is `ytm.sock` (mode 0600) in the data directory and
+doubles as the single-instance lock; `doctor` reports daemon liveness. Any
+number of TUIs and one-shot commands may attach at once. Very deep
+`--data-dir` paths can exceed the platform Unix-socket path limit; the
+error names the limit when that happens.
 
 ## Data and configuration
 

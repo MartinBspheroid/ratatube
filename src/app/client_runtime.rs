@@ -115,7 +115,7 @@ impl App {
         self.state
             .notify("Daemon disconnected; reconnecting…", true);
         for _ in 0..3 {
-            match crate::client::connect_or_spawn(&self.paths).await {
+            match crate::client::connect_or_spawn(&self.paths, false).await {
                 Ok(connection) => {
                     let (sender, snapshot, receiver) = connection.into_stream();
                     crate::client::mirror::apply_snapshot(&mut self.state.domain, snapshot);

@@ -179,12 +179,14 @@ impl Connection {
 }
 
 /// Connect, transparently starting the daemon when the socket is silent.
-pub async fn connect_or_spawn(paths: &AppPaths) -> Result<Connection> {
+/// `resume` only matters when a daemon is actually spawned: it resumes the
+/// previous session at daemon startup.
+pub async fn connect_or_spawn(paths: &AppPaths, resume: bool) -> Result<Connection> {
     let socket = crate::daemon::socket_path(paths);
     if let Ok(connection) = Connection::connect(&socket).await {
         return Ok(connection);
     }
-    spawn_daemon(paths)?;
+    spawn_daemon(paths, resume)?;
     for _ in 0..SPAWN_RETRIES {
         tokio::time::sleep(SPAWN_RETRY_DELAY).await;
         if let Ok(connection) = Connection::connect(&socket).await {
@@ -200,14 +202,15 @@ pub async fn connect_or_spawn(paths: &AppPaths) -> Result<Connection> {
 
 /// Start `current_exe() daemon` detached in its own process group; its
 /// stdio goes to the log via the daemon's own tracing setup.
-fn spawn_daemon(paths: &AppPaths) -> Result<()> {
+fn spawn_daemon(paths: &AppPaths, resume: bool) -> Result<()> {
     let exe = std::env::current_exe()
         .map_err(|err| AppError::Config(format!("cannot locate own executable: {err}")))?;
     let mut command = std::process::Command::new(exe);
+    command.arg("daemon").arg("--data-dir").arg(&paths.data_dir);
+    if resume {
+        command.arg("--resume");
+    }
     command
-        .arg("daemon")
-        .arg("--data-dir")
-        .arg(&paths.data_dir)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
