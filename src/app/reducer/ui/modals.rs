@@ -1,15 +1,19 @@
-//! Pure state transitions for universal track-context modal intents.
+//! Pure modal transitions for the universal track-context menu and details.
 
 use crate::app::action::NavigationAction;
 use crate::app::reducer::Effect;
-use crate::app::state::AppState;
+use crate::app::state::{DomainState, UiState};
 
 /// Reduce context-menu intents that do not require application services.
-pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effect> {
+pub(in crate::app::reducer) fn reduce_track_context(
+    ui: &mut UiState,
+    domain: &DomainState,
+    action: NavigationAction,
+) -> Vec<Effect> {
     match action {
-        NavigationAction::CloseTrackContext => state.ui.track_context_menu = None,
+        NavigationAction::CloseTrackContext => ui.track_context_menu = None,
         NavigationAction::MoveTrackContext(delta) => {
-            if let Some(menu) = &mut state.ui.track_context_menu {
+            if let Some(menu) = &mut ui.track_context_menu {
                 let len = menu.context.actions.len();
                 if len > 0 {
                     let selected = menu.selected % len;
@@ -22,8 +26,18 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
                 }
             }
         }
-        NavigationAction::ShowTrackDetails(track) => state.show_track_details(track),
-        NavigationAction::CloseTrackDetails => state.ui.track_details_modal = None,
+        NavigationAction::ShowTrackDetails(track) => {
+            // Existing extended details apply only when they belong to this
+            // exact track (mirrors the pre-split AppState helper).
+            let details = domain
+                .current_track
+                .as_ref()
+                .is_some_and(|current| current.id == track.id)
+                .then(|| domain.current_details.clone())
+                .flatten();
+            ui.show_track_details(track, details);
+        }
+        NavigationAction::CloseTrackDetails => ui.track_details_modal = None,
         // Opening needs HistoryService; submission dispatches the selected
         // stable action through existing action domains.
         NavigationAction::OpenTrackContext | NavigationAction::SubmitTrackContext => {}
