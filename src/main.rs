@@ -23,7 +23,7 @@ struct Cli {
 enum Command {
     /// Verify dependencies, paths, and configuration.
     Doctor,
-    /// Search for a query (or URL) and play the first result.
+    /// Search for a query (or URL) and play it via the background service.
     Play {
         /// Search terms or a YouTube URL.
         #[arg(required = true, num_args = 1..)]
@@ -31,6 +31,14 @@ enum Command {
     },
     /// Run the background playback service in the foreground.
     Daemon,
+    /// Toggle pause on the background service.
+    Pause,
+    /// Stop playback on the background service.
+    Stop,
+    /// Show what the background service is playing.
+    Status,
+    /// Shut the background service down.
+    Quit,
 }
 
 #[tokio::main]
@@ -43,11 +51,12 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Some(Command::Doctor) => run_doctor(&paths),
-        Some(Command::Play { query }) => {
-            let query = query.join(" ");
-            run_tui(paths, Some(app::StartupIntent::PlayQuery(query))).await
-        }
+        Some(Command::Play { query }) => run_play(paths, query.join(" ")).await,
         Some(Command::Daemon) => run_daemon_mode(paths, cli.resume).await,
+        Some(Command::Pause) => run_control(paths, ytm_tui::protocol::Command::PlayPause).await,
+        Some(Command::Stop) => run_control(paths, ytm_tui::protocol::Command::Stop).await,
+        Some(Command::Status) => run_status(paths).await,
+        Some(Command::Quit) => run_quit(paths).await,
         None => {
             let intent = cli.resume.then_some(app::StartupIntent::Resume);
             run_tui(paths, intent).await
@@ -155,6 +164,91 @@ fn run_doctor(paths: &persistence::AppPaths) -> Result<()> {
             "doctor checks failed".to_string(),
         ))
     }
+}
+
+/// Send a play request to the daemon (starting it if needed) and report the
+/// resolved track once playback resolution lands.
+async fn run_play(paths: persistence::AppPaths, query: String) -> Result<()> {
+    let mut connection = ytm_tui::client::connect_or_spawn(&paths).await?;
+    connection
+        .request(ytm_tui::protocol::Command::PlayQuery {
+            query: query.clone(),
+        })
+        .await?;
+    for _ in 0..10 {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        if let ytm_tui::protocol::ReplyBody::Status { snapshot } = connection
+            .request(ytm_tui::protocol::Command::Status)
+            .await?
+            && let Some(track) = snapshot.current_track
+        {
+            println!("Playing: {} — {}", track.title, track.artist);
+            return Ok(());
+        }
+    }
+    println!("Requested: {query} (still resolving; `ytm status` to check)");
+    Ok(())
+}
+
+/// Send one control command to a running daemon (no auto-spawn).
+async fn run_control(
+    paths: persistence::AppPaths,
+    command: ytm_tui::protocol::Command,
+) -> Result<()> {
+    let socket = ytm_tui::daemon::socket_path(&paths);
+    let mut connection = ytm_tui::client::Connection::connect(&socket).await?;
+    connection.request(command).await?;
+    Ok(())
+}
+
+/// Print a human-readable report of the daemon's current state.
+async fn run_status(paths: persistence::AppPaths) -> Result<()> {
+    let socket = ytm_tui::daemon::socket_path(&paths);
+    let mut connection = ytm_tui::client::Connection::connect(&socket).await?;
+    let ytm_tui::protocol::ReplyBody::Status { snapshot } = connection
+        .request(ytm_tui::protocol::Command::Status)
+        .await?
+    else {
+        return Err(ytm_tui::error::AppError::Config(
+            "daemon returned an unexpected status body".to_string(),
+        ));
+    };
+    match &snapshot.current_track {
+        Some(track) => {
+            println!(
+                "{:?}  {} — {}",
+                snapshot.playback.status, track.title, track.artist
+            );
+            let position = snapshot.playback.position_seconds as u64;
+            match snapshot.playback.duration_seconds {
+                Some(total) => println!("  {position}s / {}s", total as u64),
+                None => println!("  {position}s"),
+            }
+        }
+        None => println!("Nothing is playing"),
+    }
+    println!(
+        "  queue {} · volume {}%{}",
+        snapshot.queue.tracks.len(),
+        snapshot.playback.volume,
+        if snapshot.health.mpv_ready {
+            ""
+        } else {
+            " · mpv DOWN"
+        }
+    );
+    Ok(())
+}
+
+/// Ask the daemon to shut down cleanly.
+async fn run_quit(paths: persistence::AppPaths) -> Result<()> {
+    let socket = ytm_tui::daemon::socket_path(&paths);
+    let mut connection = ytm_tui::client::Connection::connect(&socket).await?;
+    connection
+        .request(ytm_tui::protocol::Command::Shutdown)
+        .await?;
+    println!("Daemon stopped.");
+    Ok(())
 }
 
 /// Run the background service in the foreground (what auto-spawn executes).

@@ -143,6 +143,56 @@ async fn daemon_serves_handshake_commands_events_and_shutdown() {
 }
 
 #[tokio::test]
+async fn client_connection_requests_against_a_live_daemon() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let paths = AppPaths::with_data_dir(dir.path().to_path_buf());
+    let mut config = Config::default();
+    config.paths.mpv = "false".to_string();
+    config.paths.yt_dlp = "/nonexistent/yt-dlp".to_string();
+    let socket = ytm_tui::daemon::socket_path(&paths);
+    let daemon = tokio::spawn(ytm_tui::daemon::run(paths, config, None));
+
+    let mut connection = None;
+    for _ in 0..200 {
+        match ytm_tui::client::Connection::connect(&socket).await {
+            Ok(conn) => {
+                connection = Some(conn);
+                break;
+            }
+            Err(_) => tokio::time::sleep(std::time::Duration::from_millis(20)).await,
+        }
+    }
+    let mut connection = connection.expect("client connects");
+    assert!(connection.snapshot.queue.tracks.is_empty());
+
+    let body = connection
+        .request(Command::QueueAdd {
+            track: Track::new("id-9", "Client track", "Channel"),
+            next: false,
+        })
+        .await
+        .expect("queue add reply");
+    assert!(matches!(body, ReplyBody::Ack));
+
+    // The queue_changed broadcast sits between the two replies; request()
+    // must skip it and still correlate the status reply.
+    let ReplyBody::Status { snapshot } = connection
+        .request(Command::Status)
+        .await
+        .expect("status reply")
+    else {
+        panic!("expected status body");
+    };
+    assert_eq!(snapshot.queue.tracks.len(), 1);
+
+    connection
+        .request(Command::Shutdown)
+        .await
+        .expect("shutdown reply");
+    daemon.await.expect("join").expect("clean exit");
+}
+
+#[tokio::test]
 async fn second_daemon_refuses_while_first_owns_the_socket() {
     let dir = tempfile::tempdir().expect("tempdir");
     let paths = AppPaths::with_data_dir(dir.path().to_path_buf());
