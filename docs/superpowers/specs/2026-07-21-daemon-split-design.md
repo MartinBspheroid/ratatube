@@ -1,6 +1,7 @@
 # ytm Daemon Split — Design
 
-Date: 2026-07-21. Status: approved direction, pending spec review.
+Date: 2026-07-21. Status: approved; phase 1 implemented on
+`daemon-phase1-state-split` (see the phase 1 plan's completion notes).
 
 ## Context
 

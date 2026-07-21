@@ -135,3 +135,24 @@ pub fn apply_domain_events(domain: &DomainState, ui: &mut UiState, events: &[Dom
 - [ ] Full merge gate; `git diff main` review for behavior drift (grep for changed string literals, changed test expectations — there must be none beyond paths/signatures).
 - [ ] Re-run `tests/mpv_ipc.rs` in isolation.
 - [ ] Confirm plan checkboxes; note deviations at the bottom of this file.
+
+## Completion notes (2026-07-21)
+
+Tasks 1–4, 5 (first commit), 6, and 7 are implemented; all behavior-change
+checks stayed green throughout (existing tests updated for paths/signatures
+only). Deviations from the written plan:
+
+- **Task 3** kept per-family coordinators owning cross-half glue instead of
+  deferring reactions to Task 4, so every intermediate commit stayed
+  behavior-identical. The EOF autoplay path calls the domain `next_track`
+  directly rather than recursing through the top-level reducer.
+- **Task 4** derives events via `DomainWatermark` (revision/occurrence
+  comparison plus counterless action mapping) instead of threading an event
+  vector through every reducer signature. Same seam, far less churn;
+  `apply_domain_events` reactions are limited to idempotent selection clamps
+  because coordinators already apply the specific reactions.
+- **Task 5, second commit (service_actions split) deferred to phase 2.**
+  The handlers are already thin per-family coordinators; making them
+  `UiState`-free requires the daemon runtime struct (natural signatures) and
+  moving `ChannelState::return_to` client-side — both phase 2 work. Recorded
+  in ARCHITECTURE.md as known debts.

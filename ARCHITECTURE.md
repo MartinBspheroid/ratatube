@@ -7,6 +7,22 @@ The executable is an event-driven terminal client with four explicit boundaries:
 3. `src/persistence`, `src/queue`, `src/history`, and `src/playlists` own validated local documents.
 4. `src/ui` and `src/input` own terminal rendering and interaction metadata.
 
+## Domain/UI state split (daemon phase 1)
+
+`AppState` is `{ domain: DomainState, ui: UiState }`. The domain half (queue,
+playback, playlists, search, import, channel data, health) is what the
+planned daemon owns; the UI half (view, focus, selection, overlays, filters,
+notifications, thumbnails) stays with the future client. Domain sub-reducers
+take `&mut DomainState`; UI-only transitions live in `src/app/reducer/ui`;
+per-family coordinators keep the residual cross-half glue explicit. After
+each action, `DomainWatermark` derives coarse `DomainEvent`s and
+`apply_domain_events` is the single point where UI state reacts to domain
+changes — the seam the daemon socket replaces in phase 2. Supervised domain
+work lives under `src/app/domain`, which a guard test keeps free of
+`ratatui` types. Known phase-2 debts: `ChannelState::return_to` snapshots
+client-local navigation, and `service_actions` handlers still run on `App`.
+See `docs/superpowers/specs/2026-07-21-daemon-split-design.md`.
+
 ## Runtime data flow
 
 Input becomes an `Action`. The pure reducer updates `AppState` and emits `Effect` values. The app runtime executes effects and sends completion actions back through the same channel. Network/process work never runs inline in the event loop. `OperationRegistry` owns cancellation tokens and join handles; a completion is accepted only when its operation ID is still current.

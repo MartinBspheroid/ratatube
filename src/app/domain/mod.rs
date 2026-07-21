@@ -11,3 +11,6 @@ pub(in crate::app) mod persistence;
 pub(in crate::app) mod playback_followup;
 pub(in crate::app) mod playback_recovery;
 pub(in crate::app) mod playback_session;
+
+#[cfg(test)]
+mod boundary_tests;
