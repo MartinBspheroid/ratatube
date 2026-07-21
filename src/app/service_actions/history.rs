@@ -23,6 +23,25 @@ impl App {
                 self.list_revision = self.list_revision.wrapping_add(1);
                 self.persist_history();
             }
+            HistoryAction::DeleteHistoryEntry {
+                index,
+                expected_track_id,
+            } => {
+                let Some(history) = self.history.as_mut() else {
+                    return;
+                };
+                let matches = history
+                    .entries()
+                    .get(index)
+                    .is_some_and(|entry| entry.track_id == expected_track_id);
+                if !matches {
+                    self.state.notify("History changed; delete cancelled", true);
+                    return;
+                }
+                history.remove(index);
+                self.list_revision = self.list_revision.wrapping_add(1);
+                self.persist_history();
+            }
             HistoryAction::ClearHistoryConfirmed => {
                 if let Some(history) = self.history.as_mut() {
                     history.clear();

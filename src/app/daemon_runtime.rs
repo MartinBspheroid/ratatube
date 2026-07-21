@@ -272,6 +272,35 @@ impl App {
                 })
             }
             Command::HistoryClear => Action::History(HistoryAction::ClearHistoryConfirmed),
+            Command::HistoryDelete {
+                index,
+                expected_track_id,
+            } => Action::History(HistoryAction::DeleteHistoryEntry {
+                index,
+                expected_track_id,
+            }),
+            Command::ActivityClear => Action::History(HistoryAction::ClearActivity),
+            Command::PlaylistAddTrack { playlist_id, track } => {
+                Action::Playlists(PlaylistAction::AddTrackToPlaylist { playlist_id, track })
+            }
+            Command::PlaylistAddTrackNew { name, track } => {
+                Action::Playlists(PlaylistAction::AddTrackToNewPlaylist { name, track })
+            }
+            Command::PlaylistRename { id, name } => {
+                Action::Playlists(PlaylistAction::RenamePlaylist { id, name })
+            }
+            Command::PlaylistEdit {
+                id,
+                name,
+                description,
+            } => Action::Playlists(PlaylistAction::EditPlaylist {
+                id,
+                name,
+                description,
+            }),
+            Command::PlaylistMoveTrack { id, from, to } => {
+                Action::Playlists(PlaylistAction::MoveTrackInPlaylist { id, from, to })
+            }
             Command::ToggleMute => Action::Playback(PlaybackAction::ToggleMute),
             Command::SpeedUp => Action::Playback(PlaybackAction::SpeedUp),
             Command::SpeedDown => Action::Playback(PlaybackAction::SpeedDown),

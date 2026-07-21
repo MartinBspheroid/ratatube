@@ -114,6 +114,40 @@ pub enum Command {
     },
     /// Clear playback history (the client confirms before sending).
     HistoryClear,
+    /// Delete one history entry, guarded by its track id.
+    HistoryDelete {
+        index: usize,
+        expected_track_id: String,
+    },
+    /// Clear the Home activity log.
+    ActivityClear,
+    /// Add a track to a stored playlist by id.
+    PlaylistAddTrack {
+        playlist_id: String,
+        track: Track,
+    },
+    /// Create a playlist named after the picker filter and add the track.
+    PlaylistAddTrackNew {
+        name: String,
+        track: Track,
+    },
+    /// Rename a stored playlist by id.
+    PlaylistRename {
+        id: String,
+        name: String,
+    },
+    /// Replace a stored playlist's name and description by id.
+    PlaylistEdit {
+        id: String,
+        name: String,
+        description: String,
+    },
+    /// Reorder a stored playlist's tracks by id.
+    PlaylistMoveTrack {
+        id: String,
+        from: usize,
+        to: usize,
+    },
     ToggleMute,
     SpeedUp,
     SpeedDown,

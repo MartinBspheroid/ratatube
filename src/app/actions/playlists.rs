@@ -75,6 +75,33 @@ pub enum PlaylistAction {
         expected_track: Track,
         expected_revision: u64,
     },
+    /// Add a track to a stored playlist by id (daemon clients + picker).
+    AddTrackToPlaylist {
+        playlist_id: String,
+        track: Track,
+    },
+    /// Create a playlist and add the track to it (picker "create new").
+    AddTrackToNewPlaylist {
+        name: String,
+        track: Track,
+    },
+    /// Rename a stored playlist by id (daemon clients).
+    RenamePlaylist {
+        id: String,
+        name: String,
+    },
+    /// Replace a stored playlist's name and description by id.
+    EditPlaylist {
+        id: String,
+        name: String,
+        description: String,
+    },
+    /// Reorder a stored playlist's tracks by id (daemon clients).
+    MoveTrackInPlaylist {
+        id: String,
+        from: usize,
+        to: usize,
+    },
     /// Move the selected playlist track up (-1) or down (+1).
     MoveSelectedInPlaylist(i32),
 }

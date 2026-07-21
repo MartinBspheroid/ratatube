@@ -10,6 +10,12 @@ pub enum HistoryAction {
     ClearHistoryConfirmed,
     /// Delete one history entry in Recent mode.
     DeleteSelectedHistoryEntry,
+    /// Delete one history entry by store index, guarded by its track id
+    /// (daemon clients, whose local view may lag the store).
+    DeleteHistoryEntry {
+        index: usize,
+        expected_track_id: String,
+    },
     /// Toggle Recent and Top (aggregated) presentation.
     ToggleHistoryViewMode,
     Notify(String),

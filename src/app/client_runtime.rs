@@ -211,8 +211,84 @@ impl App {
                 }
             }
             Route::PromptSubmit => self.client_prompt_submit(commands).await,
+            Route::PickerSubmit => self.client_picker_submit(commands).await,
+            Route::EditorSubmit => self.client_editor_submit(commands).await,
             Route::Deferred(message) => self.state.notify(message, false),
             Route::Ignore => {}
+        }
+    }
+
+    /// Resolve the picker candidate against the mirror and send the add.
+    async fn client_picker_submit(&mut self, commands: &mut CommandSender) {
+        let Some(picker) = self.state.ui.picker.take() else {
+            return;
+        };
+        let (create_new, matching) =
+            crate::app::filter::picker_candidates(&self.state.domain.playlists, &picker.filter);
+        let command = if create_new && picker.selected == 0 {
+            Command::PlaylistAddTrackNew {
+                name: picker.filter.trim().to_string(),
+                track: picker.track,
+            }
+        } else {
+            let offset = usize::from(create_new);
+            let Some(&index) = picker
+                .selected
+                .checked_sub(offset)
+                .and_then(|position| matching.get(position))
+            else {
+                return;
+            };
+            let Some(playlist) = self.state.domain.playlists.get(index) else {
+                return;
+            };
+            // Immediate feedback from the mirror; the daemon re-checks.
+            if playlist.tracks.iter().any(|t| t.id == picker.track.id) {
+                let name = playlist.name.clone();
+                self.state.notify(&format!("Already in \"{name}\""), false);
+                return;
+            }
+            Command::PlaylistAddTrack {
+                playlist_id: playlist.id.clone(),
+                track: picker.track,
+            }
+        };
+        if commands.send(command).await.is_err() {
+            self.state.notify("Daemon is not reachable", true);
+        }
+    }
+
+    /// Resolve the selected playlist id and send the metadata edit.
+    async fn client_editor_submit(&mut self, commands: &mut CommandSender) {
+        let Some(editor) = self.state.ui.playlist_editor.take() else {
+            return;
+        };
+        let name = editor.name.trim().to_string();
+        if name.is_empty() {
+            self.state.ui.playlist_editor = Some(editor);
+            self.state.notify("Playlist name is required", true);
+            return;
+        }
+        let Some(id) = self
+            .state
+            .ui
+            .selected_playlist
+            .and_then(|index| self.state.domain.playlists.get(index))
+            .map(|playlist| playlist.id.clone())
+        else {
+            return;
+        };
+        let description = editor.description.trim().to_string();
+        if commands
+            .send(Command::PlaylistEdit {
+                id,
+                name,
+                description,
+            })
+            .await
+            .is_err()
+        {
+            self.state.notify("Daemon is not reachable", true);
         }
     }
 
@@ -235,11 +311,17 @@ impl App {
             PromptPurpose::SaveQueueAsPlaylist => Command::SaveQueueAsPlaylist { name: text },
             PromptPurpose::NewPlaylist => Command::PlaylistCreate { name: text },
             PromptPurpose::RenamePlaylist => {
-                self.state.notify(
-                    "Playlist editing is not yet available while attached",
-                    false,
-                );
-                return;
+                let index = self.state.resolve_index(self.state.ui.selected_index);
+                match self
+                    .state
+                    .domain
+                    .playlists
+                    .get(index)
+                    .map(|playlist| playlist.id.clone())
+                {
+                    Some(id) => Command::PlaylistRename { id, name: text },
+                    None => return,
+                }
             }
             PromptPurpose::ImportPlaylistUrl | PromptPurpose::ImportPlaylistJson => {
                 self.state

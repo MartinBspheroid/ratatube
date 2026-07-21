@@ -25,6 +25,10 @@ pub(crate) enum Route {
     Search { query: String, exact: bool },
     /// Prompt submission is purpose-dependent; the runtime translates it.
     PromptSubmit,
+    /// Picker submission resolves its candidate list in the runtime.
+    PickerSubmit,
+    /// Playlist-editor submission resolves the selected id in the runtime.
+    EditorSubmit,
     /// Not available while attached; the runtime shows the message.
     Deferred(&'static str),
     /// Daemon-internal completion or no-op in client mode.
@@ -33,9 +37,6 @@ pub(crate) enum Route {
 
 const DEFERRED_CHANNEL: &str = "Channel browsing is not yet available while attached";
 const DEFERRED_IMPORT: &str = "Playlist import is not yet available while attached";
-const DEFERRED_EDIT: &str = "Playlist editing is not yet available while attached";
-const DEFERRED_PICKER: &str = "Add-to-playlist is not yet available while attached";
-const DEFERRED_HISTORY: &str = "History editing is not yet available while attached";
 
 /// Classify one action for the client runtime.
 pub(crate) fn route(action: &Action, state: &AppState, history: Option<&HistoryService>) -> Route {
@@ -44,7 +45,7 @@ pub(crate) fn route(action: &Action, state: &AppState, history: Option<&HistoryS
         Action::Playback(action) => route_playback(action, state, history),
         Action::Queue(action) => route_queue(action, state, history),
         Action::Playlists(action) => route_playlists(action, state),
-        Action::History(action) => route_history(action),
+        Action::History(action) => route_history(action, state, history),
     }
 }
 
@@ -316,10 +317,79 @@ fn route_playlists(action: &PlaylistAction, state: &AppState) -> Route {
             })
         }
         PlaylistAction::PromptSubmit => Route::PromptSubmit,
-        PlaylistAction::RenameSelectedPlaylist(_)
-        | PlaylistAction::PlaylistEditorSubmit
-        | PlaylistAction::MoveSelectedInPlaylist(_) => Route::Deferred(DEFERRED_EDIT),
-        PlaylistAction::PickerSubmit => Route::Deferred(DEFERRED_PICKER),
+        PlaylistAction::PickerSubmit => Route::PickerSubmit,
+        PlaylistAction::PlaylistEditorSubmit => Route::EditorSubmit,
+        PlaylistAction::RenameSelectedPlaylist(name) => {
+            let index = state.resolve_index(state.ui.selected_index);
+            match state.domain.playlists.get(index) {
+                Some(playlist) => Route::Send(Command::PlaylistRename {
+                    id: playlist.id.clone(),
+                    name: name.clone(),
+                }),
+                None => Route::Ignore,
+            }
+        }
+        PlaylistAction::AddTrackToPlaylist { playlist_id, track } => {
+            Route::Send(Command::PlaylistAddTrack {
+                playlist_id: playlist_id.clone(),
+                track: track.clone(),
+            })
+        }
+        PlaylistAction::AddTrackToNewPlaylist { name, track } => {
+            Route::Send(Command::PlaylistAddTrackNew {
+                name: name.clone(),
+                track: track.clone(),
+            })
+        }
+        PlaylistAction::RenamePlaylist { id, name } => Route::Send(Command::PlaylistRename {
+            id: id.clone(),
+            name: name.clone(),
+        }),
+        PlaylistAction::EditPlaylist {
+            id,
+            name,
+            description,
+        } => Route::Send(Command::PlaylistEdit {
+            id: id.clone(),
+            name: name.clone(),
+            description: description.clone(),
+        }),
+        PlaylistAction::MoveTrackInPlaylist { id, from, to } => {
+            Route::Send(Command::PlaylistMoveTrack {
+                id: id.clone(),
+                from: *from,
+                to: *to,
+            })
+        }
+        PlaylistAction::MoveSelectedInPlaylist(delta) => {
+            if state.ui.view != View::PlaylistDetail {
+                return Route::Ignore;
+            }
+            if state.ui.visible_indices.is_some() {
+                return Route::Deferred("Clear the filter (Esc) to reorder");
+            }
+            let Some(playlist) = state
+                .ui
+                .selected_playlist
+                .and_then(|index| state.domain.playlists.get(index))
+            else {
+                return Route::Ignore;
+            };
+            let len = playlist.tracks.len();
+            let from = state.ui.selected_index;
+            let to = from
+                .saturating_add_signed(*delta as isize)
+                .min(len.saturating_sub(1));
+            if len > 1 && from < len && from != to {
+                Route::Send(Command::PlaylistMoveTrack {
+                    id: playlist.id.clone(),
+                    from,
+                    to,
+                })
+            } else {
+                Route::Ignore
+            }
+        }
         PlaylistAction::StartImport(_)
         | PlaylistAction::ImportStarted { .. }
         | PlaylistAction::ImportCompleted { .. }
@@ -352,12 +422,36 @@ fn route_playlists(action: &PlaylistAction, state: &AppState) -> Route {
     }
 }
 
-fn route_history(action: &HistoryAction) -> Route {
+fn route_history(
+    action: &HistoryAction,
+    state: &AppState,
+    history: Option<&HistoryService>,
+) -> Route {
     match action {
         HistoryAction::ClearHistoryConfirmed => Route::Send(Command::HistoryClear),
-        HistoryAction::ClearActivity | HistoryAction::DeleteSelectedHistoryEntry => {
-            Route::Deferred(DEFERRED_HISTORY)
+        HistoryAction::ClearActivity => Route::Send(Command::ActivityClear),
+        HistoryAction::DeleteSelectedHistoryEntry => {
+            if state.ui.view != View::History
+                || state.ui.history_view_mode != crate::app::state::HistoryViewMode::Recent
+            {
+                return Route::Deferred("Switch to recent (g) to delete entries");
+            }
+            let index = state.resolve_index(state.ui.selected_index);
+            match history.and_then(|history| history.entries().get(index)) {
+                Some(entry) => Route::Send(Command::HistoryDelete {
+                    index,
+                    expected_track_id: entry.track_id.clone(),
+                }),
+                None => Route::Ignore,
+            }
         }
+        HistoryAction::DeleteHistoryEntry {
+            index,
+            expected_track_id,
+        } => Route::Send(Command::HistoryDelete {
+            index: *index,
+            expected_track_id: expected_track_id.clone(),
+        }),
         HistoryAction::ClearHistory
         | HistoryAction::ToggleHistoryViewMode
         | HistoryAction::Notify(_)
@@ -462,10 +556,31 @@ mod tests {
     fn deferred_features_name_their_gap() {
         let state = AppState::new();
         let routed = route(
-            &Action::Playlists(PlaylistAction::PickerSubmit),
+            &Action::Playlists(PlaylistAction::StartImport("url".into())),
             &state,
             None,
         );
         assert!(matches!(routed, Route::Deferred(_)));
+    }
+
+    #[test]
+    fn picker_and_editor_submissions_resolve_in_the_runtime() {
+        let state = AppState::new();
+        assert!(matches!(
+            route(
+                &Action::Playlists(PlaylistAction::PickerSubmit),
+                &state,
+                None
+            ),
+            Route::PickerSubmit
+        ));
+        assert!(matches!(
+            route(
+                &Action::Playlists(PlaylistAction::PlaylistEditorSubmit),
+                &state,
+                None
+            ),
+            Route::EditorSubmit
+        ));
     }
 }

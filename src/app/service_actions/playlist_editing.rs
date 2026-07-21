@@ -127,6 +127,64 @@ impl App {
                     }
                 }
             }
+            PlaylistAction::AddTrackToPlaylist { playlist_id, track } => {
+                let Some(index) = self
+                    .state
+                    .domain
+                    .playlists
+                    .iter()
+                    .position(|playlist| playlist.id == playlist_id)
+                else {
+                    self.state.notify("Playlist no longer exists", true);
+                    return;
+                };
+                self.add_track_to_playlist_at(index, track);
+            }
+            PlaylistAction::AddTrackToNewPlaylist { name, track } => {
+                let playlist = crate::playlists::Playlist::new(name.trim());
+                match self.playlists.save(&playlist) {
+                    Ok(()) => {
+                        self.state.domain.playlists.push(playlist);
+                        self.state.bump_playlists_revision();
+                        let index = self.state.domain.playlists.len() - 1;
+                        self.add_track_to_playlist_at(index, track);
+                    }
+                    Err(err) => self.state.notify(&format!("Save failed: {err}"), true),
+                }
+            }
+            PlaylistAction::RenamePlaylist { id, name } => {
+                self.edit_playlist_by_id(&id, &name, None);
+            }
+            PlaylistAction::EditPlaylist {
+                id,
+                name,
+                description,
+            } => {
+                self.edit_playlist_by_id(&id, &name, Some(&description));
+            }
+            PlaylistAction::MoveTrackInPlaylist { id, from, to } => {
+                let Some(playlist) = self
+                    .state
+                    .domain
+                    .playlists
+                    .iter_mut()
+                    .find(|playlist| playlist.id == id)
+                else {
+                    return;
+                };
+                let len = playlist.tracks.len();
+                if len < 2 || from >= len || to >= len || from == to {
+                    return;
+                }
+                let track = playlist.tracks.remove(from);
+                playlist.tracks.insert(to, track);
+                playlist.updated_at = chrono::Utc::now();
+                let snapshot = playlist.clone();
+                self.state.bump_playlists_revision();
+                if let Err(err) = self.playlists.save(&snapshot) {
+                    self.state.notify(&format!("Save failed: {err}"), true);
+                }
+            }
             PlaylistAction::MoveSelectedInPlaylist(delta) => {
                 if self.state.ui.view != View::PlaylistDetail {
                     return;
@@ -165,5 +223,49 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    /// Update a stored playlist's name (and optionally description) by id,
+    /// rolling back on a failed save.
+    fn edit_playlist_by_id(&mut self, id: &str, name: &str, description: Option<&str>) {
+        let name = name.trim();
+        if name.is_empty() {
+            self.state.notify("Playlist name is required", true);
+            return;
+        }
+        let Some(playlist) = self
+            .state
+            .domain
+            .playlists
+            .iter_mut()
+            .find(|playlist| playlist.id == id)
+        else {
+            self.state.notify("Playlist no longer exists", true);
+            return;
+        };
+        let previous = playlist.clone();
+        playlist.name = name.to_string();
+        if let Some(description) = description {
+            playlist.description = description.trim().to_string();
+        }
+        playlist.updated_at = chrono::Utc::now();
+        let snapshot = playlist.clone();
+        self.state.bump_playlists_revision();
+        match self.playlists.save(&snapshot) {
+            Ok(()) => self.state.notify("Playlist details saved", false),
+            Err(error) => {
+                if let Some(playlist) = self
+                    .state
+                    .domain
+                    .playlists
+                    .iter_mut()
+                    .find(|playlist| playlist.id == id)
+                {
+                    *playlist = previous;
+                }
+                self.state.notify(&format!("Save failed: {error}"), true);
+            }
+        }
+        self.state.sort_playlists_by_updated();
     }
 }

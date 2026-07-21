@@ -54,6 +54,11 @@ pub(super) fn reduce(state: &mut AppState, action: PlaylistAction) -> Vec<Effect
         | PlaylistAction::PickerSubmit
         | PlaylistAction::RemoveSelectedFromPlaylist
         | PlaylistAction::RemoveTrackOccurrence { .. }
+        | PlaylistAction::AddTrackToPlaylist { .. }
+        | PlaylistAction::AddTrackToNewPlaylist { .. }
+        | PlaylistAction::RenamePlaylist { .. }
+        | PlaylistAction::EditPlaylist { .. }
+        | PlaylistAction::MoveTrackInPlaylist { .. }
         | PlaylistAction::MoveSelectedInPlaylist(_) => Vec::new(),
     }
 }

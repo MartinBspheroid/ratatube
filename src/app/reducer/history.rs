@@ -21,9 +21,9 @@ pub(super) fn reduce(state: &mut AppState, action: HistoryAction) -> Vec<Effect>
         }
         // ClearHistoryConfirmed is applied by the service layer, which owns
         // the history store.
-        HistoryAction::ClearHistoryConfirmed | HistoryAction::DeleteSelectedHistoryEntry => {
-            Vec::new()
-        }
+        HistoryAction::ClearHistoryConfirmed
+        | HistoryAction::DeleteSelectedHistoryEntry
+        | HistoryAction::DeleteHistoryEntry { .. } => Vec::new(),
         other => super::ui::presentation::reduce_history(&mut state.ui, &state.domain, other),
     }
 }

@@ -36,6 +36,16 @@ impl App {
         let Some(target_index) = target_index else {
             return;
         };
+        self.add_track_to_playlist_at(target_index, picker.track);
+    }
+
+    /// Add `track` to the stored playlist at `target_index`, with dedupe,
+    /// durable save, activity, and notification.
+    pub(super) fn add_track_to_playlist_at(
+        &mut self,
+        target_index: usize,
+        track: crate::media::Track,
+    ) {
         let Some(playlist) = self.state.domain.playlists.get_mut(target_index) else {
             return;
         };
@@ -43,7 +53,7 @@ impl App {
         if playlist
             .tracks
             .iter()
-            .any(|track| track.id == picker.track.id)
+            .any(|existing| existing.id == track.id)
         {
             let name = playlist.name.clone();
             self.state.notify(&format!("Already in \"{name}\""), false);
@@ -51,7 +61,7 @@ impl App {
         }
         playlist
             .tracks
-            .push(crate::playlists::model::PlaylistTrack::from(&picker.track));
+            .push(crate::playlists::model::PlaylistTrack::from(&track));
         playlist.updated_at = chrono::Utc::now();
         let snapshot = playlist.clone();
         self.state.bump_playlists_revision();
@@ -62,7 +72,7 @@ impl App {
                     .activity
                     .push(crate::history::activity::ActivityEvent::new(
                         crate::history::activity::ActivityKind::AddedToPlaylist,
-                        picker.track.title.clone(),
+                        track.title.clone(),
                         snapshot.name.clone(),
                     ));
                 self.state
