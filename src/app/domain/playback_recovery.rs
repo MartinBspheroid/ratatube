@@ -10,7 +10,7 @@ use crate::playback::PlaybackEvent;
 
 impl App {
     /// Start one bounded mpv restart attempt and register it for cancellation and stale rejection.
-    pub(super) fn begin_playback_recovery(
+    pub(in crate::app) fn begin_playback_recovery(
         &mut self,
         event_tx: mpsc::Sender<PlaybackEvent>,
         recovery_tx: mpsc::Sender<(crate::app::operations::OperationId, PlaybackRecoveryResult)>,

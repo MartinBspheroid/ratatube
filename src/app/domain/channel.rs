@@ -75,7 +75,7 @@ impl ChannelState {
 }
 
 impl App {
-    pub(super) fn visit_channel(&mut self, track: Track, action_tx: mpsc::Sender<Action>) {
+    pub(in crate::app) fn visit_channel(&mut self, track: Track, action_tx: mpsc::Sender<Action>) {
         if let Some(url) = track.channel_url.clone() {
             self.open_channel(track, url, action_tx);
             return;
@@ -104,7 +104,7 @@ impl App {
             .attach(OperationKind::ChannelResolve, operation_id, handle);
     }
 
-    pub(super) fn finish_channel_resolve(
+    pub(in crate::app) fn finish_channel_resolve(
         &mut self,
         result: std::result::Result<Track, String>,
         action_tx: mpsc::Sender<Action>,
@@ -153,7 +153,11 @@ impl App {
         self.spawn_channel_page(0, action_tx);
     }
 
-    pub(super) fn spawn_channel_page(&mut self, page: usize, action_tx: mpsc::Sender<Action>) {
+    pub(in crate::app) fn spawn_channel_page(
+        &mut self,
+        page: usize,
+        action_tx: mpsc::Sender<Action>,
+    ) {
         let Some(channel) = self.state.domain.channel.as_mut() else {
             return;
         };
@@ -189,7 +193,7 @@ impl App {
             .attach(OperationKind::ChannelPage, operation_id, handle);
     }
 
-    pub(super) fn finish_channel_page(
+    pub(in crate::app) fn finish_channel_page(
         &mut self,
         channel_url: &str,
         page: usize,
@@ -211,7 +215,7 @@ impl App {
         self.state.clamp_selection();
     }
 
-    pub(super) fn leave_channel(&mut self) {
+    pub(in crate::app) fn leave_channel(&mut self) {
         self.operations.cancel(OperationKind::ChannelResolve);
         self.operations.cancel(OperationKind::ChannelPage);
         if let Some(mut channel) = self.state.domain.channel.take() {

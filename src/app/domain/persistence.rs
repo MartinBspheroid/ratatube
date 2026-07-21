@@ -5,7 +5,7 @@ use crate::error::Result;
 
 impl App {
     /// Submit persistence through the ordered writer, or run synchronously before startup.
-    pub(super) fn submit_persistence(
+    pub(in crate::app) fn submit_persistence(
         &mut self,
         key: &str,
         description: &str,
@@ -27,7 +27,7 @@ impl App {
     }
 
     /// Persist the current queue through the ordered writer.
-    pub(super) fn persist_queue(&mut self) {
+    pub(in crate::app) fn persist_queue(&mut self) {
         let path = self.paths.queue_file();
         let queue = self.state.domain.queue.clone();
         self.submit_persistence("queue", "queue", move || {
@@ -36,7 +36,7 @@ impl App {
     }
 
     /// Persist history through the same ordered writer used by queue and session data.
-    pub(super) fn persist_history(&mut self) {
+    pub(in crate::app) fn persist_history(&mut self) {
         if let Some(history) = self.history.clone() {
             self.submit_persistence("history", "history", move || history.save());
         }

@@ -2,29 +2,24 @@
 
 pub mod action;
 mod actions;
-pub mod channel;
+pub mod domain;
 pub mod domain_event;
 pub mod filter;
-pub mod operations;
 pub mod reducer;
 pub mod state;
 pub mod track_context;
 pub(crate) mod ui_sync;
 
+pub use domain::channel;
+pub use domain::operations;
+
 mod action_dispatch;
-mod background;
 mod browser;
-mod effects;
 mod external_command;
 mod input;
 mod lifecycle;
-mod media_tasks;
 mod modal_input;
 mod mouse;
-mod persistence;
-mod playback_followup;
-mod playback_recovery;
-mod playback_session;
 mod playlist_picker;
 mod playlists;
 mod runtime;

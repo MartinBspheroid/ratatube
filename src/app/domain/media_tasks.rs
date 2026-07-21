@@ -15,7 +15,7 @@ impl App {
     ///
     /// Resolution retries once in an owned, cancellable task. A matching
     /// failure action advances the queue when `continue_on_error` is enabled.
-    pub(super) fn spawn_resolve_and_play(
+    pub(in crate::app) fn spawn_resolve_and_play(
         &mut self,
         queue_position: usize,
         action_tx: &mpsc::Sender<Action>,
@@ -86,7 +86,11 @@ impl App {
     }
 
     /// Fetch extended metadata in the background for the now-playing view.
-    pub(super) fn spawn_details_fetch(&mut self, track: &Track, action_tx: &mpsc::Sender<Action>) {
+    pub(in crate::app) fn spawn_details_fetch(
+        &mut self,
+        track: &Track,
+        action_tx: &mpsc::Sender<Action>,
+    ) {
         let ticket = self.operations.start(OperationKind::Details);
         let operation_id = ticket.id();
         let yt_dlp = self.yt_dlp.clone();

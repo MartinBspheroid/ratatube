@@ -8,7 +8,7 @@ use crate::playback::PlaybackEvent;
 
 impl App {
     /// Persist a session snapshot, throttled to one write per interval.
-    pub(super) fn maybe_save_session(&mut self, position_seconds: f64, force: bool) {
+    pub(in crate::app) fn maybe_save_session(&mut self, position_seconds: f64, force: bool) {
         const SESSION_SAVE_INTERVAL: Duration = Duration::from_secs(5);
         let due = self
             .last_session_save
@@ -31,7 +31,7 @@ impl App {
     }
 
     /// Track playback lifecycle for history recording and resume-session snapshots.
-    pub(super) fn on_playback_event(&mut self, event: &PlaybackEvent) {
+    pub(in crate::app) fn on_playback_event(&mut self, event: &PlaybackEvent) {
         match event {
             PlaybackEvent::Started => {
                 self.listening.started();
@@ -61,7 +61,7 @@ impl App {
     }
 
     /// Append the outgoing track to history with the supplied outcome.
-    pub(super) fn record_current(&mut self, outcome: PlaybackOutcome) {
+    pub(in crate::app) fn record_current(&mut self, outcome: PlaybackOutcome) {
         let Some(track) = self.state.domain.current_track.clone() else {
             let _ = self.listening.finish();
             return;
@@ -77,7 +77,7 @@ impl App {
     }
 
     /// Capture a durable per-track resume point when playback is in its resumable range.
-    pub(super) fn capture_resume_point(&mut self) {
+    pub(in crate::app) fn capture_resume_point(&mut self) {
         let Some(track) = &self.state.domain.current_track else {
             return;
         };

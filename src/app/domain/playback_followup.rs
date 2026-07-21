@@ -10,7 +10,7 @@ use crate::app::reducer::reduce;
 impl App {
     /// After a track starts, prefetch the next stream and, in radio mode,
     /// refill the queue when playback reaches its boundary.
-    pub(super) fn after_track_started(&mut self, action_tx: &mpsc::Sender<Action>) {
+    pub(in crate::app) fn after_track_started(&mut self, action_tx: &mpsc::Sender<Action>) {
         let len = self.state.domain.queue.order.len();
         let Some(position) = self.state.domain.queue.position else {
             return;
@@ -74,7 +74,11 @@ impl App {
     }
 
     /// Fetch more tracks from YouTube's mix for `seed_id` in radio mode.
-    pub(super) fn spawn_radio_refill(&mut self, seed_id: String, action_tx: &mpsc::Sender<Action>) {
+    pub(in crate::app) fn spawn_radio_refill(
+        &mut self,
+        seed_id: String,
+        action_tx: &mpsc::Sender<Action>,
+    ) {
         self.radio_fetching = true;
         let ticket = self.operations.start(OperationKind::Radio);
         let operation_id = ticket.id();

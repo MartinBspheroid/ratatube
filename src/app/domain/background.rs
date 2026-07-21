@@ -12,7 +12,7 @@ use crate::media::import::{InputKind, classify_input};
 
 impl App {
     /// Classify free text vs URL and dispatch accordingly (PRD 10.2).
-    pub(super) async fn submit_text_query(
+    pub(in crate::app) async fn submit_text_query(
         &mut self,
         query: String,
         action_tx: &mpsc::Sender<Action>,
@@ -67,7 +67,7 @@ impl App {
     }
 
     /// Run a cancellable yt-dlp search; completion returns through the action channel.
-    pub(super) fn spawn_search(
+    pub(in crate::app) fn spawn_search(
         &mut self,
         query: String,
         generation: u64,
@@ -96,7 +96,7 @@ impl App {
     }
 
     /// Fetch one exact video in a cancellable search-domain operation.
-    pub(super) fn spawn_exact_video(
+    pub(in crate::app) fn spawn_exact_video(
         &mut self,
         url: String,
         generation: u64,
@@ -127,7 +127,7 @@ impl App {
     }
 
     /// Run a cancellable playlist import; completion returns through the action channel.
-    pub(super) fn spawn_import(&mut self, url: String, action_tx: mpsc::Sender<Action>) {
+    pub(in crate::app) fn spawn_import(&mut self, url: String, action_tx: mpsc::Sender<Action>) {
         let ticket = self.operations.start(OperationKind::Import);
         let operation_id = ticket.id();
         let _ = reduce(
@@ -165,7 +165,7 @@ impl App {
     }
 
     /// Resolve a persisted resume target through the existing session action flow.
-    pub(super) fn spawn_pending_resume_resolution(
+    pub(in crate::app) fn spawn_pending_resume_resolution(
         &mut self,
         track: Track,
         action_tx: &mpsc::Sender<Action>,

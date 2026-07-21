@@ -9,7 +9,11 @@ use crate::history::model::PlaybackOutcome;
 
 impl App {
     /// Execute side effects returned by the reducer.
-    pub(super) async fn execute(&mut self, effects: Vec<Effect>, action_tx: &mpsc::Sender<Action>) {
+    pub(in crate::app) async fn execute(
+        &mut self,
+        effects: Vec<Effect>,
+        action_tx: &mpsc::Sender<Action>,
+    ) {
         for effect in effects {
             match effect {
                 Effect::RunSearch { query, generation } => {
