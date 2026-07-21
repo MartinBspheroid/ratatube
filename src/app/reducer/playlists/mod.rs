@@ -59,6 +59,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaylistAction) -> Vec<Effect
         | PlaylistAction::RenamePlaylist { .. }
         | PlaylistAction::EditPlaylist { .. }
         | PlaylistAction::MoveTrackInPlaylist { .. }
+        | PlaylistAction::ImportPlaylistsJson(_)
         | PlaylistAction::MoveSelectedInPlaylist(_) => Vec::new(),
     }
 }

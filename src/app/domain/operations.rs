@@ -10,6 +10,14 @@ use tokio_util::sync::CancellationToken;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct OperationId(u64);
 
+impl OperationId {
+    /// Placeholder identity for client-side mirrors of daemon-owned
+    /// operations; the mirror never completes or cancels operations.
+    pub(crate) fn mirror_placeholder() -> Self {
+        Self(0)
+    }
+}
+
 /// Independently supersedable operation families.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OperationKind {

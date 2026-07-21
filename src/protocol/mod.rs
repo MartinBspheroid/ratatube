@@ -8,6 +8,7 @@ mod frames;
 pub use codec::{MAX_FRAME_BYTES, read_frame, write_frame};
 pub use frames::{
     ClientFrame, Command, DaemonFrame, Health, ReplyBody, ReplyResult, Snapshot, WireEvent,
+    WireImport,
 };
 
 /// Version spoken by both halves of this binary. A daemon refuses clients

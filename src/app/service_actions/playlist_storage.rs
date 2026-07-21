@@ -56,6 +56,12 @@ impl App {
                     self.execute(vec![Effect::PersistQueue], action_tx).await;
                 }
             }
+            PlaylistAction::ImportPlaylistsJson(json) => {
+                match crate::playlists::import::parse_pasted_json(&json) {
+                    Ok(playlists) => self.save_json_playlists(playlists),
+                    Err(message) => self.state.notify(&message, true),
+                }
+            }
             PlaylistAction::CreatePlaylist(name) => self.create_playlist(&name),
             PlaylistAction::SaveQueueAsPlaylist(name) => self.save_queue_as_playlist(&name),
             PlaylistAction::DeletePlaylistConfirmed(id) => match self.playlists.delete(&id) {

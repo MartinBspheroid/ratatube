@@ -323,10 +323,19 @@ impl App {
                     None => return,
                 }
             }
-            PromptPurpose::ImportPlaylistUrl | PromptPurpose::ImportPlaylistJson => {
-                self.state
-                    .notify("Playlist import is not yet available while attached", false);
-                return;
+            PromptPurpose::ImportPlaylistUrl => Command::ImportStart { url: text },
+            PromptPurpose::ImportPlaylistJson => {
+                // Validate locally for immediate feedback; the daemon
+                // re-parses before saving.
+                if let Err(message) = crate::playlists::import::parse_pasted_json(&text) {
+                    self.state.ui.prompt = Some(crate::app::state::PromptState {
+                        purpose: PromptPurpose::ImportPlaylistJson,
+                        buffer: text,
+                    });
+                    self.state.notify(&message, true);
+                    return;
+                }
+                Command::ImportJson { json: text }
             }
         };
         if commands.send(command).await.is_err() {
@@ -357,7 +366,7 @@ fn domain_event_for(event: &WireEvent) -> Option<DomainEvent> {
         WireEvent::TrackDetailsChanged { .. } => Some(DomainEvent::TrackDetailsChanged),
         WireEvent::PlaylistsChanged { .. } => Some(DomainEvent::PlaylistsChanged),
         WireEvent::HistoryChanged => Some(DomainEvent::HistoryChanged),
-        WireEvent::ImportChanged => Some(DomainEvent::ImportChanged),
+        WireEvent::ImportChanged { .. } => Some(DomainEvent::ImportChanged),
         WireEvent::Health { .. } => Some(DomainEvent::Health),
     }
 }

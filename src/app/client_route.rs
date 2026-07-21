@@ -36,7 +36,6 @@ pub(crate) enum Route {
 }
 
 const DEFERRED_CHANNEL: &str = "Channel browsing is not yet available while attached";
-const DEFERRED_IMPORT: &str = "Playlist import is not yet available while attached";
 
 /// Classify one action for the client runtime.
 pub(crate) fn route(action: &Action, state: &AppState, history: Option<&HistoryService>) -> Route {
@@ -390,12 +389,15 @@ fn route_playlists(action: &PlaylistAction, state: &AppState) -> Route {
                 Route::Ignore
             }
         }
-        PlaylistAction::StartImport(_)
-        | PlaylistAction::ImportStarted { .. }
+        PlaylistAction::StartImport(url) => Route::Send(Command::ImportStart { url: url.clone() }),
+        PlaylistAction::ConfirmImport => Route::Send(Command::ImportConfirm),
+        PlaylistAction::CancelImport => Route::Send(Command::ImportCancel),
+        PlaylistAction::ImportPlaylistsJson(json) => {
+            Route::Send(Command::ImportJson { json: json.clone() })
+        }
+        PlaylistAction::ImportStarted { .. }
         | PlaylistAction::ImportCompleted { .. }
-        | PlaylistAction::ImportFailed { .. }
-        | PlaylistAction::ConfirmImport
-        | PlaylistAction::CancelImport => Route::Deferred(DEFERRED_IMPORT),
+        | PlaylistAction::ImportFailed { .. } => Route::Ignore,
         PlaylistAction::PlaylistSaved(_) => Route::Ignore,
         PlaylistAction::DeleteSelectedPlaylist
         | PlaylistAction::OpenPlaylistDetail
@@ -556,7 +558,7 @@ mod tests {
     fn deferred_features_name_their_gap() {
         let state = AppState::new();
         let routed = route(
-            &Action::Playlists(PlaylistAction::StartImport("url".into())),
+            &Action::Navigation(NavigationAction::LoadMoreChannel),
             &state,
             None,
         );

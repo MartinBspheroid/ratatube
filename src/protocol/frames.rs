@@ -167,6 +167,18 @@ pub enum Command {
     SearchExact {
         url: String,
     },
+    /// Start a supervised remote playlist import.
+    ImportStart {
+        url: String,
+    },
+    /// Persist the reviewed import.
+    ImportConfirm,
+    /// Abandon the import flow.
+    ImportCancel,
+    /// Parse and save pasted playlist JSON (daemon re-validates).
+    ImportJson {
+        json: String,
+    },
     Status,
     Shutdown,
 }
@@ -242,8 +254,59 @@ pub enum WireEvent {
         playlists_revision: u64,
     },
     HistoryChanged,
-    ImportChanged,
+    ImportChanged {
+        import: Option<WireImport>,
+    },
     Health {
         health: Health,
     },
+}
+
+/// Import-flow state mirrored to clients (operation identity stays
+/// daemon-internal).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "stage", rename_all = "snake_case")]
+pub enum WireImport {
+    Fetching {
+        url: String,
+    },
+    Review {
+        summary: crate::playlists::import::ImportSummary,
+        playlist: Box<Playlist>,
+    },
+    Failed {
+        url: String,
+        message: String,
+    },
+}
+
+impl WireImport {
+    /// Mirror the daemon's import state onto the wire.
+    pub fn from_state(state: &crate::app::state::ImportState) -> Self {
+        use crate::app::state::ImportState;
+        match state {
+            ImportState::Fetching { url, .. } => Self::Fetching { url: url.clone() },
+            ImportState::Review { summary, playlist } => Self::Review {
+                summary: summary.clone(),
+                playlist: playlist.clone(),
+            },
+            ImportState::Failed { url, message } => Self::Failed {
+                url: url.clone(),
+                message: message.clone(),
+            },
+        }
+    }
+
+    /// Reconstruct client-side import state (placeholder operation id).
+    pub fn into_state(self) -> crate::app::state::ImportState {
+        use crate::app::state::ImportState;
+        match self {
+            Self::Fetching { url } => ImportState::Fetching {
+                operation_id: crate::app::operations::OperationId::mirror_placeholder(),
+                url,
+            },
+            Self::Review { summary, playlist } => ImportState::Review { summary, playlist },
+            Self::Failed { url, message } => ImportState::Failed { url, message },
+        }
+    }
 }

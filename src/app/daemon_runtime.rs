@@ -301,6 +301,12 @@ impl App {
             Command::PlaylistMoveTrack { id, from, to } => {
                 Action::Playlists(PlaylistAction::MoveTrackInPlaylist { id, from, to })
             }
+            Command::ImportStart { url } => Action::Playlists(PlaylistAction::StartImport(url)),
+            Command::ImportConfirm => Action::Playlists(PlaylistAction::ConfirmImport),
+            Command::ImportCancel => Action::Playlists(PlaylistAction::CancelImport),
+            Command::ImportJson { json } => {
+                Action::Playlists(PlaylistAction::ImportPlaylistsJson(json))
+            }
             Command::ToggleMute => Action::Playback(PlaybackAction::ToggleMute),
             Command::SpeedUp => Action::Playback(PlaybackAction::SpeedUp),
             Command::SpeedDown => Action::Playback(PlaybackAction::SpeedDown),
@@ -423,7 +429,12 @@ fn wire_event(domain: &DomainState, event: DomainEvent) -> Option<WireEvent> {
             playlists_revision: domain.playlists_revision,
         }),
         DomainEvent::HistoryChanged => Some(WireEvent::HistoryChanged),
-        DomainEvent::ImportChanged => Some(WireEvent::ImportChanged),
+        DomainEvent::ImportChanged => Some(WireEvent::ImportChanged {
+            import: domain
+                .import
+                .as_ref()
+                .map(crate::protocol::WireImport::from_state),
+        }),
         DomainEvent::Health => Some(health_event(domain)),
         // Search and channel data are per-client request/reply concerns.
         DomainEvent::SearchChanged | DomainEvent::ChannelChanged => None,

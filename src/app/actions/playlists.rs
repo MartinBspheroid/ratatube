@@ -102,6 +102,8 @@ pub enum PlaylistAction {
         from: usize,
         to: usize,
     },
+    /// Parse and save pasted playlist JSON (daemon clients).
+    ImportPlaylistsJson(String),
     /// Move the selected playlist track up (-1) or down (+1).
     MoveSelectedInPlaylist(i32),
 }

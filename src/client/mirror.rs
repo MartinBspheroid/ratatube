@@ -59,9 +59,12 @@ pub fn apply_event(domain: &mut DomainState, event: WireEvent) {
             domain.mpv_ready = health.mpv_ready;
             domain.yt_dlp_ready = health.yt_dlp_ready;
         }
+        WireEvent::ImportChanged { import } => {
+            domain.import = import.map(crate::protocol::WireImport::into_state);
+        }
         // History is reloaded from the shared on-disk store by the client
-        // runtime; imports stay daemon-internal until Phase 3.
-        WireEvent::HistoryChanged | WireEvent::ImportChanged => {}
+        // runtime.
+        WireEvent::HistoryChanged => {}
     }
 }
 
