@@ -18,31 +18,41 @@ pub(super) fn render_search(
         .split(area);
     render_input(frame, rows[0], state, icons, theme);
 
+    let results_focused = state.focus != Focus::SearchInput;
     match state.search.clone() {
         SearchState::Idle => render_message(
             frame,
             rows[1],
-            "Results",
-            "Type a query and press Enter",
-            icons.search,
+            ResultsMessage {
+                title: "Results",
+                message: "Type a query and press Enter",
+                icon: icons.search,
+                focused: results_focused,
+            },
             icons,
             theme,
         ),
         SearchState::Searching { query, .. } => render_message(
             frame,
             rows[1],
-            "Results",
-            &format!("Searching for \"{}\"...", sanitize_terminal_text(&query)),
-            spinner(state.spinner_frame),
+            ResultsMessage {
+                title: "Results",
+                message: &format!("Searching for \"{}\"...", sanitize_terminal_text(&query)),
+                icon: spinner(state.spinner_frame),
+                focused: results_focused,
+            },
             icons,
             theme,
         ),
         SearchState::Failed { query, message } => render_message(
             frame,
             rows[1],
-            &format!("Results for \"{}\" ", sanitize_terminal_text(&query)),
-            &sanitize_terminal_text(&message),
-            icons.error,
+            ResultsMessage {
+                title: &format!("Results for \"{}\" ", sanitize_terminal_text(&query)),
+                message: &sanitize_terminal_text(&message),
+                icon: icons.error,
+                focused: results_focused,
+            },
             icons,
             theme,
         ),
@@ -69,22 +79,28 @@ fn render_input(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icons, 
     frame.render_widget(Paragraph::new(line), inner);
 }
 
+/// Content and focus state for the results placeholder panel.
+struct ResultsMessage<'a> {
+    title: &'a str,
+    message: &'a str,
+    icon: &'a str,
+    focused: bool,
+}
+
 fn render_message(
     frame: &mut Frame,
     area: Rect,
-    title: &str,
-    message: &str,
-    icon: &str,
+    content: ResultsMessage<'_>,
     icons: &Icons,
     theme: &Theme,
 ) {
-    let inner = section_panel(frame, area, title, false, theme, icons);
+    let inner = section_panel(frame, area, content.title, content.focused, theme, icons);
     frame.render_widget(
         Paragraph::new(vec![
             Line::from(""),
             Line::from(vec![
-                Span::styled(format!("{icon} "), theme.accent),
-                Span::styled(message.to_string(), theme.dim),
+                Span::styled(format!("{} ", content.icon), theme.accent),
+                Span::styled(content.message.to_string(), theme.dim),
             ]),
         ]),
         inner,
@@ -137,7 +153,14 @@ fn render_result_table(
     icons: &Icons,
     theme: &Theme,
 ) {
-    let inner = section_panel(frame, area, "Results", false, theme, icons);
+    let inner = section_panel(
+        frame,
+        area,
+        "Results",
+        state.focus != Focus::SearchInput,
+        theme,
+        icons,
+    );
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(1), Constraint::Min(1)])

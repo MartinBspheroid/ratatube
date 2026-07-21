@@ -27,11 +27,9 @@ pub fn section_panel(
         return area;
     }
     frame.buffer_mut().set_style(area, theme.panel_bg);
-    let marker = if focused {
-        icons.play_btn
-    } else {
-        icons.section_bar
-    };
+    // One focus grammar: the marker glyph never changes (the play glyph is
+    // reserved for the playing track); focus is signaled by style alone.
+    let marker = icons.section_bar;
     let title = title.to_ascii_uppercase();
     let occupied = marker.width() + 1 + title.width() + 1;
     let rule = icons
@@ -39,14 +37,21 @@ pub fn section_panel(
         .repeat((area.width as usize).saturating_sub(occupied));
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled(marker, theme.panel_title),
+            Span::styled(
+                marker,
+                if focused {
+                    theme.panel_title
+                } else {
+                    theme.dim
+                },
+            ),
             Span::raw(" "),
             Span::styled(
                 title,
                 if focused {
                     theme.panel_title.add_modifier(Modifier::REVERSED)
                 } else {
-                    theme.panel_title
+                    theme.dim
                 },
             ),
             Span::raw(" "),
