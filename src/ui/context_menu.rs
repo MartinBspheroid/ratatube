@@ -78,7 +78,7 @@ pub fn render_details(
             theme.header,
         )),
         Line::from(""),
-        detail_line("Artist", &track.artist, theme),
+        detail_line("Channel", &track.artist, theme),
         detail_line("Duration", &duration, theme),
         detail_line("Video URL", &track.webpage_url, theme),
     ];

@@ -69,6 +69,16 @@ pub(super) fn render_history(
     scrollbar(frame, inner, visible_total, state.table_state.offset());
 }
 
+/// Human wording for a playback outcome (never Debug formatting).
+fn outcome_label(outcome: crate::history::model::PlaybackOutcome) -> &'static str {
+    match outcome {
+        crate::history::model::PlaybackOutcome::Completed => "finished",
+        crate::history::model::PlaybackOutcome::Skipped => "skipped",
+        crate::history::model::PlaybackOutcome::Failed => "failed",
+        crate::history::model::PlaybackOutcome::Stopped => "stopped",
+    }
+}
+
 /// Recent rows carry `outcome · time`; Top rows carry play statistics.
 fn history_layout(state: &AppState, width: u16) -> TrackTableLayout {
     let right_width = match state.history_view_mode {
@@ -97,10 +107,9 @@ fn recent_rows(
         .enumerate()
         .filter_map(|(row, index)| {
             let entry = entries.get(index)?;
-            let outcome = format!("{:?}", entry.outcome);
             let listened = format!(
                 "{} · {}",
-                outcome,
+                outcome_label(entry.outcome),
                 format_time(entry.listened_seconds as f64)
             );
             Some(track_row(

@@ -22,7 +22,7 @@ pub fn tab_titles(icons: &Icons, active: View, narrow: bool) -> Vec<(View, Strin
         (View::Queue, icons.queue, "Queue", "Que"),
         (View::Playlists, icons.playlist, "Playlists", "Lists"),
         (View::History, icons.history, "History", "Hist"),
-        (View::NowPlaying, icons.music, "Playing", "Play"),
+        (View::NowPlaying, icons.music, "Now Playing", "Play"),
     ];
     views
         .iter()

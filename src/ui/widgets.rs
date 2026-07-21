@@ -11,7 +11,7 @@ use crate::ui::icons::Icons;
 use crate::ui::theme::Theme;
 
 /// Braille spinner frames, cycled by `spinner_frame`.
-pub const SPINNER_FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⦠", "⦧", "⦇", "⦏"];
+pub const SPINNER_FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 /// Current spinner glyph for animations.
 pub fn spinner(frame: usize) -> &'static str {

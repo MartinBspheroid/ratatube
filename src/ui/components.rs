@@ -213,17 +213,6 @@ pub fn numbered_row(
     ])
 }
 
-/// Build a compact one-row button with its actual accelerator.
-pub fn button<'a>(label: &'a str, key: char, style: Style, theme: &Theme) -> Vec<Span<'a>> {
-    vec![
-        Span::styled("[", theme.dim),
-        Span::styled(format!("{key}"), theme.key_chip),
-        Span::raw(" "),
-        Span::styled(label, style),
-        Span::styled("]", theme.dim),
-    ]
-}
-
 /// Build a deterministic animated spectrum from semantic icon ramp slots.
 pub fn spectrum(
     width: usize,

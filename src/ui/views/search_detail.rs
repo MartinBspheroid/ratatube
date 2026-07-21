@@ -33,7 +33,7 @@ pub(super) fn render_selected(
     let duration = track
         .duration_seconds
         .map(|seconds| format_time(seconds as f64))
-        .unwrap_or_else(|| "Unknown".to_string());
+        .unwrap_or_else(|| "--:--".to_string());
     let pairs = vec![
         ("Duration".to_string(), duration),
         ("Channel".to_string(), sanitize_terminal_text(&track.artist)),
