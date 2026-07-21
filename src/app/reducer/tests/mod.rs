@@ -18,6 +18,7 @@ fn playback_event(event: PlaybackEvent) -> Action {
     Action::Playback(PlaybackAction::PlaybackEvent(event))
 }
 
+mod domain_events;
 mod navigation_queue;
 mod playback_core;
 mod playback_features;

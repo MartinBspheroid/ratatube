@@ -154,10 +154,15 @@ impl App {
             | Action::Playback(PlaybackAction::PreviousChapter) => self.listening.seeking(),
             _ => {}
         }
+        // The watermark spans reduce AND service handlers, so events cover
+        // every domain mutation an action triggers on either path.
+        let watermark = crate::app::domain_event::DomainWatermark::capture(&self.state.domain);
         let effects = reduce(&mut self.state, action.clone());
         self.execute(effects, action_tx).await;
-        self.handle_service_action(action, action_tx).await;
+        self.handle_service_action(action.clone(), action_tx).await;
         self.sync_search_thumbnail(action_tx);
+        let events = watermark.events_since(&self.state.domain, &action);
+        crate::app::ui_sync::apply_domain_events(&self.state.domain, &mut self.state.ui, &events);
     }
 }
 

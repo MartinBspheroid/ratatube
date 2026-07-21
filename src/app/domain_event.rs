@@ -1,0 +1,100 @@
+//! Broadcast-shaped domain change notifications.
+//!
+//! Phase 1 applies these in-process through `apply_domain_events`; Phase 2
+//! sends the same events over the daemon socket to every connected client.
+
+use crate::app::action::{Action, HistoryAction, NavigationAction, PlaybackAction, PlaylistAction};
+use crate::app::state::DomainState;
+
+/// One coarse-grained domain change, named for the state it invalidates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DomainEvent {
+    QueueChanged,
+    PlaybackChanged,
+    TrackChanged,
+    TrackDetailsChanged,
+    PlaylistsChanged,
+    HistoryChanged,
+    SearchChanged,
+    ChannelChanged,
+    ImportChanged,
+}
+
+/// Cheap pre-reduce facts used to derive change events afterwards.
+pub(crate) struct DomainWatermark {
+    queue_revision: u64,
+    queue_position: Option<usize>,
+    playlists_revision: u64,
+    current_track_id: Option<String>,
+    playback_occurrence: u64,
+}
+
+impl DomainWatermark {
+    /// Capture the counters and identities that mark domain changes.
+    pub(crate) fn capture(domain: &DomainState) -> Self {
+        Self {
+            queue_revision: domain.queue_revision,
+            queue_position: domain.queue.position,
+            playlists_revision: domain.playlists_revision,
+            current_track_id: domain.current_track.as_ref().map(|t| t.id.clone()),
+            playback_occurrence: domain.playback_occurrence,
+        }
+    }
+
+    /// Derive the events implied by the difference to the current state,
+    /// plus action families whose changes have no counter.
+    pub(crate) fn events_since(&self, domain: &DomainState, action: &Action) -> Vec<DomainEvent> {
+        let mut events = Vec::new();
+        if domain.queue_revision != self.queue_revision
+            || domain.queue.position != self.queue_position
+        {
+            events.push(DomainEvent::QueueChanged);
+        }
+        if domain.playlists_revision != self.playlists_revision {
+            events.push(DomainEvent::PlaylistsChanged);
+        }
+        if domain.current_track.as_ref().map(|t| t.id.as_str()) != self.current_track_id.as_deref()
+            || domain.playback_occurrence != self.playback_occurrence
+        {
+            events.push(DomainEvent::TrackChanged);
+        }
+        if let Some(event) = counterless_event(action) {
+            events.push(event);
+        }
+        events
+    }
+}
+
+/// Action families that mutate domain state without a revision counter.
+fn counterless_event(action: &Action) -> Option<DomainEvent> {
+    match action {
+        Action::Navigation(
+            NavigationAction::SubmitSearch(_)
+            | NavigationAction::SubmitExactVideo(_)
+            | NavigationAction::ClearSearch
+            | NavigationAction::SearchCompleted { .. }
+            | NavigationAction::SearchFailed { .. },
+        ) => Some(DomainEvent::SearchChanged),
+        Action::Navigation(
+            NavigationAction::ChannelResolved { .. }
+            | NavigationAction::ChannelPageLoaded { .. }
+            | NavigationAction::BackFromChannel,
+        ) => Some(DomainEvent::ChannelChanged),
+        Action::Playback(PlaybackAction::PlaybackEvent(_)) => Some(DomainEvent::PlaybackChanged),
+        Action::Playback(
+            PlaybackAction::DetailsLoaded { .. } | PlaybackAction::DetailsFailed { .. },
+        ) => Some(DomainEvent::TrackDetailsChanged),
+        Action::Playlists(
+            PlaylistAction::ImportStarted { .. }
+            | PlaylistAction::ImportCompleted { .. }
+            | PlaylistAction::ImportFailed { .. }
+            | PlaylistAction::CancelImport,
+        ) => Some(DomainEvent::ImportChanged),
+        Action::History(
+            HistoryAction::ClearActivity
+            | HistoryAction::ClearHistoryConfirmed
+            | HistoryAction::DeleteSelectedHistoryEntry,
+        ) => Some(DomainEvent::HistoryChanged),
+        _ => None,
+    }
+}
