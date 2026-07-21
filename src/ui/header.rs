@@ -12,7 +12,8 @@ use crate::ui::icons::Icons;
 use crate::ui::layout::Breakpoint;
 use crate::ui::theme::Theme;
 
-/// Tab titles, preserving a full active label on narrow terminals.
+/// Tab titles, preserving a full active label on narrow terminals. Each
+/// label leads with its `1`–`6` jump key so the shortcut is discoverable.
 pub fn tab_titles(icons: &Icons, active: View, narrow: bool) -> Vec<(View, String)> {
     let ascii_mode = icons.playing == "[PLAY]";
     let views = [
@@ -25,19 +26,21 @@ pub fn tab_titles(icons: &Icons, active: View, narrow: bool) -> Vec<(View, Strin
     ];
     views
         .iter()
-        .map(|(view, icon, title, short)| {
+        .enumerate()
+        .map(|(index, (view, icon, title, short))| {
+            let key = index + 1;
             let text = if narrow {
                 if *view == active {
-                    format!("{icon} {title}")
+                    format!("{key} {icon} {title}")
                 } else if ascii_mode {
-                    (*short).to_string()
+                    format!("{key} {short}")
                 } else {
-                    (*icon).to_string()
+                    format!("{key} {icon}")
                 }
             } else if ascii_mode {
-                (*title).to_string()
+                format!("{key} {title}")
             } else {
-                format!("{icon} {title}")
+                format!("{key} {icon} {title}")
             };
             (*view, text)
         })

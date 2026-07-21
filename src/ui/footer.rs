@@ -18,15 +18,17 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             &[
                 ("Space", "resume"),
                 ("h/l", "section"),
+                ("c", "actions"),
                 ("/", "search"),
                 ("?", "help"),
             ]
         }
         View::Home if state.home_section == crate::app::state::HomeSection::Recent => &[
-            ("h/l", "section"),
             ("Enter", "play"),
             ("a", "queue"),
             ("P", "playlist"),
+            ("h/l", "section"),
+            ("c", "actions"),
             ("/", "search"),
             ("?", "help"),
         ],
@@ -47,11 +49,10 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
                 ("Enter", "play"),
                 ("a", "queue"),
                 ("A", "next"),
-                ("/", "search"),
                 ("i", "details"),
-                ("o", "browser"),
+                ("c", "actions"),
+                ("/", "search"),
                 ("?", "help"),
-                ("q", "quit"),
             ]
         }
         View::Search => &[
@@ -59,7 +60,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             ("a", "queue"),
             ("A", "next"),
             ("P", "playlist"),
-            ("o", "browser"),
+            ("c", "actions"),
             ("/", "search"),
             ("?", "help"),
         ],
@@ -67,12 +68,12 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             ("Enter", "play"),
             ("J/K", "move"),
             ("d", "remove"),
-            ("C", "clear"),
             ("u", "undo"),
-            ("P", "playlist"),
-            ("/", "filter"),
             ("w", "save"),
             ("s", "shuffle"),
+            ("c", "actions"),
+            ("/", "filter"),
+            ("C", "clear"),
         ],
         View::Playlists => &[
             ("Enter", "open"),
@@ -82,21 +83,23 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             ("I", "JSON"),
             ("R", "rename"),
             ("x", "delete"),
+            ("/", "filter"),
         ],
         View::PlaylistDetail => &[
             ("Enter", "play"),
-            ("e", "edit details"),
             ("p", "play all"),
             ("J/K", "move"),
             ("d", "remove"),
+            ("e", "edit details"),
             ("P", "copy to"),
+            ("c", "actions"),
             ("Bksp", "back"),
         ],
         View::Channel => &[
             ("Enter", "play/load"),
-            ("c", "actions"),
             ("a/A", "queue/next"),
             ("P", "playlist"),
+            ("c", "actions"),
             ("Bksp", "back"),
         ],
         View::History => match state.history_view_mode {
@@ -104,17 +107,19 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
                 ("Enter", "replay"),
                 ("a", "queue"),
                 ("P", "playlist"),
-                ("/", "filter"),
-                ("g", "top"),
                 ("x", "delete"),
+                ("g", "top"),
+                ("c", "actions"),
+                ("/", "filter"),
                 ("C", "clear"),
             ],
             crate::app::state::HistoryViewMode::Top => &[
                 ("Enter", "replay"),
                 ("a", "queue"),
                 ("P", "playlist"),
-                ("/", "filter"),
                 ("g", "recent"),
+                ("c", "actions"),
+                ("/", "filter"),
                 ("C", "clear"),
             ],
         },
@@ -128,7 +133,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
                 ("j/k", "select"),
                 ("Enter", "play"),
                 ("Space", "pause"),
-                ("+/-", "volume"),
+                ("c", "actions"),
             ]
         }
         View::NowPlaying
@@ -140,6 +145,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
                 ("j/k", "scroll"),
                 ("Space", "pause"),
                 ("./,", "chapter"),
+                ("c", "actions"),
                 ("v", "pane"),
             ]
         }
@@ -149,6 +155,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             ("j/k", "scroll"),
             ("./,", "chapter"),
             ("n/b", "next/prev"),
+            ("c", "actions"),
             ("v", "pane"),
         ],
         View::Help => &[("j/k", "scroll"), ("Esc/?", "return"), ("q", "quit")],
