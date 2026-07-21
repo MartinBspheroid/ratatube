@@ -29,13 +29,15 @@ pub(crate) enum Route {
     PickerSubmit,
     /// Playlist-editor submission resolves the selected id in the runtime.
     EditorSubmit,
-    /// Not available while attached; the runtime shows the message.
+    /// Open the channel browser: the runtime records the return snapshot.
+    OpenChannel(crate::media::Track),
+    /// Leave the channel browser: the runtime restores its snapshot.
+    ChannelBack,
+    /// Blocked by a state guard; the runtime shows the message.
     Deferred(&'static str),
     /// Daemon-internal completion or no-op in client mode.
     Ignore,
 }
-
-const DEFERRED_CHANNEL: &str = "Channel browsing is not yet available while attached";
 
 /// Classify one action for the client runtime.
 pub(crate) fn route(action: &Action, state: &AppState, history: Option<&HistoryService>) -> Route {
@@ -59,14 +61,15 @@ fn route_navigation(action: &NavigationAction) -> Route {
             query: url.clone(),
             exact: true,
         },
-        NavigationAction::VisitChannel(_)
-        | NavigationAction::ChannelResolved { .. }
-        | NavigationAction::ChannelPageLoaded { .. }
-        | NavigationAction::LoadMoreChannel
-        | NavigationAction::RetryChannel => Route::Deferred(DEFERRED_CHANNEL),
-        NavigationAction::SearchCompleted { .. } | NavigationAction::SearchFailed { .. } => {
-            Route::Ignore
+        NavigationAction::VisitChannel(track) => Route::OpenChannel(track.clone()),
+        NavigationAction::LoadMoreChannel | NavigationAction::RetryChannel => {
+            Route::Send(Command::ChannelPage)
         }
+        NavigationAction::BackFromChannel => Route::ChannelBack,
+        NavigationAction::ChannelResolved { .. }
+        | NavigationAction::ChannelPageLoaded { .. }
+        | NavigationAction::SearchCompleted { .. }
+        | NavigationAction::SearchFailed { .. } => Route::Ignore,
         NavigationAction::Navigate(_)
         | NavigationAction::OpenHelp
         | NavigationAction::CloseHelp
@@ -84,7 +87,6 @@ fn route_navigation(action: &NavigationAction) -> Route {
         | NavigationAction::CloseTrackContext
         | NavigationAction::MoveTrackContext(_)
         | NavigationAction::SubmitTrackContext
-        | NavigationAction::BackFromChannel
         | NavigationAction::ShowTrackDetails(_)
         | NavigationAction::CloseTrackDetails
         | NavigationAction::SelectNext
@@ -555,14 +557,32 @@ mod tests {
     }
 
     #[test]
-    fn deferred_features_name_their_gap() {
+    fn channel_actions_route_through_the_snapshot_stack() {
         let state = AppState::new();
-        let routed = route(
-            &Action::Navigation(NavigationAction::LoadMoreChannel),
-            &state,
-            None,
-        );
-        assert!(matches!(routed, Route::Deferred(_)));
+        assert!(matches!(
+            route(
+                &Action::Navigation(NavigationAction::VisitChannel(track("c"))),
+                &state,
+                None
+            ),
+            Route::OpenChannel(_)
+        ));
+        assert!(matches!(
+            route(
+                &Action::Navigation(NavigationAction::BackFromChannel),
+                &state,
+                None
+            ),
+            Route::ChannelBack
+        ));
+        assert!(matches!(
+            route(
+                &Action::Navigation(NavigationAction::LoadMoreChannel),
+                &state,
+                None
+            ),
+            Route::Send(Command::ChannelPage)
+        ));
     }
 
     #[test]

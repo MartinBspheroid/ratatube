@@ -179,6 +179,14 @@ pub enum Command {
     ImportJson {
         json: String,
     },
+    /// Open the channel browser for a track's channel.
+    ChannelOpen {
+        track: Track,
+    },
+    /// Load the next channel page (also retries a failed page).
+    ChannelPage,
+    /// Leave the current channel (pops daemon-side nesting).
+    ChannelBack,
     Status,
     Shutdown,
 }
@@ -257,9 +265,59 @@ pub enum WireEvent {
     ImportChanged {
         import: Option<WireImport>,
     },
+    ChannelChanged {
+        channel: Option<WireChannel>,
+    },
     Health {
         health: Health,
     },
+}
+
+/// Channel-browser data mirrored to clients. Navigation restoration
+/// (`return_to`) stays client-local; nesting stays daemon-side.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WireChannel {
+    pub name: String,
+    pub url: String,
+    pub tracks: Vec<Track>,
+    pub next_page: usize,
+    pub exhausted: bool,
+    pub loading: bool,
+    pub error: Option<String>,
+}
+
+impl WireChannel {
+    /// Mirror the daemon's channel browser onto the wire.
+    pub fn from_state(state: &crate::app::channel::ChannelState) -> Self {
+        Self {
+            name: state.name.clone(),
+            url: state.url.clone(),
+            tracks: state.tracks.clone(),
+            next_page: state.next_page,
+            exhausted: state.exhausted,
+            loading: state.loading,
+            error: state.error.clone(),
+        }
+    }
+
+    /// Reconstruct client-side channel state with a client-local snapshot.
+    pub fn into_state(
+        self,
+        return_to: crate::app::channel::ChannelNavigationSnapshot,
+    ) -> crate::app::channel::ChannelState {
+        crate::app::channel::ChannelState {
+            name: self.name,
+            url: self.url,
+            tracks: self.tracks,
+            next_page: self.next_page,
+            exhausted: self.exhausted,
+            loading: self.loading,
+            error: self.error,
+            return_to,
+            previous: None,
+        }
+    }
 }
 
 /// Import-flow state mirrored to clients (operation identity stays

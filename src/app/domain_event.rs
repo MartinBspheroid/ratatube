@@ -84,8 +84,11 @@ fn counterless_event(action: &Action) -> Option<DomainEvent> {
             | NavigationAction::SearchFailed { .. },
         ) => Some(DomainEvent::SearchChanged),
         Action::Navigation(
-            NavigationAction::ChannelResolved { .. }
+            NavigationAction::VisitChannel(_)
+            | NavigationAction::ChannelResolved { .. }
             | NavigationAction::ChannelPageLoaded { .. }
+            | NavigationAction::LoadMoreChannel
+            | NavigationAction::RetryChannel
             | NavigationAction::BackFromChannel,
         ) => Some(DomainEvent::ChannelChanged),
         Action::Playback(PlaybackAction::PlaybackEvent(_)) => Some(DomainEvent::PlaybackChanged),

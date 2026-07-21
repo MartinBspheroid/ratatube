@@ -9,16 +9,26 @@ use tokio::sync::mpsc;
 
 use crate::app::App;
 use crate::app::action::Action;
+use crate::app::channel::ChannelNavigationSnapshot;
 use crate::app::client_route::Route;
 use crate::app::domain_event::DomainEvent;
-use crate::app::state::{Focus, PromptPurpose};
+use crate::app::state::{Focus, PromptPurpose, View};
 use crate::client::{CommandSender, Connection};
 use crate::error::Result;
 use crate::media::search::SearchState;
-use crate::protocol::{Command, DaemonFrame, ReplyBody, ReplyResult, WireEvent};
+use crate::protocol::{Command, DaemonFrame, ReplyBody, ReplyResult, WireChannel, WireEvent};
 
 /// An in-flight search request: reply id and the query it carried.
 type PendingSearch = Option<(u64, String)>;
+
+/// Connection-scoped client session state.
+struct ClientSession {
+    commands: CommandSender,
+    pending_search: PendingSearch,
+    /// Client-local navigation restoration for (possibly nested) channels;
+    /// the daemon owns channel data, the client owns where Back returns.
+    channel_stack: Vec<ChannelNavigationSnapshot>,
+}
 
 impl App {
     /// Attached-mode event loop: terminal input, daemon frames, render tick.
@@ -28,9 +38,13 @@ impl App {
         connection: Connection,
     ) -> Result<()> {
         let (action_tx, mut action_rx) = mpsc::channel::<Action>(256);
-        let (mut commands, snapshot, mut frames) = connection.into_stream();
+        let (commands, snapshot, mut frames) = connection.into_stream();
         crate::client::mirror::apply_snapshot(&mut self.state.domain, snapshot);
-        let mut pending_search: PendingSearch = None;
+        let mut session = ClientSession {
+            commands,
+            pending_search: None,
+            channel_stack: Vec::new(),
+        };
         // Keeps a parked replacement channel alive after a failed reattach so
         // the select arm blocks instead of spinning on a closed receiver.
         let mut parked_keepalive: Option<mpsc::Sender<DaemonFrame>> = None;
@@ -59,10 +73,10 @@ impl App {
                 }
                 frame = frames.recv() => {
                     match frame {
-                        Some(frame) => self.on_daemon_frame(frame, &mut pending_search),
+                        Some(frame) => self.on_daemon_frame(frame, &mut session),
                         None => match self.reattach().await {
                             Some((sender, receiver)) => {
-                                commands = sender;
+                                session.commands = sender;
                                 frames = receiver;
                                 parked_keepalive = None;
                             }
@@ -77,8 +91,7 @@ impl App {
                     }
                 }
                 Some(action) = action_rx.recv() => {
-                    self.handle_client_action(action, &mut commands, &mut pending_search, &action_tx)
-                        .await;
+                    self.handle_client_action(action, &mut session, &action_tx).await;
                 }
                 _ = tick.tick() => {
                     self.state.tick_spinner();
@@ -116,16 +129,21 @@ impl App {
     }
 
     /// Apply one daemon frame to the mirror and the UI.
-    fn on_daemon_frame(&mut self, frame: DaemonFrame, pending_search: &mut PendingSearch) {
+    fn on_daemon_frame(&mut self, frame: DaemonFrame, session: &mut ClientSession) {
         match frame {
             DaemonFrame::Event { event } => {
                 let ui_event = domain_event_for(&event);
                 let history_changed = matches!(*event, WireEvent::HistoryChanged);
                 let lists_changed = matches!(
                     *event,
-                    WireEvent::QueueChanged { .. } | WireEvent::PlaylistsChanged { .. }
+                    WireEvent::QueueChanged { .. }
+                        | WireEvent::PlaylistsChanged { .. }
+                        | WireEvent::ChannelChanged { .. }
                 );
-                crate::client::mirror::apply_event(&mut self.state.domain, *event);
+                match *event {
+                    WireEvent::ChannelChanged { channel } => self.apply_channel(channel, session),
+                    other => crate::client::mirror::apply_event(&mut self.state.domain, other),
+                }
                 if let Some(ui_event) = ui_event {
                     crate::app::ui_sync::apply_domain_events(
                         &self.state.domain,
@@ -141,18 +159,46 @@ impl App {
                     self.filter_sync_key = None;
                 }
             }
-            DaemonFrame::Reply { id, result } => self.on_reply(id, result, pending_search),
+            DaemonFrame::Reply { id, result } => self.on_reply(id, result, session),
             DaemonFrame::Welcome { .. } => {}
         }
     }
 
-    fn on_reply(&mut self, id: u64, result: ReplyResult, pending_search: &mut PendingSearch) {
-        let for_search = pending_search
+    /// Mirror the daemon's channel browser, entering the Channel view only
+    /// for a flow this client initiated (its navigation stack is non-empty).
+    fn apply_channel(&mut self, channel: Option<WireChannel>, session: &mut ClientSession) {
+        let return_to =
+            session
+                .channel_stack
+                .last()
+                .copied()
+                .unwrap_or(ChannelNavigationSnapshot {
+                    view: self.state.ui.view,
+                    focus: self.state.ui.focus,
+                    selected_index: self.state.ui.selected_index,
+                });
+        let entering = channel.is_some()
+            && !session.channel_stack.is_empty()
+            && self.state.ui.view != View::Channel;
+        self.state.domain.channel = channel.map(|wire| wire.into_state(return_to));
+        if entering {
+            self.state.ui.view = View::Channel;
+            self.state.ui.selected_index = 0;
+            self.state.ui.focus = Focus::Content;
+            self.state.ui.list_filter = None;
+            self.state.ui.visible_indices = None;
+            self.state.reset_list();
+        }
+    }
+
+    fn on_reply(&mut self, id: u64, result: ReplyResult, session: &mut ClientSession) {
+        let for_search = session
+            .pending_search
             .as_ref()
             .is_some_and(|(pending_id, _)| *pending_id == id);
         match result {
             ReplyResult::Result(ReplyBody::Tracks { tracks }) if for_search => {
-                let (_, query) = pending_search.take().expect("pending search");
+                let (_, query) = session.pending_search.take().expect("pending search");
                 if tracks.is_empty() {
                     self.state.notify("No results", false);
                 }
@@ -161,7 +207,7 @@ impl App {
             }
             ReplyResult::Error(message) => {
                 if for_search {
-                    let (_, query) = pending_search.take().expect("pending search");
+                    let (_, query) = session.pending_search.take().expect("pending search");
                     self.state.domain.search = SearchState::Failed {
                         query,
                         message: message.clone(),
@@ -177,8 +223,7 @@ impl App {
     async fn handle_client_action(
         &mut self,
         action: Action,
-        commands: &mut CommandSender,
-        pending_search: &mut PendingSearch,
+        session: &mut ClientSession,
         action_tx: &mpsc::Sender<Action>,
     ) {
         match crate::app::client_route::route(&action, &self.state, self.history.as_ref()) {
@@ -186,11 +231,7 @@ impl App {
                 let _ = self.handle_action(action, action_tx).await;
             }
             Route::Quit => self.state.ui.running = false,
-            Route::Send(command) => {
-                if commands.send(command).await.is_err() {
-                    self.state.notify("Daemon is not reachable", true);
-                }
-            }
+            Route::Send(command) => self.send_command(session, command).await,
             Route::Search { query, exact } => {
                 self.state.domain.search_generation += 1;
                 self.state.domain.search = SearchState::Searching {
@@ -205,95 +246,52 @@ impl App {
                         query: query.clone(),
                     }
                 };
-                match commands.send(command).await {
-                    Ok(id) => *pending_search = Some((id, query)),
+                match session.commands.send(command).await {
+                    Ok(id) => session.pending_search = Some((id, query)),
                     Err(_) => self.state.notify("Daemon is not reachable", true),
                 }
             }
-            Route::PromptSubmit => self.client_prompt_submit(commands).await,
-            Route::PickerSubmit => self.client_picker_submit(commands).await,
-            Route::EditorSubmit => self.client_editor_submit(commands).await,
+            Route::OpenChannel(track) => {
+                session.channel_stack.push(ChannelNavigationSnapshot {
+                    view: self.state.ui.view,
+                    focus: self.state.ui.focus,
+                    selected_index: self.state.ui.selected_index,
+                });
+                if session
+                    .commands
+                    .send(Command::ChannelOpen { track })
+                    .await
+                    .is_err()
+                {
+                    session.channel_stack.pop();
+                    self.state.notify("Daemon is not reachable", true);
+                }
+            }
+            Route::ChannelBack => {
+                if let Some(snapshot) = session.channel_stack.pop() {
+                    self.state.ui.view = snapshot.view;
+                    self.state.ui.focus = snapshot.focus;
+                    self.state.ui.selected_index = snapshot.selected_index;
+                    self.state.reset_list();
+                }
+                self.send_command(session, Command::ChannelBack).await;
+            }
+            Route::PromptSubmit => self.client_prompt_submit(session).await,
+            Route::PickerSubmit => self.client_picker_submit(session).await,
+            Route::EditorSubmit => self.client_editor_submit(session).await,
             Route::Deferred(message) => self.state.notify(message, false),
             Route::Ignore => {}
         }
     }
 
-    /// Resolve the picker candidate against the mirror and send the add.
-    async fn client_picker_submit(&mut self, commands: &mut CommandSender) {
-        let Some(picker) = self.state.ui.picker.take() else {
-            return;
-        };
-        let (create_new, matching) =
-            crate::app::filter::picker_candidates(&self.state.domain.playlists, &picker.filter);
-        let command = if create_new && picker.selected == 0 {
-            Command::PlaylistAddTrackNew {
-                name: picker.filter.trim().to_string(),
-                track: picker.track,
-            }
-        } else {
-            let offset = usize::from(create_new);
-            let Some(&index) = picker
-                .selected
-                .checked_sub(offset)
-                .and_then(|position| matching.get(position))
-            else {
-                return;
-            };
-            let Some(playlist) = self.state.domain.playlists.get(index) else {
-                return;
-            };
-            // Immediate feedback from the mirror; the daemon re-checks.
-            if playlist.tracks.iter().any(|t| t.id == picker.track.id) {
-                let name = playlist.name.clone();
-                self.state.notify(&format!("Already in \"{name}\""), false);
-                return;
-            }
-            Command::PlaylistAddTrack {
-                playlist_id: playlist.id.clone(),
-                track: picker.track,
-            }
-        };
-        if commands.send(command).await.is_err() {
-            self.state.notify("Daemon is not reachable", true);
-        }
-    }
-
-    /// Resolve the selected playlist id and send the metadata edit.
-    async fn client_editor_submit(&mut self, commands: &mut CommandSender) {
-        let Some(editor) = self.state.ui.playlist_editor.take() else {
-            return;
-        };
-        let name = editor.name.trim().to_string();
-        if name.is_empty() {
-            self.state.ui.playlist_editor = Some(editor);
-            self.state.notify("Playlist name is required", true);
-            return;
-        }
-        let Some(id) = self
-            .state
-            .ui
-            .selected_playlist
-            .and_then(|index| self.state.domain.playlists.get(index))
-            .map(|playlist| playlist.id.clone())
-        else {
-            return;
-        };
-        let description = editor.description.trim().to_string();
-        if commands
-            .send(Command::PlaylistEdit {
-                id,
-                name,
-                description,
-            })
-            .await
-            .is_err()
-        {
+    async fn send_command(&mut self, session: &mut ClientSession, command: Command) {
+        if session.commands.send(command).await.is_err() {
             self.state.notify("Daemon is not reachable", true);
         }
     }
 
     /// Purpose-dependent prompt submission in attached mode.
-    async fn client_prompt_submit(&mut self, commands: &mut CommandSender) {
+    async fn client_prompt_submit(&mut self, session: &mut ClientSession) {
         let Some(prompt) = self.state.ui.prompt.take() else {
             return;
         };
@@ -338,9 +336,77 @@ impl App {
                 Command::ImportJson { json: text }
             }
         };
-        if commands.send(command).await.is_err() {
-            self.state.notify("Daemon is not reachable", true);
+        self.send_command(session, command).await;
+    }
+
+    /// Resolve the picker candidate against the mirror and send the add.
+    async fn client_picker_submit(&mut self, session: &mut ClientSession) {
+        let Some(picker) = self.state.ui.picker.take() else {
+            return;
+        };
+        let (create_new, matching) =
+            crate::app::filter::picker_candidates(&self.state.domain.playlists, &picker.filter);
+        let command = if create_new && picker.selected == 0 {
+            Command::PlaylistAddTrackNew {
+                name: picker.filter.trim().to_string(),
+                track: picker.track,
+            }
+        } else {
+            let offset = usize::from(create_new);
+            let Some(&index) = picker
+                .selected
+                .checked_sub(offset)
+                .and_then(|position| matching.get(position))
+            else {
+                return;
+            };
+            let Some(playlist) = self.state.domain.playlists.get(index) else {
+                return;
+            };
+            // Immediate feedback from the mirror; the daemon re-checks.
+            if playlist.tracks.iter().any(|t| t.id == picker.track.id) {
+                let name = playlist.name.clone();
+                self.state.notify(&format!("Already in \"{name}\""), false);
+                return;
+            }
+            Command::PlaylistAddTrack {
+                playlist_id: playlist.id.clone(),
+                track: picker.track,
+            }
+        };
+        self.send_command(session, command).await;
+    }
+
+    /// Resolve the selected playlist id and send the metadata edit.
+    async fn client_editor_submit(&mut self, session: &mut ClientSession) {
+        let Some(editor) = self.state.ui.playlist_editor.take() else {
+            return;
+        };
+        let name = editor.name.trim().to_string();
+        if name.is_empty() {
+            self.state.ui.playlist_editor = Some(editor);
+            self.state.notify("Playlist name is required", true);
+            return;
         }
+        let Some(id) = self
+            .state
+            .ui
+            .selected_playlist
+            .and_then(|index| self.state.domain.playlists.get(index))
+            .map(|playlist| playlist.id.clone())
+        else {
+            return;
+        };
+        let description = editor.description.trim().to_string();
+        self.send_command(
+            session,
+            Command::PlaylistEdit {
+                id,
+                name,
+                description,
+            },
+        )
+        .await;
     }
 
     /// Reload the read-only history mirror after a `HistoryChanged` event.
@@ -367,6 +433,7 @@ fn domain_event_for(event: &WireEvent) -> Option<DomainEvent> {
         WireEvent::PlaylistsChanged { .. } => Some(DomainEvent::PlaylistsChanged),
         WireEvent::HistoryChanged => Some(DomainEvent::HistoryChanged),
         WireEvent::ImportChanged { .. } => Some(DomainEvent::ImportChanged),
+        WireEvent::ChannelChanged { .. } => Some(DomainEvent::ChannelChanged),
         WireEvent::Health { .. } => Some(DomainEvent::Health),
     }
 }

@@ -307,6 +307,11 @@ impl App {
             Command::ImportJson { json } => {
                 Action::Playlists(PlaylistAction::ImportPlaylistsJson(json))
             }
+            Command::ChannelOpen { track } => {
+                Action::Navigation(NavigationAction::VisitChannel(track))
+            }
+            Command::ChannelPage => Action::Navigation(NavigationAction::LoadMoreChannel),
+            Command::ChannelBack => Action::Navigation(NavigationAction::BackFromChannel),
             Command::ToggleMute => Action::Playback(PlaybackAction::ToggleMute),
             Command::SpeedUp => Action::Playback(PlaybackAction::SpeedUp),
             Command::SpeedDown => Action::Playback(PlaybackAction::SpeedDown),
@@ -436,8 +441,14 @@ fn wire_event(domain: &DomainState, event: DomainEvent) -> Option<WireEvent> {
                 .map(crate::protocol::WireImport::from_state),
         }),
         DomainEvent::Health => Some(health_event(domain)),
-        // Search and channel data are per-client request/reply concerns.
-        DomainEvent::SearchChanged | DomainEvent::ChannelChanged => None,
+        DomainEvent::ChannelChanged => Some(WireEvent::ChannelChanged {
+            channel: domain
+                .channel
+                .as_ref()
+                .map(crate::protocol::WireChannel::from_state),
+        }),
+        // Search stays a per-client request/reply concern.
+        DomainEvent::SearchChanged => None,
     }
 }
 

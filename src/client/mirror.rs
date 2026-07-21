@@ -63,8 +63,9 @@ pub fn apply_event(domain: &mut DomainState, event: WireEvent) {
             domain.import = import.map(crate::protocol::WireImport::into_state);
         }
         // History is reloaded from the shared on-disk store by the client
-        // runtime.
-        WireEvent::HistoryChanged => {}
+        // runtime; channel state needs the runtime's navigation stack and is
+        // applied there.
+        WireEvent::HistoryChanged | WireEvent::ChannelChanged { .. } => {}
     }
 }
 
