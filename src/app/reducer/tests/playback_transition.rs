@@ -37,9 +37,9 @@ fn playing_state() -> AppState {
     state.domain.queue.push(track("next"));
     state.domain.queue.position = Some(0);
     state.domain.current_track = state.domain.queue.current().cloned();
-    state.begin_playback_occurrence();
-    state.mark_file_loaded();
-    state.record_duration(100.0);
+    state.domain.begin_playback_occurrence();
+    state.domain.mark_file_loaded();
+    state.domain.record_duration(100.0);
     state.domain.playback.status = PlaybackStatus::Playing;
     state
 }

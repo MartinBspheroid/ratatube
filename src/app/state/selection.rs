@@ -168,22 +168,6 @@ impl AppState {
         self.domain.sync_track_transition(now);
     }
 
-    pub(crate) fn begin_playback_occurrence(&mut self) {
-        self.domain.begin_playback_occurrence();
-    }
-
-    pub(crate) fn mark_file_loaded(&mut self) {
-        self.domain.mark_file_loaded();
-    }
-
-    pub(crate) fn record_position(&mut self, position: f64) {
-        self.domain.record_position(position);
-    }
-
-    pub(crate) fn record_duration(&mut self, duration: f64) {
-        self.domain.record_duration(duration);
-    }
-
     /// Keep playlist presentation and selection order newest-updated first.
     pub fn sort_playlists_by_updated(&mut self) {
         self.domain.sort_playlists_by_updated();

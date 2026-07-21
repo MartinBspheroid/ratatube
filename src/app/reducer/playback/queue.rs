@@ -1,39 +1,30 @@
 //! Playback queue selection and stream-resolution transitions.
 
-use crate::app::action::{Action, PlaybackAction};
-use crate::app::reducer::{Effect, reduce as reduce_action};
-use crate::app::state::{AppState, OperationStatus, PlayingPane, View};
+use crate::app::action::PlaybackAction;
+use crate::app::reducer::Effect;
+use crate::app::state::{AppState, DomainState, OperationStatus, PlayingPane, View};
+use crate::media::Track;
 use crate::media::search::SearchState;
 use crate::queue::PreviousOutcome;
 
 /// Reduce playback queue selection and stream-resolution transitions.
 pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect> {
-    match Action::Playback(action) {
-        Action::Playback(PlaybackAction::PlayTrack(track)) => {
-            state.domain.queue.push(track);
-            state.bump_queue_revision();
-            let pos = state.domain.queue.order.len() - 1;
-            state.domain.queue.position = Some(pos);
-            return vec![
-                Effect::ResolveAndPlay {
-                    track_index_in_queue: pos,
-                },
-                Effect::PersistQueue,
-            ];
-        }
+    match action {
+        PlaybackAction::PlayTrack(track) => play_track(&mut state.domain, track),
         // Resolved by the app layer through the existing pending-session flow.
-        Action::Playback(PlaybackAction::ResumeTrack { .. }) => {}
-        Action::Playback(PlaybackAction::SessionStreamResolved { track_id, .. }) => {
+        PlaybackAction::ResumeTrack { .. } => Vec::new(),
+        PlaybackAction::SessionStreamResolved { track_id, .. } => {
             if state
                 .domain
                 .pending_resume
                 .as_ref()
                 .is_some_and(|pending| pending.track.id == track_id)
             {
-                state.begin_playback_occurrence();
+                state.domain.begin_playback_occurrence();
             }
+            Vec::new()
         }
-        Action::Playback(PlaybackAction::PlaySelected) => {
+        PlaybackAction::PlaySelected => {
             if matches!(state.ui.view, View::Queue)
                 || (state.ui.view == View::NowPlaying
                     && state.ui.playing_pane == PlayingPane::Queue
@@ -53,86 +44,136 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
                 return Vec::new();
             }
             if let Some(track) = selected_track(state) {
-                return reduce_action(state, Action::Playback(PlaybackAction::PlayTrack(track)));
+                return play_track(&mut state.domain, track);
             }
+            Vec::new()
         }
-        Action::Playback(PlaybackAction::NextTrack) => {
-            if state.domain.queue.advance().is_some() {
-                let pos = state.domain.queue.position.unwrap_or(0);
-                return vec![
-                    Effect::ResolveAndPlay {
-                        track_index_in_queue: pos,
-                    },
-                    Effect::PersistQueue,
-                ];
-            }
-        }
-        Action::Playback(PlaybackAction::PreviousTrack) => {
-            let position = state.domain.playback.position_seconds as u64;
-            match state.domain.queue.previous(position, 5) {
-                PreviousOutcome::RestartCurrent => return vec![Effect::SeekTo(0.0)],
-                PreviousOutcome::PlayPrevious => {
-                    let pos = state.domain.queue.position.unwrap_or(0);
-                    return vec![
-                        Effect::ResolveAndPlay {
-                            track_index_in_queue: pos,
-                        },
-                        Effect::PersistQueue,
-                    ];
-                }
-            }
-        }
-        Action::Playback(PlaybackAction::PlaybackResolveStarted { operation_id, .. }) => {
+        PlaybackAction::NextTrack => next_track(&mut state.domain),
+        PlaybackAction::PreviousTrack => previous_track(&mut state.domain),
+        PlaybackAction::PlaybackResolveStarted { operation_id, .. } => {
             state.domain.playback_resolution = OperationStatus::Loading { operation_id };
+            Vec::new()
         }
-        Action::Playback(PlaybackAction::PlaybackResolved {
+        PlaybackAction::PlaybackResolved {
             operation_id,
             queue_position,
             track_id,
             ..
-        }) => {
-            if !matches!(
-                state.domain.playback_resolution,
-                OperationStatus::Loading { operation_id: active } if active == operation_id
-            ) {
-                return Vec::new();
-            }
-            let track = state
-                .domain
-                .queue
-                .order
-                .get(queue_position)
-                .and_then(|index| state.domain.queue.tracks.get(*index))
-                .filter(|track| track.id == track_id)
-                .cloned();
-            if let Some(track) = track {
-                state.begin_playback_occurrence();
-                state.domain.current_track = Some(track);
-                state.domain.current_details = None;
+        } => {
+            if resolved(&mut state.domain, operation_id, queue_position, &track_id) {
+                // The domain switched tracks; drop the presentation caches.
                 state.ui.thumbnail = None;
                 state.ui.now_playing_scroll = 0;
-                state.domain.playback_resolution = OperationStatus::Idle;
             }
+            Vec::new()
         }
-        Action::Playback(PlaybackAction::PlaybackResolveFailed {
+        PlaybackAction::PlaybackResolveFailed {
             operation_id,
             message,
             ..
-        }) => {
-            if !matches!(
-                state.domain.playback_resolution,
-                OperationStatus::Loading { operation_id: active } if active == operation_id
-            ) {
-                return Vec::new();
+        } => {
+            if resolve_failed(&mut state.domain, operation_id, &message) {
+                state.notify(&format!("Playback unavailable: {message}"), true);
             }
-            state.domain.playback_resolution = OperationStatus::Failed {
-                message: message.clone(),
-            };
-            state.notify(&format!("Playback unavailable: {message}"), true);
+            Vec::new()
         }
-        _ => {}
+        _ => Vec::new(),
+    }
+}
+
+/// Append `track` and start resolving it immediately.
+fn play_track(domain: &mut DomainState, track: Track) -> Vec<Effect> {
+    domain.queue.push(track);
+    domain.bump_queue_revision();
+    let pos = domain.queue.order.len() - 1;
+    domain.queue.position = Some(pos);
+    vec![
+        Effect::ResolveAndPlay {
+            track_index_in_queue: pos,
+        },
+        Effect::PersistQueue,
+    ]
+}
+
+/// Advance the queue cursor and resolve the next track, if any.
+pub(super) fn next_track(domain: &mut DomainState) -> Vec<Effect> {
+    if domain.queue.advance().is_some() {
+        let pos = domain.queue.position.unwrap_or(0);
+        return vec![
+            Effect::ResolveAndPlay {
+                track_index_in_queue: pos,
+            },
+            Effect::PersistQueue,
+        ];
     }
     Vec::new()
+}
+
+/// Restart the current track or step back, mirroring player conventions.
+fn previous_track(domain: &mut DomainState) -> Vec<Effect> {
+    let position = domain.playback.position_seconds as u64;
+    match domain.queue.previous(position, 5) {
+        PreviousOutcome::RestartCurrent => vec![Effect::SeekTo(0.0)],
+        PreviousOutcome::PlayPrevious => {
+            let pos = domain.queue.position.unwrap_or(0);
+            vec![
+                Effect::ResolveAndPlay {
+                    track_index_in_queue: pos,
+                },
+                Effect::PersistQueue,
+            ]
+        }
+    }
+}
+
+/// Accept a resolution only for the active operation and matching occurrence;
+/// true when the current track switched.
+fn resolved(
+    domain: &mut DomainState,
+    operation_id: crate::app::operations::OperationId,
+    queue_position: usize,
+    track_id: &str,
+) -> bool {
+    if !matches!(
+        domain.playback_resolution,
+        OperationStatus::Loading { operation_id: active } if active == operation_id
+    ) {
+        return false;
+    }
+    let track = domain
+        .queue
+        .order
+        .get(queue_position)
+        .and_then(|index| domain.queue.tracks.get(*index))
+        .filter(|track| track.id == track_id)
+        .cloned();
+    if let Some(track) = track {
+        domain.begin_playback_occurrence();
+        domain.current_track = Some(track);
+        domain.current_details = None;
+        domain.playback_resolution = OperationStatus::Idle;
+        true
+    } else {
+        false
+    }
+}
+
+/// Record a failed resolution only for the active operation.
+fn resolve_failed(
+    domain: &mut DomainState,
+    operation_id: crate::app::operations::OperationId,
+    message: &str,
+) -> bool {
+    if !matches!(
+        domain.playback_resolution,
+        OperationStatus::Loading { operation_id: active } if active == operation_id
+    ) {
+        return false;
+    }
+    domain.playback_resolution = OperationStatus::Failed {
+        message: message.to_string(),
+    };
+    true
 }
 
 /// Track selected in the active view, if the view lists tracks. The
