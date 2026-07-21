@@ -20,76 +20,76 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
     }
     match Action::Navigation(action) {
         Action::Navigation(NavigationAction::Navigate(view)) => {
-            state.view = view;
-            state.selected_index = 0;
-            state.focus = Focus::Content;
-            state.list_filter = None;
-            state.visible_indices = None;
-            state.search_detail_open = false;
+            state.ui.view = view;
+            state.ui.selected_index = 0;
+            state.ui.focus = Focus::Content;
+            state.ui.list_filter = None;
+            state.ui.visible_indices = None;
+            state.ui.search_detail_open = false;
             state.reset_list();
         }
         Action::Navigation(NavigationAction::OpenHelp) => {
-            if state.view != View::Help {
-                state.help_return_view = state.view;
+            if state.ui.view != View::Help {
+                state.ui.help_return_view = state.ui.view;
             }
-            state.view = View::Help;
-            state.help_scroll = 0;
-            state.focus = Focus::Content;
+            state.ui.view = View::Help;
+            state.ui.help_scroll = 0;
+            state.ui.focus = Focus::Content;
         }
         Action::Navigation(NavigationAction::CloseHelp) => {
-            state.view = state.help_return_view;
-            state.help_scroll = 0;
+            state.ui.view = state.ui.help_return_view;
+            state.ui.help_scroll = 0;
         }
         Action::Navigation(NavigationAction::ScrollHelp(delta)) => {
-            if state.view == View::Help {
-                state.help_scroll = state.help_scroll.saturating_add_signed(delta as i16);
+            if state.ui.view == View::Help {
+                state.ui.help_scroll = state.ui.help_scroll.saturating_add_signed(delta as i16);
             }
         }
         Action::Navigation(NavigationAction::NextView) => {
             return reduce_action(
                 state,
-                Action::Navigation(NavigationAction::Navigate(state.view.next_tab())),
+                Action::Navigation(NavigationAction::Navigate(state.ui.view.next_tab())),
             );
         }
         Action::Navigation(NavigationAction::PreviousView) => {
             return reduce_action(
                 state,
-                Action::Navigation(NavigationAction::Navigate(state.view.prev_tab())),
+                Action::Navigation(NavigationAction::Navigate(state.ui.view.prev_tab())),
             );
         }
         Action::Navigation(NavigationAction::CycleHomeSection(delta)) => {
-            if state.view == View::Home {
-                state.home_section = state.home_section.cycled(delta);
-                state.selected_index = 0;
+            if state.ui.view == View::Home {
+                state.ui.home_section = state.ui.home_section.cycled(delta);
+                state.ui.selected_index = 0;
                 state.reset_list();
             }
         }
         Action::Navigation(NavigationAction::Quit) => {
-            state.running = false;
+            state.ui.running = false;
             return vec![Effect::PersistQueue, Effect::QuitMpv, Effect::Exit];
         }
 
         // --- Search input -------------------------------------------------
         Action::Navigation(NavigationAction::SearchInput(c)) => {
-            if state.focus == Focus::SearchInput {
-                state.search_input.push(c);
+            if state.ui.focus == Focus::SearchInput {
+                state.ui.search_input.push(c);
             }
         }
         Action::Navigation(NavigationAction::SearchBackspace) => {
-            if state.focus == Focus::SearchInput {
-                state.search_input.pop();
+            if state.ui.focus == Focus::SearchInput {
+                state.ui.search_input.pop();
             }
         }
         Action::Navigation(NavigationAction::ClearSearch) => {
-            state.search_input.clear();
-            state.search = SearchState::Idle;
+            state.ui.search_input.clear();
+            state.domain.search = SearchState::Idle;
         }
         Action::Navigation(NavigationAction::ToggleSearchDetail) => {
-            if state.view == View::Search
-                && crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+            if state.ui.view == View::Search
+                && crate::ui::layout::Breakpoint::from_width(state.ui.screen_area.width)
                     == crate::ui::layout::Breakpoint::Narrow
             {
-                state.search_detail_open = !state.search_detail_open;
+                state.ui.search_detail_open = !state.ui.search_detail_open;
             }
         }
         // Resolved by the app layer because it needs the selected track and
@@ -108,43 +108,43 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
             if query.trim().is_empty() {
                 return Vec::new();
             }
-            state.search_generation += 1;
-            let generation = state.search_generation;
-            state.search = SearchState::Searching {
+            state.domain.search_generation += 1;
+            let generation = state.domain.search_generation;
+            state.domain.search = SearchState::Searching {
                 query: query.clone(),
                 generation,
             };
-            state.focus = Focus::Content;
+            state.ui.focus = Focus::Content;
             return vec![Effect::RunSearch { query, generation }];
         }
         Action::Navigation(NavigationAction::SubmitExactVideo(url)) => {
-            state.search_generation += 1;
-            let generation = state.search_generation;
-            state.search = SearchState::Searching {
+            state.domain.search_generation += 1;
+            let generation = state.domain.search_generation;
+            state.domain.search = SearchState::Searching {
                 query: url.clone(),
                 generation,
             };
-            state.focus = Focus::Content;
+            state.ui.focus = Focus::Content;
             return vec![Effect::RunExactVideo { url, generation }];
         }
         Action::Navigation(NavigationAction::SearchCompleted { generation, tracks }) => {
             // Discard results from superseded searches (PRD 15).
-            if generation == state.search_generation {
-                let query = state.search.query().to_string();
+            if generation == state.domain.search_generation {
+                let query = state.domain.search.query().to_string();
                 if tracks.is_empty() {
                     state.notify("No results", false);
                 }
-                state.search = SearchState::Results { query, tracks };
-                state.selected_index = 0;
+                state.domain.search = SearchState::Results { query, tracks };
+                state.ui.selected_index = 0;
             }
         }
         Action::Navigation(NavigationAction::SearchFailed {
             generation,
             message,
         }) => {
-            if generation == state.search_generation {
-                let query = state.search.query().to_string();
-                state.search = SearchState::Failed { query, message };
+            if generation == state.domain.search_generation {
+                let query = state.domain.search.query().to_string();
+                state.domain.search = SearchState::Failed { query, message };
             }
         }
 
@@ -152,11 +152,11 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
         Action::Navigation(NavigationAction::SelectNext) => {
             let len = state.active_list_len();
             if len > 0 {
-                state.selected_index = (state.selected_index + 1).min(len - 1);
+                state.ui.selected_index = (state.ui.selected_index + 1).min(len - 1);
             }
         }
         Action::Navigation(NavigationAction::SelectPrevious) => {
-            state.selected_index = state.selected_index.saturating_sub(1);
+            state.ui.selected_index = state.ui.selected_index.saturating_sub(1);
         }
         _ => {}
     }

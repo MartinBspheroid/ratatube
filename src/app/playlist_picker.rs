@@ -7,20 +7,20 @@ impl App {
     /// Apply the picker by adding to an existing playlist or creating one
     /// named after the filter text first.
     pub(super) async fn submit_picker(&mut self) {
-        let Some(picker) = self.state.picker.take() else {
+        let Some(picker) = self.state.ui.picker.take() else {
             return;
         };
         let (create_new, matching) =
-            crate::app::filter::picker_candidates(&self.state.playlists, &picker.filter);
+            crate::app::filter::picker_candidates(&self.state.domain.playlists, &picker.filter);
 
         let target_index = if create_new {
             if picker.selected == 0 {
                 let playlist = Playlist::new(picker.filter.trim());
                 match self.playlists.save(&playlist) {
                     Ok(()) => {
-                        self.state.playlists.push(playlist);
+                        self.state.domain.playlists.push(playlist);
                         self.state.bump_playlists_revision();
-                        Some(self.state.playlists.len() - 1)
+                        Some(self.state.domain.playlists.len() - 1)
                     }
                     Err(err) => {
                         self.state.notify(&format!("Save failed: {err}"), true);
@@ -36,7 +36,7 @@ impl App {
         let Some(target_index) = target_index else {
             return;
         };
-        let Some(playlist) = self.state.playlists.get_mut(target_index) else {
+        let Some(playlist) = self.state.domain.playlists.get_mut(target_index) else {
             return;
         };
 
@@ -58,6 +58,7 @@ impl App {
         match self.playlists.save(&snapshot) {
             Ok(()) => {
                 self.state
+                    .domain
                     .activity
                     .push(crate::history::activity::ActivityEvent::new(
                         crate::history::activity::ActivityKind::AddedToPlaylist,
@@ -70,6 +71,6 @@ impl App {
             Err(err) => self.state.notify(&format!("Save failed: {err}"), true),
         }
         self.state.sort_playlists_by_updated();
-        self.maybe_save_session(self.state.playback.position_seconds, true);
+        self.maybe_save_session(self.state.domain.playback.position_seconds, true);
     }
 }

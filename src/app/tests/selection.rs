@@ -4,8 +4,8 @@ use super::*;
 async fn search_queue_action_updates_selected_panel_membership_source() {
     let (_temp, mut app) = test_app();
     let track = Track::new("selected", "Selected", "Channel");
-    app.state.view = View::Search;
-    app.state.search = crate::media::search::SearchState::Results {
+    app.state.ui.view = View::Search;
+    app.state.domain.search = crate::media::search::SearchState::Results {
         query: "selected".to_string(),
         tracks: vec![track],
     };
@@ -19,6 +19,7 @@ async fn search_queue_action_updates_selected_panel_membership_source() {
     app.handle_action(dispatched, &action_tx).await;
     assert!(
         app.state
+            .domain
             .queue
             .tracks
             .iter()
@@ -29,13 +30,20 @@ async fn search_queue_action_updates_selected_panel_membership_source() {
 #[test]
 fn unchanged_filter_reuses_derived_indices_until_list_mutation() {
     let (_temp, mut app) = test_app();
-    app.state.view = View::Queue;
-    app.state.queue.push(Track::new("a", "Alpha", "Artist"));
-    app.state.queue.push(Track::new("b", "Beta", "Artist"));
-    app.state.list_filter = Some("alpha".to_string());
+    app.state.ui.view = View::Queue;
+    app.state
+        .domain
+        .queue
+        .push(Track::new("a", "Alpha", "Artist"));
+    app.state
+        .domain
+        .queue
+        .push(Track::new("b", "Beta", "Artist"));
+    app.state.ui.list_filter = Some("alpha".to_string());
     app.sync_list_view();
     let first = app
         .state
+        .ui
         .visible_indices
         .as_ref()
         .expect("filtered indices")
@@ -44,6 +52,7 @@ fn unchanged_filter_reuses_derived_indices_until_list_mutation() {
     assert_eq!(
         first,
         app.state
+            .ui
             .visible_indices
             .as_ref()
             .expect("cached indices")
@@ -52,7 +61,10 @@ fn unchanged_filter_reuses_derived_indices_until_list_mutation() {
 
     app.list_revision += 1;
     app.sync_list_view();
-    assert_eq!(app.state.visible_indices.as_deref(), Some([0].as_slice()));
+    assert_eq!(
+        app.state.ui.visible_indices.as_deref(),
+        Some([0].as_slice())
+    );
 }
 
 #[test]
@@ -71,18 +83,21 @@ fn recent_history_selection_maps_through_newest_unique_entries() {
             1,
         ));
     }
-    app.state.view = View::History;
+    app.state.ui.view = View::History;
     app.sync_list_view();
-    assert_eq!(app.state.history_len, 2);
+    assert_eq!(app.state.ui.history_len, 2);
     assert_eq!(
-        app.state.visible_indices.as_deref(),
+        app.state.ui.visible_indices.as_deref(),
         Some([0, 1].as_slice())
     );
 
-    app.state.list_filter = Some("Only B".to_string());
+    app.state.ui.list_filter = Some("Only B".to_string());
     app.sync_list_view();
 
-    assert_eq!(app.state.visible_indices.as_deref(), Some([1].as_slice()));
+    assert_eq!(
+        app.state.ui.visible_indices.as_deref(),
+        Some([1].as_slice())
+    );
     assert_eq!(
         app.resolve_selected_track().map(|track| track.id),
         Some("b".to_string())

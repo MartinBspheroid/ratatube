@@ -26,8 +26,8 @@ pub(super) fn render_home(
         .map(|service| service.recent_unique((area.height as usize).clamp(4, 30)))
         .unwrap_or_default();
     let show_resume = actionable_resume(state);
-    state.home_recent_len = recent.len();
-    if !show_resume && recent.is_empty() && state.playlists.is_empty() {
+    state.ui.home_recent_len = recent.len();
+    if !show_resume && recent.is_empty() && state.domain.playlists.is_empty() {
         render_first_run(frame, area, theme);
         return;
     }
@@ -38,10 +38,10 @@ pub(super) fn render_home(
         theme,
         show_resume,
     };
-    if !show_resume && state.home_section == HomeSection::Resume {
-        state.home_section = if !recent.is_empty() {
+    if !show_resume && state.ui.home_section == HomeSection::Resume {
+        state.ui.home_section = if !recent.is_empty() {
             HomeSection::Recent
-        } else if !state.playlists.is_empty() {
+        } else if !state.domain.playlists.is_empty() {
             HomeSection::Playlists
         } else {
             HomeSection::Recent
@@ -80,7 +80,7 @@ fn render_first_run(frame: &mut Frame, area: Rect, theme: &Theme) {
 fn render_narrow(frame: &mut Frame, area: Rect, state: &mut AppState, data: &DashboardData<'_>) {
     let count = usize::from(data.show_resume)
         + usize::from(!data.recent.is_empty())
-        + usize::from(!state.playlists.is_empty());
+        + usize::from(!state.domain.playlists.is_empty());
     let constraints = (0..count)
         .map(|_| Constraint::Ratio(1, count as u32))
         .collect::<Vec<_>>();
@@ -113,7 +113,7 @@ fn render_narrow(frame: &mut Frame, area: Rect, state: &mut AppState, data: &Das
         );
         row += 1;
     }
-    if !state.playlists.is_empty() {
+    if !state.domain.playlists.is_empty() {
         render_playlists(frame, rows[row], state, data.icons, data.theme);
     }
 }
@@ -194,13 +194,14 @@ fn render_without_resume(
 }
 
 fn actionable_resume(state: &AppState) -> bool {
-    let Some(pending) = &state.pending_resume else {
+    let Some(pending) = &state.domain.pending_resume else {
         return false;
     };
-    if state.playback.status == crate::playback::PlaybackStatus::Playing {
+    if state.domain.playback.status == crate::playback::PlaybackStatus::Playing {
         return false;
     }
     state
+        .domain
         .current_track
         .as_ref()
         .is_none_or(|current| current.id == pending.track.id)

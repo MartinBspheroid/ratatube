@@ -23,7 +23,7 @@ async fn captured_removal(app: &mut crate::app::App) -> Action {
             )
         })
         .expect("removal");
-    app.state.track_context_menu = Some(TrackContextMenuState { context, selected });
+    app.state.ui.track_context_menu = Some(TrackContextMenuState { context, selected });
     let (action_tx, mut action_rx) = mpsc::channel(2);
     app.handle_action(
         Action::Navigation(NavigationAction::SubmitTrackContext),
@@ -40,9 +40,9 @@ async fn captured_removal(app: &mut crate::app::App) -> Action {
 async fn reordered_exact_queue_clones_reject_captured_removal() {
     let (_temp, mut app) = test_app();
     let duplicate = track("same", "Exact clone");
-    app.state.view = View::Queue;
-    app.state.queue.push(duplicate.clone());
-    app.state.queue.push(duplicate);
+    app.state.ui.view = View::Queue;
+    app.state.domain.queue.push(duplicate.clone());
+    app.state.domain.queue.push(duplicate);
     let removal = captured_removal(&mut app).await;
     let (action_tx, _action_rx) = mpsc::channel(2);
 
@@ -53,9 +53,10 @@ async fn reordered_exact_queue_clones_reject_captured_removal() {
     .await;
     app.handle_action(removal, &action_tx).await;
 
-    assert_eq!(app.state.queue.tracks.len(), 2);
+    assert_eq!(app.state.domain.queue.tracks.len(), 2);
     assert_eq!(
         app.state
+            .ui
             .notification
             .as_ref()
             .map(|notification| notification.message.as_str()),
@@ -73,9 +74,9 @@ async fn reordered_exact_playlist_clones_reject_removal_without_persisting_it() 
     app.playlists
         .save(&playlist)
         .expect("save initial playlist");
-    app.state.view = View::PlaylistDetail;
-    app.state.playlists.push(playlist);
-    app.state.selected_playlist = Some(0);
+    app.state.ui.view = View::PlaylistDetail;
+    app.state.domain.playlists.push(playlist);
+    app.state.ui.selected_playlist = Some(0);
     let removal = captured_removal(&mut app).await;
     let (action_tx, _action_rx) = mpsc::channel(2);
 
@@ -86,7 +87,7 @@ async fn reordered_exact_playlist_clones_reject_removal_without_persisting_it() 
     .await;
     app.handle_action(removal, &action_tx).await;
 
-    assert_eq!(app.state.playlists[0].tracks.len(), 2);
+    assert_eq!(app.state.domain.playlists[0].tracks.len(), 2);
     assert_eq!(
         app.playlists
             .get(&playlist_id)
@@ -97,6 +98,7 @@ async fn reordered_exact_playlist_clones_reject_removal_without_persisting_it() 
     );
     assert_eq!(
         app.state
+            .ui
             .notification
             .as_ref()
             .map(|notification| notification.message.as_str()),

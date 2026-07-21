@@ -38,9 +38,9 @@ pub fn render_main(
     icons: &Icons,
     theme: &Theme,
 ) {
-    state.main_area = area;
-    state.list_hit_area = Rect::default();
-    match state.view {
+    state.ui.main_area = area;
+    state.ui.list_hit_area = Rect::default();
+    match state.ui.view {
         View::Home => home::render_home(frame, area, state, history, icons, theme),
         View::Search => search::render_search(frame, area, state, icons, theme),
         View::Queue => queue::render_queue(frame, area, state, icons, theme),
@@ -63,14 +63,14 @@ fn render_filter_bar(
     icons: &Icons,
     theme: &Theme,
 ) -> Rect {
-    let Some(filter) = &state.list_filter else {
+    let Some(filter) = &state.ui.list_filter else {
         return inner;
     };
     if inner.height == 0 {
         return inner;
     }
-    let editing = state.focus == Focus::ListFilter;
-    let shown = state.visible_indices.as_ref().map_or(total, Vec::len);
+    let editing = state.ui.focus == Focus::ListFilter;
+    let shown = state.ui.visible_indices.as_ref().map_or(total, Vec::len);
     let line = Line::from(vec![
         Span::styled("/", theme.accent),
         Span::raw(sanitize_terminal_text(filter)),
@@ -96,7 +96,7 @@ fn render_filter_bar(
 /// Visible positions of a list under the active filter (identity when no
 /// filter applies).
 fn visible_positions(state: &AppState, total: usize) -> Vec<usize> {
-    match &state.visible_indices {
+    match &state.ui.visible_indices {
         Some(indices) => indices.clone(),
         None => (0..total).collect(),
     }
@@ -124,7 +124,7 @@ fn render_help(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icons, t
         })
         .collect();
     let max_scroll = lines.len().saturating_sub(inner.height as usize) as u16;
-    let scroll = state.help_scroll.min(max_scroll);
+    let scroll = state.ui.help_scroll.min(max_scroll);
     let line_count = lines.len();
     frame.render_widget(Paragraph::new(lines).scroll((scroll, 0)), inner);
     scrollbar(frame, inner, line_count, scroll as usize);

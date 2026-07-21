@@ -106,6 +106,7 @@ impl App {
     pub(super) fn on_thumbnail_loaded(&mut self, track_id: String, bytes: Vec<u8>) {
         if self
             .state
+            .domain
             .current_track
             .as_ref()
             .map(|track| track.id.as_str())
@@ -114,44 +115,44 @@ impl App {
             return;
         }
         match crate::media::decode_thumbnail(&bytes) {
-            Ok(image) => self.state.thumbnail = Some(self.picker.new_resize_protocol(image)),
+            Ok(image) => self.state.ui.thumbnail = Some(self.picker.new_resize_protocol(image)),
             Err(err) => tracing::warn!(?err, "thumbnail decode failed"),
         }
     }
 
     /// Start or reuse the thumbnail preview for the selected Search result.
     pub(super) fn sync_search_thumbnail(&mut self, action_tx: &mpsc::Sender<Action>) {
-        if self.state.view != View::Search {
+        if self.state.ui.view != View::Search {
             return;
         }
-        let selected = match &self.state.search {
+        let selected = match &self.state.domain.search {
             crate::media::search::SearchState::Results { tracks, .. } => {
-                tracks.get(self.state.selected_index).cloned()
+                tracks.get(self.state.ui.selected_index).cloned()
             }
             _ => None,
         };
         let Some(track) = selected else {
-            self.state.search_thumbnail_track_id = None;
-            self.state.search_thumbnail = None;
+            self.state.ui.search_thumbnail_track_id = None;
+            self.state.ui.search_thumbnail = None;
             self.operations.cancel(OperationKind::SearchThumbnail);
             return;
         };
-        if self.state.search_thumbnail_track_id.as_deref() == Some(track.id.as_str()) {
+        if self.state.ui.search_thumbnail_track_id.as_deref() == Some(track.id.as_str()) {
             return;
         }
-        self.state.search_thumbnail_track_id = Some(track.id.clone());
-        self.state.search_thumbnail = None;
+        self.state.ui.search_thumbnail_track_id = Some(track.id.clone());
+        self.state.ui.search_thumbnail = None;
         self.spawn_thumbnail_fetch(&track, ThumbnailPurpose::SearchSelection, action_tx);
     }
 
     /// Decode a selected-result thumbnail only if that result is still active.
     pub(super) fn on_search_thumbnail_loaded(&mut self, track_id: String, bytes: Vec<u8>) {
-        if self.state.search_thumbnail_track_id.as_deref() != Some(track_id.as_str()) {
+        if self.state.ui.search_thumbnail_track_id.as_deref() != Some(track_id.as_str()) {
             return;
         }
         match crate::media::decode_thumbnail(&bytes) {
             Ok(image) => {
-                self.state.search_thumbnail = Some(self.picker.new_resize_protocol(image));
+                self.state.ui.search_thumbnail = Some(self.picker.new_resize_protocol(image));
             }
             Err(err) => tracing::warn!(?err, "search thumbnail decode failed"),
         }

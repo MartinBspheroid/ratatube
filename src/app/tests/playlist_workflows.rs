@@ -3,7 +3,7 @@ use super::*;
 #[tokio::test]
 async fn pasted_json_import_persists_every_playlist_after_full_validation() {
     let (_temp, mut app) = test_app();
-    app.state.prompt = Some(crate::app::state::PromptState {
+    app.state.ui.prompt = Some(crate::app::state::PromptState {
         purpose: PromptPurpose::ImportPlaylistJson,
         buffer: r#"{
           "version": 1,
@@ -20,8 +20,8 @@ async fn pasted_json_import_persists_every_playlist_after_full_validation() {
         .await;
 
     assert_eq!(app.playlists.list().expect("stored playlists").len(), 2);
-    assert_eq!(app.state.playlists.len(), 2);
-    assert!(app.state.prompt.is_none());
+    assert_eq!(app.state.domain.playlists.len(), 2);
+    assert!(app.state.ui.prompt.is_none());
 }
 
 #[tokio::test]
@@ -43,7 +43,7 @@ async fn repeated_json_import_merges_by_name_and_video_id() {
     }"#;
 
     for json in [first, second] {
-        app.state.prompt = Some(crate::app::state::PromptState {
+        app.state.ui.prompt = Some(crate::app::state::PromptState {
             purpose: PromptPurpose::ImportPlaylistJson,
             buffer: json.to_string(),
         });
@@ -55,7 +55,7 @@ async fn repeated_json_import_merges_by_name_and_video_id() {
     assert_eq!(stored.len(), 1);
     assert_eq!(stored[0].tracks.len(), 2);
     assert_eq!(stored[0].tracks[0].title, "Original");
-    assert_eq!(app.state.playlists.len(), 1);
+    assert_eq!(app.state.domain.playlists.len(), 1);
 }
 
 #[tokio::test]
@@ -64,9 +64,9 @@ async fn playlist_editor_submit_persists_name_and_description() {
     let playlist = Playlist::new("Before");
     let id = playlist.id.clone();
     app.playlists.save(&playlist).expect("seed playlist");
-    app.state.playlists.push(playlist);
-    app.state.selected_playlist = Some(0);
-    app.state.playlist_editor = Some(crate::app::state::PlaylistEditorState {
+    app.state.domain.playlists.push(playlist);
+    app.state.ui.selected_playlist = Some(0);
+    app.state.ui.playlist_editor = Some(crate::app::state::PlaylistEditorState {
         name: " After ".to_string(),
         description: " Clear context ".to_string(),
         field: crate::app::state::PlaylistEditorField::Description,
@@ -82,13 +82,13 @@ async fn playlist_editor_submit_persists_name_and_description() {
     let stored = app.playlists.get(&id).expect("stored playlist");
     assert_eq!(stored.name, "After");
     assert_eq!(stored.description, "Clear context");
-    assert!(app.state.playlist_editor.is_none());
+    assert!(app.state.ui.playlist_editor.is_none());
 }
 
 #[tokio::test]
 async fn invalid_pasted_json_remains_editable() {
     let (_temp, mut app) = test_app();
-    app.state.prompt = Some(crate::app::state::PromptState {
+    app.state.ui.prompt = Some(crate::app::state::PromptState {
         purpose: PromptPurpose::ImportPlaylistJson,
         buffer: "not json".to_string(),
     });
@@ -99,6 +99,7 @@ async fn invalid_pasted_json_remains_editable() {
 
     assert_eq!(
         app.state
+            .ui
             .prompt
             .as_ref()
             .map(|prompt| prompt.buffer.as_str()),
@@ -106,6 +107,7 @@ async fn invalid_pasted_json_remains_editable() {
     );
     assert!(
         app.state
+            .ui
             .notification
             .as_ref()
             .is_some_and(|item| item.is_error)

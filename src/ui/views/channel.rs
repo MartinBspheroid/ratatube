@@ -22,7 +22,7 @@ pub(super) fn render_channel(
     icons: &Icons,
     theme: &Theme,
 ) {
-    let Some(channel) = state.channel.clone() else {
+    let Some(channel) = state.domain.channel.clone() else {
         let inner = section_panel(frame, area, "Channel", true, theme, icons);
         empty_state(
             frame,
@@ -97,7 +97,7 @@ fn render_table(
         .collect::<Vec<_>>();
     if channel.loading {
         rows.push(message_row(
-            format!("{} Loading…", spinner(state.spinner_frame)),
+            format!("{} Loading…", spinner(state.ui.spinner_frame)),
             String::new(),
             theme,
         ));
@@ -140,18 +140,18 @@ fn render_table(
         .header(header_row("LENGTH", theme))
         .row_highlight_style(theme.selected)
         .highlight_symbol(icons.chevron_r);
-    state.table_state.select(Some(state.selected_index));
-    state.list_hit_area = Rect {
+    state.ui.table_state.select(Some(state.ui.selected_index));
+    state.ui.list_hit_area = Rect {
         y: inner.y + 2,
         height: inner.height.saturating_sub(2),
         ..inner
     };
-    frame.render_stateful_widget(table, inner, &mut state.table_state);
+    frame.render_stateful_widget(table, inner, &mut state.ui.table_state);
     scrollbar(
         frame,
         inner,
         channel.tracks.len(),
-        state.table_state.offset(),
+        state.ui.table_state.offset(),
     );
 }
 
@@ -164,7 +164,7 @@ fn render_preview(
     theme: &Theme,
 ) {
     let inner = section_panel(frame, area, "Selection", false, theme, icons);
-    let lines = match channel.tracks.get(state.selected_index) {
+    let lines = match channel.tracks.get(state.ui.selected_index) {
         Some(track) => vec![
             Line::from(Span::styled(
                 sanitize_terminal_text(&track.title),

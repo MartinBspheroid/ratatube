@@ -133,11 +133,11 @@ impl App {
             return;
         };
         let return_to = ChannelNavigationSnapshot {
-            view: self.state.view,
-            focus: self.state.focus,
-            selected_index: self.state.selected_index,
+            view: self.state.ui.view,
+            focus: self.state.ui.focus,
+            selected_index: self.state.ui.selected_index,
         };
-        let previous = self.state.channel.take().map(|mut previous| {
+        let previous = self.state.domain.channel.take().map(|mut previous| {
             // Opening a nested channel supersedes its page operation. Make the
             // restored page actionable instead of leaving a stale spinner.
             previous.loading = false;
@@ -145,16 +145,16 @@ impl App {
         });
         let mut channel = ChannelState::new(&track, url, return_to);
         channel.previous = previous;
-        self.state.channel = Some(channel);
-        self.state.view = View::Channel;
-        self.state.focus = Focus::Content;
-        self.state.selected_index = 0;
+        self.state.domain.channel = Some(channel);
+        self.state.ui.view = View::Channel;
+        self.state.ui.focus = Focus::Content;
+        self.state.ui.selected_index = 0;
         self.state.reset_list();
         self.spawn_channel_page(0, action_tx);
     }
 
     pub(super) fn spawn_channel_page(&mut self, page: usize, action_tx: mpsc::Sender<Action>) {
-        let Some(channel) = self.state.channel.as_mut() else {
+        let Some(channel) = self.state.domain.channel.as_mut() else {
             return;
         };
         if channel.loading || channel.exhausted {
@@ -195,7 +195,7 @@ impl App {
         page: usize,
         result: std::result::Result<ChannelPage, String>,
     ) {
-        let Some(channel) = self.state.channel.as_mut() else {
+        let Some(channel) = self.state.domain.channel.as_mut() else {
             return;
         };
         if channel.url != channel_url || channel.next_page != page {
@@ -214,19 +214,19 @@ impl App {
     pub(super) fn leave_channel(&mut self) {
         self.operations.cancel(OperationKind::ChannelResolve);
         self.operations.cancel(OperationKind::ChannelPage);
-        if let Some(mut channel) = self.state.channel.take() {
+        if let Some(mut channel) = self.state.domain.channel.take() {
             if let Some(previous) = channel.previous.take() {
-                self.state.channel = Some(*previous);
-                self.state.view = View::Channel;
-                self.state.focus = channel.return_to.focus;
+                self.state.domain.channel = Some(*previous);
+                self.state.ui.view = View::Channel;
+                self.state.ui.focus = channel.return_to.focus;
                 self.state.reset_list();
-                self.state.selected_index = channel.return_to.selected_index;
+                self.state.ui.selected_index = channel.return_to.selected_index;
                 return;
             }
-            self.state.view = channel.return_to.view;
-            self.state.focus = channel.return_to.focus;
+            self.state.ui.view = channel.return_to.view;
+            self.state.ui.focus = channel.return_to.focus;
             self.state.reset_list();
-            self.state.selected_index = channel.return_to.selected_index;
+            self.state.ui.selected_index = channel.return_to.selected_index;
         }
     }
 }

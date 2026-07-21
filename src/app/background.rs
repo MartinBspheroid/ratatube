@@ -18,7 +18,7 @@ impl App {
         action_tx: &mpsc::Sender<Action>,
     ) {
         let kind = classify_input(&query);
-        self.state.input_kind = Some(kind.clone());
+        self.state.domain.input_kind = Some(kind.clone());
         match kind {
             InputKind::Query(value) => {
                 let _ = action_tx
@@ -36,11 +36,11 @@ impl App {
                 let _ = action_tx
                     .send(Action::Playlists(PlaylistAction::StartImport(query)))
                     .await;
-                self.state.focus = Focus::Content;
+                self.state.ui.focus = Focus::Content;
             }
             InputKind::Mix(video_id) => {
                 self.state.notify("Loading mix...", false);
-                self.state.focus = Focus::Content;
+                self.state.ui.focus = Focus::Content;
                 let yt_dlp = self.yt_dlp.clone();
                 let tx = action_tx.clone();
                 let ticket = self.operations.start(OperationKind::Mix);

@@ -66,16 +66,16 @@ pub fn resolve_track_context(
     history: Option<&HistoryService>,
 ) -> Option<TrackContext> {
     let selected = selected_track_index(state)?;
-    let (track, source) = match state.view {
-        View::Search => match &state.search {
+    let (track, source) = match state.ui.view {
+        View::Search => match &state.domain.search {
             SearchState::Results { tracks, .. } => {
                 (tracks.get(selected)?.clone(), TrackSource::Search)
             }
             _ => return None,
         },
         View::Queue => {
-            let track_index = *state.queue.order.get(selected)?;
-            let track = state.queue.tracks.get(track_index)?.clone();
+            let track_index = *state.domain.queue.order.get(selected)?;
+            let track = state.domain.queue.tracks.get(track_index)?.clone();
             (
                 track,
                 TrackSource::Queue {
@@ -85,8 +85,9 @@ pub fn resolve_track_context(
         }
         View::PlaylistDetail => {
             let playlist = state
+                .ui
                 .selected_playlist
-                .and_then(|index| state.playlists.get(index))?;
+                .and_then(|index| state.domain.playlists.get(index))?;
             let track = Track::from(playlist.tracks.get(selected)?);
             (
                 track,
@@ -97,24 +98,24 @@ pub fn resolve_track_context(
             )
         }
         View::Channel => {
-            let track = state.channel.as_ref()?.tracks.get(selected)?.clone();
+            let track = state.domain.channel.as_ref()?.tracks.get(selected)?.clone();
             (track, TrackSource::Channel)
         }
         View::History => {
             let history = history?;
-            let track = match state.history_view_mode {
+            let track = match state.ui.history_view_mode {
                 HistoryViewMode::Recent => history.entries().get(selected)?.to_track(),
                 HistoryViewMode::Top => history.aggregate().get(selected)?.entry.to_track(),
             };
             (track, TrackSource::History)
         }
         View::NowPlaying
-            if state.playing_pane == crate::app::state::PlayingPane::Queue
-                && crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+            if state.ui.playing_pane == crate::app::state::PlayingPane::Queue
+                && crate::ui::layout::Breakpoint::from_width(state.ui.screen_area.width)
                     == crate::ui::layout::Breakpoint::UltraWide =>
         {
-            let track_index = *state.queue.order.get(selected)?;
-            let track = state.queue.tracks.get(track_index)?.clone();
+            let track_index = *state.domain.queue.order.get(selected)?;
+            let track = state.domain.queue.tracks.get(track_index)?.clone();
             (
                 track,
                 TrackSource::Queue {
@@ -122,8 +123,8 @@ pub fn resolve_track_context(
                 },
             )
         }
-        View::NowPlaying => (state.current_track.clone()?, TrackSource::Playing),
-        View::Home if state.home_section == HomeSection::Recent => {
+        View::NowPlaying => (state.domain.current_track.clone()?, TrackSource::Playing),
+        View::Home if state.ui.home_section == HomeSection::Recent => {
             let history = history?;
             let entry_index = *history.recent_unique_indices().get(selected)?;
             (
@@ -135,10 +136,10 @@ pub fn resolve_track_context(
     };
     let actions = resolve_actions(state, &track, &source);
     let collection_revision = match source {
-        TrackSource::Queue { .. } => Some(CollectionRevision::Queue(state.queue_revision)),
-        TrackSource::Playlist { .. } => {
-            Some(CollectionRevision::Playlists(state.playlists_revision))
-        }
+        TrackSource::Queue { .. } => Some(CollectionRevision::Queue(state.domain.queue_revision)),
+        TrackSource::Playlist { .. } => Some(CollectionRevision::Playlists(
+            state.domain.playlists_revision,
+        )),
         _ => None,
     };
     Some(TrackContext {
@@ -150,9 +151,9 @@ pub fn resolve_track_context(
 }
 
 fn selected_track_index(state: &AppState) -> Option<usize> {
-    match &state.visible_indices {
-        Some(indices) => indices.get(state.selected_index).copied(),
-        None => Some(state.selected_index),
+    match &state.ui.visible_indices {
+        Some(indices) => indices.get(state.ui.selected_index).copied(),
+        None => Some(state.ui.selected_index),
     }
 }
 
@@ -163,6 +164,7 @@ fn resolve_actions(
 ) -> Vec<TrackContextAction> {
     let mut actions = vec![TrackContextAction::PlayNow, TrackContextAction::PlayNext];
     if !state
+        .domain
         .queue
         .tracks
         .iter()
@@ -206,14 +208,15 @@ fn resolve_actions(
 pub(super) fn open_track_context(state: &mut AppState, history: Option<&HistoryService>) {
     match resolve_track_context(state, history) {
         Some(context) => {
-            state.track_context_generation = state.track_context_generation.wrapping_add(1).max(1);
-            state.track_context_menu = Some(crate::app::state::TrackContextMenuState {
+            state.ui.track_context_generation =
+                state.ui.track_context_generation.wrapping_add(1).max(1);
+            state.ui.track_context_menu = Some(crate::app::state::TrackContextMenuState {
                 context,
                 selected: 0,
             });
         }
         None => {
-            state.track_context_menu = None;
+            state.ui.track_context_menu = None;
             state.notify("No track selected", true);
         }
     }

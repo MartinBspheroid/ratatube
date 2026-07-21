@@ -22,7 +22,7 @@ pub fn playback_summary(
     icons: &Icons,
     theme: &Theme,
 ) {
-    let Some(track) = &state.current_track else {
+    let Some(track) = &state.domain.current_track else {
         frame.render_widget(
             Paragraph::new(Span::styled("Nothing is playing", theme.dim)),
             area,
@@ -36,10 +36,11 @@ pub fn playback_summary(
     let title = sanitize_terminal_text(&track.title);
     let channel = sanitize_terminal_text(&track.artist);
     let title_line = state
+        .domain
         .track_transition
         .progress(Instant::now())
         .and_then(|progress| {
-            state.queue.effective_next().map(|next| {
+            state.domain.queue.effective_next().map(|next| {
                 transition_line(
                     &title,
                     &sanitize_terminal_text(&next.title),
@@ -126,9 +127,9 @@ fn render_timeline(frame: &mut Frame, area: Rect, state: &AppState, theme: &Them
     if area.height < 2 {
         return;
     }
-    let duration = state.playback.duration_seconds.unwrap_or(0.0);
+    let duration = state.domain.playback.duration_seconds.unwrap_or(0.0);
     let ratio = if duration > 0.0 {
-        (state.playback.position_seconds / duration).clamp(0.0, 1.0)
+        (state.domain.playback.position_seconds / duration).clamp(0.0, 1.0)
     } else {
         0.0
     };
@@ -167,31 +168,32 @@ fn render_status(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icons,
             height: 1,
             ..area
         });
-    let position = state.playback.position_seconds;
+    let position = state.domain.playback.position_seconds;
     // Elapsed / total, matching the Quick Resume gauge; a right-hand value
     // after "/" always means the full track length.
     let time = format!(
         "{} / {}",
         crate::ui::widgets::format_time(position),
         state
+            .domain
             .playback
             .duration_seconds
             .map(crate::ui::widgets::format_time)
             .unwrap_or_else(|| "--:--".into())
     );
     frame.render_widget(Paragraph::new(Span::styled(time, theme.dim)), columns[0]);
-    let shuffle = if state.queue.shuffle {
+    let shuffle = if state.domain.queue.shuffle {
         theme.accent
     } else {
         theme.dim
     };
-    let repeat = if state.queue.repeat == RepeatMode::Off {
+    let repeat = if state.domain.queue.repeat == RepeatMode::Off {
         theme.dim
     } else {
         theme.accent
     };
     let gauge_width = 8usize;
-    let filled = usize::from(state.playback.volume.min(100)) * gauge_width / 100;
+    let filled = usize::from(state.domain.playback.volume.min(100)) * gauge_width / 100;
     let gauge = format!(
         "{}{}",
         icons.spectrum_ramp[3].repeat(filled),
@@ -203,7 +205,7 @@ fn render_status(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icons,
             Span::styled(format!("{}  ", icons.repeat), repeat),
             Span::styled(format!("{} ", icons.volume), theme.dim),
             Span::styled(gauge, theme.gauge_filled),
-            Span::styled(format!(" {}%", state.playback.volume), theme.dim),
+            Span::styled(format!(" {}%", state.domain.playback.volume), theme.dim),
         ]))
         .alignment(Alignment::Right),
         columns[1],

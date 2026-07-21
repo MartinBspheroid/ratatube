@@ -20,7 +20,7 @@ impl App {
         mut state: crate::app::state::AppState,
         picker: ratatui_image::picker::Picker,
     ) -> Self {
-        state.icon_mode = crate::ui::icons::resolve_icon_mode(config.ui.icons);
+        state.ui.icon_mode = crate::ui::icons::resolve_icon_mode(config.ui.icons);
         let yt_dlp = crate::media::yt_dlp::YtDlp::new(config.paths.yt_dlp.clone());
         let playlists = PlaylistService::new(paths.playlists_dir());
         let history = if config.history.enabled {
@@ -63,7 +63,7 @@ impl App {
     /// Load initial data (playlists) into state. Call before `run`.
     pub fn load_initial_data(&mut self) {
         match self.playlists.list() {
-            Ok(playlists) => self.state.playlists = playlists,
+            Ok(playlists) => self.state.domain.playlists = playlists,
             Err(err) => {
                 tracing::warn!(?err, "playlist listing failed");
                 self.state.notify("Could not load playlists", true);
@@ -82,7 +82,7 @@ impl App {
         .await?;
         self.mpv = Some(process);
         self.playback = Some(controller);
-        self.state.mpv_ready = true;
+        self.state.domain.mpv_ready = true;
         Ok(())
     }
 
@@ -104,7 +104,7 @@ impl App {
     /// Graceful shutdown: persist state and stop mpv (PRD section 14).
     pub async fn shutdown(&mut self) {
         self.capture_resume_point();
-        self.maybe_save_session(self.state.playback.position_seconds, true);
+        self.maybe_save_session(self.state.domain.playback.position_seconds, true);
         self.record_current(crate::history::model::PlaybackOutcome::Stopped);
         self.persist_queue();
         self.persist_history();

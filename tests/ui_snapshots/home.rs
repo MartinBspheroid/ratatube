@@ -16,8 +16,8 @@ fn home_shows_armed_resume_card() {
     let mut state = AppState::new();
     let mut track = Track::new("abc", "BBC Essential Mix", "Skee Mask");
     track.duration_seconds = Some(7115);
-    state.current_track = Some(track.clone());
-    state.pending_resume = Some(ytm_tui::app::state::PendingResume {
+    state.domain.current_track = Some(track.clone());
+    state.domain.pending_resume = Some(ytm_tui::app::state::PendingResume {
         track,
         position_seconds: 3731.0,
         armed: true,
@@ -43,15 +43,16 @@ fn home_hides_quick_resume_after_playback_has_moved_on() {
         ),
     ] {
         let mut state = AppState::new();
-        state.current_track = Some(current);
-        state.playback.status = status;
-        state.pending_resume = Some(ytm_tui::app::state::PendingResume {
+        state.domain.current_track = Some(current);
+        state.domain.playback.status = status;
+        state.domain.pending_resume = Some(ytm_tui::app::state::PendingResume {
             track: pending_track.clone(),
             position_seconds: 30.0,
             armed: true,
             play_on_load: false,
         });
         state
+            .domain
             .playlists
             .push(ytm_tui::playlists::Playlist::new("Kept dashboard"));
         let out = render_to_string(&mut state, None, 150, 40);
@@ -78,7 +79,7 @@ fn home_dashboard_exercises_all_four_breakpoints() {
         let mut state = AppState::new();
         let mut resume = Track::new("resume", "Resume width-safe", "Resume artist");
         resume.duration_seconds = Some(600);
-        state.pending_resume = Some(ytm_tui::app::state::PendingResume {
+        state.domain.pending_resume = Some(ytm_tui::app::state::PendingResume {
             track: resume,
             position_seconds: 120.0,
             armed: true,
@@ -88,7 +89,7 @@ fn home_dashboard_exercises_all_four_breakpoints() {
         playlist
             .tracks
             .push(ytm_tui::playlists::model::PlaylistTrack::from(&recent));
-        state.playlists.push(playlist);
+        state.domain.playlists.push(playlist);
         render_to_string(&mut state, Some(&history), width, height)
     };
 
@@ -116,9 +117,9 @@ fn home_dashboard_exercises_all_four_breakpoints() {
 #[test]
 fn home_playlist_tiles_page_with_semantic_chevrons() {
     let mut state = AppState::new();
-    state.home_section = ytm_tui::app::state::HomeSection::Playlists;
-    state.selected_index = 4;
-    state.playlists = (1..=5)
+    state.ui.home_section = ytm_tui::app::state::HomeSection::Playlists;
+    state.ui.selected_index = 4;
+    state.domain.playlists = (1..=5)
         .map(|index| ytm_tui::playlists::Playlist::new(format!("Paged playlist {index}")))
         .collect();
     let out = render_to_string(&mut state, None, 220, 48);
@@ -158,21 +159,23 @@ fn home_omits_activity_and_continue_listening_data() {
     let mut state = AppState::new();
     assert!(
         state
+            .domain
             .resume_points
             .record("continued", 60.0, 200.0, chrono::Utc::now())
     );
     assert!(
         state
+            .domain
             .resume_points
             .record("duplicate", 80.0, 300.0, chrono::Utc::now())
     );
-    state.pending_resume = Some(ytm_tui::app::state::PendingResume {
+    state.domain.pending_resume = Some(ytm_tui::app::state::PendingResume {
         track: duplicate,
         position_seconds: 80.0,
         armed: true,
         play_on_load: false,
     });
-    state.activity.push(ActivityEvent::new(
+    state.domain.activity.push(ActivityEvent::new(
         ActivityKind::Queued,
         "Queued truthfully",
         "Artist",

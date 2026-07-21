@@ -19,9 +19,9 @@ impl App {
             NavigationAction::OpenTrackContext => self.open_track_context(),
             NavigationAction::SubmitTrackContext => self.submit_track_context(action_tx).await,
             NavigationAction::OpenInBrowser => {
-                let track = match self.state.view {
+                let track = match self.state.ui.view {
                     View::Search => self.resolve_selected_track(),
-                    View::NowPlaying => self.state.current_track.clone(),
+                    View::NowPlaying => self.state.domain.current_track.clone(),
                     _ => None,
                 };
                 match track {
@@ -53,7 +53,13 @@ impl App {
                 ..
             } => self.finish_channel_page(&channel_url, page, result),
             NavigationAction::LoadMoreChannel | NavigationAction::RetryChannel => {
-                if let Some(page) = self.state.channel.as_ref().map(|channel| channel.next_page) {
+                if let Some(page) = self
+                    .state
+                    .domain
+                    .channel
+                    .as_ref()
+                    .map(|channel| channel.next_page)
+                {
                     self.spawn_channel_page(page, action_tx.clone());
                 }
             }
@@ -61,7 +67,7 @@ impl App {
             NavigationAction::SearchCompleted { .. } if self.autoplay_first_search => {
                 self.autoplay_first_search = false;
                 if self.state.active_list_len() > 0 {
-                    self.state.selected_index = 0;
+                    self.state.ui.selected_index = 0;
                     let _ = action_tx
                         .send(Action::Playback(PlaybackAction::PlaySelected))
                         .await;

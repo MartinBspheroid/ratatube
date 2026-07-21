@@ -3,8 +3,8 @@ use super::*;
 #[test]
 fn history_top_mode_shows_play_counts() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::History;
-    state.history_view_mode = ytm_tui::app::state::HistoryViewMode::Top;
+    state.ui.view = ytm_tui::app::state::View::History;
+    state.ui.history_view_mode = ytm_tui::app::state::HistoryViewMode::Top;
     let dir = tempfile::tempdir().expect("tempdir");
     let mut history = HistoryService::load(&dir.path().join("h.json"), 500).expect("load");
     for _ in 0..3 {
@@ -31,11 +31,17 @@ fn history_top_mode_shows_play_counts() {
 #[test]
 fn queue_filter_bar_narrows_list() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::Queue;
-    state.queue.push(Track::new("a", "ISS006", "Skee Mask"));
-    state.queue.push(Track::new("b", "Xtal", "Aphex Twin"));
-    state.list_filter = Some("skee".to_string());
-    state.visible_indices = Some(vec![0]);
+    state.ui.view = ytm_tui::app::state::View::Queue;
+    state
+        .domain
+        .queue
+        .push(Track::new("a", "ISS006", "Skee Mask"));
+    state
+        .domain
+        .queue
+        .push(Track::new("b", "Xtal", "Aphex Twin"));
+    state.ui.list_filter = Some("skee".to_string());
+    state.ui.visible_indices = Some(vec![0]);
     let out = render_to_string(&mut state, None, 100, 30);
     assert!(out.contains("/skee"), "filter bar:\n{out}");
     assert!(out.contains("1 of 2"), "match count:\n{out}");
@@ -46,12 +52,12 @@ fn queue_filter_bar_narrows_list() {
 #[test]
 fn playlist_picker_modal_renders() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::Search;
-    state.playlists = vec![
+    state.ui.view = ytm_tui::app::state::View::Search;
+    state.domain.playlists = vec![
         ytm_tui::playlists::Playlist::new("Techno Sets"),
         ytm_tui::playlists::Playlist::new("Ambient"),
     ];
-    state.picker = Some(ytm_tui::app::state::PickerState {
+    state.ui.picker = Some(ytm_tui::app::state::PickerState {
         track: Track::new("t", "Song", "Artist"),
         filter: "tech".to_string(),
         selected: 0,
@@ -72,8 +78,8 @@ fn playlist_picker_modal_renders() {
 #[test]
 fn playlist_json_prompt_explains_paste_and_submit() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::Playlists;
-    state.prompt = Some(ytm_tui::app::state::PromptState {
+    state.ui.view = ytm_tui::app::state::View::Playlists;
+    state.ui.prompt = Some(ytm_tui::app::state::PromptState {
         purpose: ytm_tui::app::state::PromptPurpose::ImportPlaylistJson,
         buffer: "{\n  \"version\": 1\n}".to_string(),
     });
@@ -88,7 +94,7 @@ fn playlist_json_prompt_explains_paste_and_submit() {
 #[test]
 fn playlist_editor_uses_stateful_table_inspector_and_edit_popup() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::PlaylistDetail;
+    state.ui.view = ytm_tui::app::state::View::PlaylistDetail;
     let mut playlist = ytm_tui::playlists::Playlist::new("Editable");
     playlist.description = "A useful description".to_string();
     playlist
@@ -105,9 +111,9 @@ fn playlist_editor_uses_stateful_table_inspector_and_edit_popup() {
             "Selected video",
             "Selected channel",
         )));
-    state.playlists.push(playlist);
-    state.selected_playlist = Some(0);
-    state.selected_index = 1;
+    state.domain.playlists.push(playlist);
+    state.ui.selected_playlist = Some(0);
+    state.ui.selected_index = 1;
 
     let browse = render_to_string(&mut state, None, 120, 32);
     assert!(
@@ -121,7 +127,7 @@ fn playlist_editor_uses_stateful_table_inspector_and_edit_popup() {
         "footer keeps the editor hints after the BROWSE MODE row removal:\n{browse}"
     );
 
-    state.playlist_editor = Some(ytm_tui::app::state::PlaylistEditorState {
+    state.ui.playlist_editor = Some(ytm_tui::app::state::PlaylistEditorState {
         name: "Edited name".to_string(),
         description: "Edited description".to_string(),
         field: ytm_tui::app::state::PlaylistEditorField::Name,
@@ -142,13 +148,13 @@ fn playlist_editor_uses_stateful_table_inspector_and_edit_popup() {
 #[test]
 fn visual_dump_help_and_modal() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::Help;
+    state.ui.view = ytm_tui::app::state::View::Help;
     let out = render_to_string(&mut state, None, 100, 34);
     println!("\n{out}");
     assert!(out.contains("Seek 5 seconds"));
 
     let mut state = AppState::new();
-    state.import = Some(ytm_tui::app::state::ImportState::Review {
+    state.domain.import = Some(ytm_tui::app::state::ImportState::Review {
         summary: ytm_tui::playlists::import::ImportSummary {
             remote_title: "Popular Music Videos".to_string(),
             remote_url: "https://...".to_string(),

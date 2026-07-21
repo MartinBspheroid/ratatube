@@ -177,7 +177,7 @@ async fn run_tui(paths: persistence::AppPaths, intent: Option<app::StartupIntent
         queue::Queue::default()
     });
     let mut state = app::state::AppState::new().with_queue(queue);
-    state.yt_dlp_ready = process::require(&config.paths.yt_dlp).is_ok();
+    state.domain.yt_dlp_ready = process::require(&config.paths.yt_dlp).is_ok();
 
     let mut app = app::App::new(config, paths, state, create_picker());
     app.set_startup_intent(intent);

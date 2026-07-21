@@ -19,23 +19,23 @@ pub(crate) enum ModalCapture {
 impl AppState {
     /// Return the topmost modal that captures keyboard, mouse, and paste input.
     pub(crate) fn modal_capture(&self) -> Option<ModalCapture> {
-        if self.track_context_menu.is_some() {
+        if self.ui.track_context_menu.is_some() {
             Some(ModalCapture::TrackContext)
-        } else if self.track_details_modal.is_some() {
+        } else if self.ui.track_details_modal.is_some() {
             Some(ModalCapture::TrackDetails)
-        } else if self.show_notification_log {
+        } else if self.ui.show_notification_log {
             Some(ModalCapture::NotificationLog)
-        } else if self.search_detail_open {
+        } else if self.ui.search_detail_open {
             Some(ModalCapture::SearchDetails)
-        } else if self.import.is_some() {
+        } else if self.domain.import.is_some() {
             Some(ModalCapture::Import)
-        } else if self.confirm.is_some() {
+        } else if self.ui.confirm.is_some() {
             Some(ModalCapture::Confirm)
-        } else if self.playlist_editor.is_some() {
+        } else if self.ui.playlist_editor.is_some() {
             Some(ModalCapture::PlaylistEditor)
-        } else if self.prompt.is_some() {
+        } else if self.ui.prompt.is_some() {
             Some(ModalCapture::Prompt)
-        } else if self.picker.is_some() {
+        } else if self.ui.picker.is_some() {
             Some(ModalCapture::Picker)
         } else {
             None
@@ -44,8 +44,8 @@ impl AppState {
 
     /// Replace any context menu with an add-to-playlist picker for `track`.
     pub(crate) fn show_playlist_picker(&mut self, track: crate::media::Track) {
-        self.track_context_menu = None;
-        self.picker = Some(PickerState {
+        self.ui.track_context_menu = None;
+        self.ui.picker = Some(PickerState {
             track,
             filter: String::new(),
             selected: 0,
@@ -55,16 +55,17 @@ impl AppState {
     /// Replace any context menu with stable details for `track`.
     pub(crate) fn show_track_details(&mut self, track: crate::media::Track) {
         let details = if self
+            .domain
             .current_track
             .as_ref()
             .is_some_and(|current| current.id == track.id)
         {
-            self.current_details.clone()
+            self.domain.current_details.clone()
         } else {
             None
         };
-        self.track_context_menu = None;
-        self.track_details_modal = Some(TrackDetailsModalState { track, details });
+        self.ui.track_context_menu = None;
+        self.ui.track_details_modal = Some(TrackDetailsModalState { track, details });
     }
 }
 

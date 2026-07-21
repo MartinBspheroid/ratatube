@@ -32,11 +32,17 @@ pub struct TrackFlags {
 pub fn track_flags(state: &AppState, track_id: &str) -> TrackFlags {
     TrackFlags {
         playing: state
+            .domain
             .current_track
             .as_ref()
             .is_some_and(|current| current.id == track_id),
-        queued: state.queue.tracks.iter().any(|track| track.id == track_id),
-        in_playlist: state.playlists.iter().any(|playlist| {
+        queued: state
+            .domain
+            .queue
+            .tracks
+            .iter()
+            .any(|track| track.id == track_id),
+        in_playlist: state.domain.playlists.iter().any(|playlist| {
             playlist
                 .tracks
                 .iter()

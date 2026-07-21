@@ -9,15 +9,15 @@ impl App {
     pub(super) fn handle_history_service(&mut self, action: HistoryAction) {
         match action {
             HistoryAction::DeleteSelectedHistoryEntry => {
-                if self.state.history_view_mode != HistoryViewMode::Recent {
+                if self.state.ui.history_view_mode != HistoryViewMode::Recent {
                     self.state
                         .notify("Switch to recent (g) to delete entries", false);
                     return;
                 }
-                let index = self.state.resolve_index(self.state.selected_index);
+                let index = self.state.resolve_index(self.state.ui.selected_index);
                 if let Some(history) = self.history.as_mut() {
                     history.remove(index);
-                    self.state.history_len = history.recent_unique_indices().len();
+                    self.state.ui.history_len = history.recent_unique_indices().len();
                     self.state.clamp_selection();
                 }
                 self.list_revision = self.list_revision.wrapping_add(1);

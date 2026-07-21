@@ -10,10 +10,10 @@ use crate::queue::PreviousOutcome;
 pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect> {
     match Action::Playback(action) {
         Action::Playback(PlaybackAction::PlayTrack(track)) => {
-            state.queue.push(track);
+            state.domain.queue.push(track);
             state.bump_queue_revision();
-            let pos = state.queue.order.len() - 1;
-            state.queue.position = Some(pos);
+            let pos = state.domain.queue.order.len() - 1;
+            state.domain.queue.position = Some(pos);
             return vec![
                 Effect::ResolveAndPlay {
                     track_index_in_queue: pos,
@@ -25,6 +25,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
         Action::Playback(PlaybackAction::ResumeTrack { .. }) => {}
         Action::Playback(PlaybackAction::SessionStreamResolved { track_id, .. }) => {
             if state
+                .domain
                 .pending_resume
                 .as_ref()
                 .is_some_and(|pending| pending.track.id == track_id)
@@ -33,15 +34,15 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
             }
         }
         Action::Playback(PlaybackAction::PlaySelected) => {
-            if matches!(state.view, View::Queue)
-                || (state.view == View::NowPlaying
-                    && state.playing_pane == PlayingPane::Queue
-                    && crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+            if matches!(state.ui.view, View::Queue)
+                || (state.ui.view == View::NowPlaying
+                    && state.ui.playing_pane == PlayingPane::Queue
+                    && crate::ui::layout::Breakpoint::from_width(state.ui.screen_area.width)
                         == crate::ui::layout::Breakpoint::UltraWide)
             {
-                let position = state.resolve_index(state.selected_index);
-                if position < state.queue.order.len() {
-                    state.queue.position = Some(position);
+                let position = state.resolve_index(state.ui.selected_index);
+                if position < state.domain.queue.order.len() {
+                    state.domain.queue.position = Some(position);
                     return vec![
                         Effect::ResolveAndPlay {
                             track_index_in_queue: position,
@@ -56,8 +57,8 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
             }
         }
         Action::Playback(PlaybackAction::NextTrack) => {
-            if state.queue.advance().is_some() {
-                let pos = state.queue.position.unwrap_or(0);
+            if state.domain.queue.advance().is_some() {
+                let pos = state.domain.queue.position.unwrap_or(0);
                 return vec![
                     Effect::ResolveAndPlay {
                         track_index_in_queue: pos,
@@ -67,11 +68,11 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
             }
         }
         Action::Playback(PlaybackAction::PreviousTrack) => {
-            let position = state.playback.position_seconds as u64;
-            match state.queue.previous(position, 5) {
+            let position = state.domain.playback.position_seconds as u64;
+            match state.domain.queue.previous(position, 5) {
                 PreviousOutcome::RestartCurrent => return vec![Effect::SeekTo(0.0)],
                 PreviousOutcome::PlayPrevious => {
-                    let pos = state.queue.position.unwrap_or(0);
+                    let pos = state.domain.queue.position.unwrap_or(0);
                     return vec![
                         Effect::ResolveAndPlay {
                             track_index_in_queue: pos,
@@ -82,7 +83,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
             }
         }
         Action::Playback(PlaybackAction::PlaybackResolveStarted { operation_id, .. }) => {
-            state.playback_resolution = OperationStatus::Loading { operation_id };
+            state.domain.playback_resolution = OperationStatus::Loading { operation_id };
         }
         Action::Playback(PlaybackAction::PlaybackResolved {
             operation_id,
@@ -91,25 +92,26 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
             ..
         }) => {
             if !matches!(
-                state.playback_resolution,
+                state.domain.playback_resolution,
                 OperationStatus::Loading { operation_id: active } if active == operation_id
             ) {
                 return Vec::new();
             }
             let track = state
+                .domain
                 .queue
                 .order
                 .get(queue_position)
-                .and_then(|index| state.queue.tracks.get(*index))
+                .and_then(|index| state.domain.queue.tracks.get(*index))
                 .filter(|track| track.id == track_id)
                 .cloned();
             if let Some(track) = track {
                 state.begin_playback_occurrence();
-                state.current_track = Some(track);
-                state.current_details = None;
-                state.thumbnail = None;
-                state.now_playing_scroll = 0;
-                state.playback_resolution = OperationStatus::Idle;
+                state.domain.current_track = Some(track);
+                state.domain.current_details = None;
+                state.ui.thumbnail = None;
+                state.ui.now_playing_scroll = 0;
+                state.domain.playback_resolution = OperationStatus::Idle;
             }
         }
         Action::Playback(PlaybackAction::PlaybackResolveFailed {
@@ -118,12 +120,12 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
             ..
         }) => {
             if !matches!(
-                state.playback_resolution,
+                state.domain.playback_resolution,
                 OperationStatus::Loading { operation_id: active } if active == operation_id
             ) {
                 return Vec::new();
             }
-            state.playback_resolution = OperationStatus::Failed {
+            state.domain.playback_resolution = OperationStatus::Failed {
                 message: message.clone(),
             };
             state.notify(&format!("Playback unavailable: {message}"), true);
@@ -136,34 +138,38 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
 /// Track selected in the active view, if the view lists tracks. The
 /// selection index maps through the in-list filter when one is active.
 fn selected_track(state: &AppState) -> Option<crate::media::Track> {
-    let index = state.resolve_index(state.selected_index);
-    match state.view {
-        View::Search => match &state.search {
+    let index = state.resolve_index(state.ui.selected_index);
+    match state.ui.view {
+        View::Search => match &state.domain.search {
             SearchState::Results { tracks, .. } => tracks.get(index).cloned(),
             _ => None,
         },
         View::Queue => state
+            .domain
             .queue
             .order
             .get(index)
-            .map(|&i| state.queue.tracks[i].clone()),
+            .map(|&i| state.domain.queue.tracks[i].clone()),
         View::NowPlaying
-            if state.playing_pane == PlayingPane::Queue
-                && crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+            if state.ui.playing_pane == PlayingPane::Queue
+                && crate::ui::layout::Breakpoint::from_width(state.ui.screen_area.width)
                     == crate::ui::layout::Breakpoint::UltraWide =>
         {
             state
+                .domain
                 .queue
                 .order
                 .get(index)
-                .map(|&i| state.queue.tracks[i].clone())
+                .map(|&i| state.domain.queue.tracks[i].clone())
         }
         View::PlaylistDetail => state
+            .ui
             .selected_playlist
-            .and_then(|i| state.playlists.get(i))
+            .and_then(|i| state.domain.playlists.get(i))
             .and_then(|p| p.tracks.get(index))
             .map(crate::media::Track::from),
         View::Channel => state
+            .domain
             .channel
             .as_ref()
             .and_then(|channel| channel.tracks.get(index))

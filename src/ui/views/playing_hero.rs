@@ -48,7 +48,7 @@ pub(super) fn render_hero(
 }
 
 fn render_art(frame: &mut Frame, area: Rect, state: &mut AppState, icons: &Icons, theme: &Theme) {
-    if let Some(protocol) = state.thumbnail.as_mut() {
+    if let Some(protocol) = state.ui.thumbnail.as_mut() {
         let image =
             ratatui_image::StatefulImage::<ratatui_image::protocol::StatefulProtocol>::new();
         frame.render_stateful_widget(image, area, protocol);
@@ -72,7 +72,7 @@ fn render_track_info(
     track: &crate::media::Track,
     theme: &Theme,
 ) {
-    let details = state.current_details.as_ref();
+    let details = state.domain.current_details.as_ref();
     let width = area.width as usize;
     let mut lines = vec![
         Line::from(Span::styled(
@@ -143,7 +143,7 @@ fn render_metadata(
     theme: &Theme,
 ) {
     let inner = section_panel(frame, area, "Metadata", false, theme, icons);
-    let details = state.current_details.as_ref();
+    let details = state.domain.current_details.as_ref();
     let mut pairs = vec![
         ("SOURCE".to_string(), "YouTube".to_string()),
         (

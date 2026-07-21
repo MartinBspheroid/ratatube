@@ -15,25 +15,25 @@ struct EmptyFilterCase {
 #[test]
 fn filtered_track_views_do_not_resolve_when_no_rows_are_visible() {
     let mut queue = AppState::new();
-    queue.view = View::Queue;
-    queue.queue.push(track("queue", "Queue track"));
+    queue.ui.view = View::Queue;
+    queue.domain.queue.push(track("queue", "Queue track"));
 
     let mut playlist = Playlist::new("Filtered playlist");
     playlist
         .tracks
         .push(PlaylistTrack::from(&track("playlist", "Playlist track")));
     let mut playlist_detail = AppState::new();
-    playlist_detail.view = View::PlaylistDetail;
-    playlist_detail.playlists.push(playlist);
-    playlist_detail.selected_playlist = Some(0);
+    playlist_detail.ui.view = View::PlaylistDetail;
+    playlist_detail.domain.playlists.push(playlist);
+    playlist_detail.ui.selected_playlist = Some(0);
 
     let mut history_recent = AppState::new();
-    history_recent.view = View::History;
-    history_recent.history_view_mode = HistoryViewMode::Recent;
+    history_recent.ui.view = View::History;
+    history_recent.ui.history_view_mode = HistoryViewMode::Recent;
 
     let mut history_top = AppState::new();
-    history_top.view = View::History;
-    history_top.history_view_mode = HistoryViewMode::Top;
+    history_top.ui.view = View::History;
+    history_top.ui.history_view_mode = HistoryViewMode::Top;
 
     for case in [
         EmptyFilterCase {
@@ -58,7 +58,7 @@ fn filtered_track_views_do_not_resolve_when_no_rows_are_visible() {
         },
     ] {
         let mut state = case.state;
-        state.visible_indices = Some(Vec::new());
+        state.ui.visible_indices = Some(Vec::new());
 
         assert!(
             resolve_track_context(&state, case.history.as_ref()).is_none(),
@@ -71,11 +71,14 @@ fn filtered_track_views_do_not_resolve_when_no_rows_are_visible() {
 #[test]
 fn resolver_does_not_fallback_when_selected_visible_row_is_absent() {
     let mut state = AppState::new();
-    state.view = View::Queue;
-    state.queue.push(track("queue", "Queue track"));
-    state.queue.push(track("hidden", "Hidden queue track"));
-    state.selected_index = 1;
-    state.visible_indices = Some(vec![0]);
+    state.ui.view = View::Queue;
+    state.domain.queue.push(track("queue", "Queue track"));
+    state
+        .domain
+        .queue
+        .push(track("hidden", "Hidden queue track"));
+    state.ui.selected_index = 1;
+    state.ui.visible_indices = Some(vec![0]);
 
     assert!(resolve_track_context(&state, None).is_none());
 }
@@ -83,14 +86,14 @@ fn resolver_does_not_fallback_when_selected_visible_row_is_absent() {
 #[test]
 fn opening_a_zero_match_filter_reports_no_track_and_keeps_modal_absent() {
     let mut state = AppState::new();
-    state.view = View::Queue;
-    state.queue.push(track("queue", "Queue track"));
-    state.visible_indices = Some(Vec::new());
+    state.ui.view = View::Queue;
+    state.domain.queue.push(track("queue", "Queue track"));
+    state.ui.visible_indices = Some(Vec::new());
 
     open_track_context(&mut state, None);
 
-    assert!(state.track_context_menu.is_none());
-    let notification = state.notification.expect("notification");
+    assert!(state.ui.track_context_menu.is_none());
+    let notification = state.ui.notification.expect("notification");
     assert_eq!(notification.message, "No track selected");
     assert!(notification.is_error);
 }

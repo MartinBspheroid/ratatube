@@ -8,14 +8,14 @@ use crate::app::state::AppState;
 pub(super) fn reduce(state: &mut AppState, action: HistoryAction) -> Vec<Effect> {
     match Action::History(action) {
         Action::History(HistoryAction::ClearActivity) => {
-            state.activity.clear();
+            state.domain.activity.clear();
             return vec![Effect::PersistSession];
         }
         Action::History(HistoryAction::ToggleNotificationLog) => {
-            state.show_notification_log = !state.show_notification_log;
+            state.ui.show_notification_log = !state.ui.show_notification_log;
         }
         Action::History(HistoryAction::ToggleHistoryViewMode) => {
-            state.history_view_mode = match state.history_view_mode {
+            state.ui.history_view_mode = match state.ui.history_view_mode {
                 crate::app::state::HistoryViewMode::Recent => {
                     crate::app::state::HistoryViewMode::Top
                 }
@@ -23,11 +23,11 @@ pub(super) fn reduce(state: &mut AppState, action: HistoryAction) -> Vec<Effect>
                     crate::app::state::HistoryViewMode::Recent
                 }
             };
-            state.selected_index = 0;
+            state.ui.selected_index = 0;
             state.reset_list();
         }
         Action::History(HistoryAction::ClearHistory) => {
-            state.confirm = Some(crate::app::state::ConfirmState {
+            state.ui.confirm = Some(crate::app::state::ConfirmState {
                 message: "Clear all playback history? (y/n)".to_string(),
                 action: Box::new(Action::History(HistoryAction::ClearHistoryConfirmed)),
             });
@@ -36,7 +36,7 @@ pub(super) fn reduce(state: &mut AppState, action: HistoryAction) -> Vec<Effect>
         // --- Modal UI ----------------------------------------------------
         // --- Notifications -------------------------------------------------
         Action::History(HistoryAction::Notify(message)) => state.notify(&message, false),
-        Action::History(HistoryAction::DismissNotification) => state.notification = None,
+        Action::History(HistoryAction::DismissNotification) => state.ui.notification = None,
         _ => {}
     }
     Vec::new()

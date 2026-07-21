@@ -14,7 +14,7 @@ pub(super) fn render_playlists(
     icons: &Icons,
     theme: &Theme,
 ) {
-    if state.playlists.is_empty() {
+    if state.domain.playlists.is_empty() {
         render_empty(frame, area, icons, theme);
         return;
     }
@@ -59,7 +59,7 @@ fn render_master(
     icons: &Icons,
     theme: &Theme,
 ) {
-    let total = state.playlists.len();
+    let total = state.domain.playlists.len();
     let inner = section_panel(
         frame,
         area,
@@ -69,11 +69,11 @@ fn render_master(
         icons,
     );
     let inner = render_filter_bar(frame, inner, state, total, icons, theme);
-    let selected = state.resolve_index(state.selected_index);
+    let selected = state.resolve_index(state.ui.selected_index);
     let items = visible_positions(state, total)
         .into_iter()
         .filter_map(|index| {
-            let playlist = state.playlists.get(index)?;
+            let playlist = state.domain.playlists.get(index)?;
             let count = format!("{} tracks", playlist.tracks.len());
             Some(ListItem::new(numbered_row(
                 NumberedRow {
@@ -89,16 +89,17 @@ fn render_master(
             )))
         })
         .collect::<Vec<_>>();
-    state.list_state.select(Some(state.selected_index));
-    state.list_hit_area = inner;
-    frame.render_stateful_widget(List::new(items), inner, &mut state.list_state);
-    scrollbar(frame, inner, total, state.list_state.offset());
+    state.ui.list_state.select(Some(state.ui.selected_index));
+    state.ui.list_hit_area = inner;
+    frame.render_stateful_widget(List::new(items), inner, &mut state.ui.list_state);
+    scrollbar(frame, inner, total, state.ui.list_state.offset());
 }
 
 fn render_selected(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icons, theme: &Theme) {
     let Some(playlist) = state
+        .domain
         .playlists
-        .get(state.resolve_index(state.selected_index))
+        .get(state.resolve_index(state.ui.selected_index))
     else {
         return;
     };
@@ -207,8 +208,9 @@ pub(super) fn render_playlist_detail(
     theme: &Theme,
 ) {
     let Some(playlist) = state
+        .ui
         .selected_playlist
-        .and_then(|index| state.playlists.get(index))
+        .and_then(|index| state.domain.playlists.get(index))
         .cloned()
     else {
         section_panel(frame, area, "Playlist", true, theme, icons);
@@ -259,20 +261,27 @@ pub(super) fn render_playlist_detail(
         .header(header_row("LENGTH", theme))
         .row_highlight_style(theme.selected)
         .highlight_symbol(icons.chevron_r);
-    state.table_state.select(Some(state.selected_index));
-    state.list_hit_area = Rect {
+    state.ui.table_state.select(Some(state.ui.selected_index));
+    state.ui.list_hit_area = Rect {
         y: panes[0].y + 2,
         height: panes[0].height.saturating_sub(2),
         ..panes[0]
     };
-    frame.render_stateful_widget(table, panes[0], &mut state.table_state);
+    frame.render_stateful_widget(table, panes[0], &mut state.ui.table_state);
     scrollbar(
         frame,
         panes[0],
         playlist.tracks.len(),
-        state.table_state.offset(),
+        state.ui.table_state.offset(),
     );
-    render_inspector(frame, &panes, &playlist, state.selected_index, theme, icons);
+    render_inspector(
+        frame,
+        &panes,
+        &playlist,
+        state.ui.selected_index,
+        theme,
+        icons,
+    );
 }
 
 fn render_inspector(

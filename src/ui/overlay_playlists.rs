@@ -14,7 +14,7 @@ pub(super) fn render(
     icon_set: &icons::Icons,
     theme: &theme::Theme,
 ) -> bool {
-    if let Some(prompt) = &state.prompt {
+    if let Some(prompt) = &state.ui.prompt {
         let title = match prompt.purpose {
             PromptPurpose::SaveQueueAsPlaylist => "Save queue as playlist",
             PromptPurpose::RenamePlaylist => "Rename playlist",
@@ -51,15 +51,15 @@ pub(super) fn render(
         }
         return true;
     }
-    if let Some(editor) = &state.playlist_editor {
+    if let Some(editor) = &state.ui.playlist_editor {
         render_editor(frame, area, editor, theme);
         return true;
     }
-    if let Some(picker) = &state.picker {
+    if let Some(picker) = &state.ui.picker {
         render_picker(frame, area, state, picker, icon_set, theme);
         return true;
     }
-    if let Some(confirm) = &state.confirm {
+    if let Some(confirm) = &state.ui.confirm {
         let confirm_area = centered_rect(area, 50, 5);
         frame.render_widget(Clear, confirm_area);
         frame.render_widget(
@@ -143,7 +143,7 @@ fn render_picker(
     theme: &theme::Theme,
 ) {
     let (create_new, matching) =
-        crate::app::filter::picker_candidates(&state.playlists, &picker.filter);
+        crate::app::filter::picker_candidates(&state.domain.playlists, &picker.filter);
     let mut lines: Vec<Line> = vec![Line::from(vec![
         Span::styled("> ", theme.accent),
         Span::raw(icons::sanitize_terminal_text(&picker.filter)),
@@ -174,7 +174,7 @@ fn render_picker(
         row += 1;
     }
     for &index in matching.iter().take(9) {
-        if let Some(playlist) = state.playlists.get(index) {
+        if let Some(playlist) = state.domain.playlists.get(index) {
             push_candidate(
                 vec![
                     Span::styled(icons::sanitize_terminal_text(&playlist.name), theme.base),

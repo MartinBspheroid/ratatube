@@ -142,8 +142,8 @@ async fn direct_browser_action_completes_through_background_action() {
     let (_temp, mut app) = test_app();
     let mut track = Track::new("unsafe", "Unsafe", "Artist");
     track.webpage_url = "file:///tmp/not-a-video".to_string();
-    app.state.view = View::Search;
-    app.state.search = crate::media::search::SearchState::Results {
+    app.state.ui.view = View::Search;
+    app.state.domain.search = crate::media::search::SearchState::Results {
         query: "unsafe".to_string(),
         tracks: vec![track],
     };
@@ -155,7 +155,7 @@ async fn direct_browser_action_completes_through_background_action() {
     )
     .await;
 
-    assert!(app.state.notification.is_none());
+    assert!(app.state.ui.notification.is_none());
     let completion = tokio::time::timeout(Duration::from_millis(200), action_rx.recv())
         .await
         .expect("background browser completion timed out")
@@ -172,6 +172,7 @@ async fn direct_browser_action_completes_through_background_action() {
     app.handle_action(completion, &action_tx).await;
     assert!(
         app.state
+            .ui
             .notification
             .as_ref()
             .is_some_and(|notification| notification.is_error)

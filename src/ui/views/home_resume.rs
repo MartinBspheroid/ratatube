@@ -16,12 +16,12 @@ pub(super) fn render_resume(
         frame,
         area,
         "Quick Resume",
-        state.home_section == HomeSection::Resume,
+        state.ui.home_section == HomeSection::Resume,
         None,
         icons,
         theme,
     );
-    let Some(pending) = state.pending_resume.clone() else {
+    let Some(pending) = state.domain.pending_resume.clone() else {
         frame.render_widget(
             Paragraph::new(Span::styled("Nothing to resume yet", theme.dim)),
             inner,
@@ -115,9 +115,13 @@ fn render_resume_art(
     icons: &Icons,
     theme: &Theme,
 ) {
-    let cached_for_track = state.current_track.as_ref().map(|track| track.id.as_str())
+    let cached_for_track = state
+        .domain
+        .current_track
+        .as_ref()
+        .map(|track| track.id.as_str())
         == Some(pending.track.id.as_str());
-    if cached_for_track && let Some(protocol) = state.thumbnail.as_mut() {
+    if cached_for_track && let Some(protocol) = state.ui.thumbnail.as_mut() {
         let image =
             ratatui_image::StatefulImage::<ratatui_image::protocol::StatefulProtocol>::new();
         frame.render_stateful_widget(image, area, protocol);

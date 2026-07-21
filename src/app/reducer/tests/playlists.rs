@@ -26,7 +26,7 @@ fn superseded_import_completion_is_discarded() {
     );
 
     assert!(matches!(
-        state.import,
+        state.domain.import,
         Some(crate::app::state::ImportState::Fetching {
             operation_id,
             ..
@@ -56,7 +56,7 @@ fn current_import_failure_has_a_terminal_error_state() {
     );
 
     assert!(matches!(
-        state.import,
+        state.domain.import,
         Some(crate::app::state::ImportState::Failed { ref message, .. }) if message == "offline"
     ));
 }
@@ -79,7 +79,11 @@ fn prompt_paste_keeps_multiline_json_as_one_input() {
     );
 
     assert_eq!(
-        state.prompt.as_ref().map(|prompt| prompt.buffer.as_str()),
+        state
+            .ui
+            .prompt
+            .as_ref()
+            .map(|prompt| prompt.buffer.as_str()),
         Some("{\n  \"version\": 1\n}")
     );
 }
@@ -89,9 +93,9 @@ fn playlist_editor_copies_metadata_and_switches_fields() {
     let mut state = AppState::new();
     let mut playlist = crate::playlists::Playlist::new("Original");
     playlist.description = "Existing description".to_string();
-    state.playlists.push(playlist);
-    state.selected_playlist = Some(0);
-    state.view = View::PlaylistDetail;
+    state.domain.playlists.push(playlist);
+    state.ui.selected_playlist = Some(0);
+    state.ui.view = View::PlaylistDetail;
 
     reduce(
         &mut state,
@@ -99,6 +103,7 @@ fn playlist_editor_copies_metadata_and_switches_fields() {
     );
     assert_eq!(
         state
+            .ui
             .playlist_editor
             .as_ref()
             .map(|editor| editor.name.as_str()),
@@ -114,7 +119,7 @@ fn playlist_editor_copies_metadata_and_switches_fields() {
         Action::Playlists(PlaylistAction::PlaylistEditorInput('!')),
     );
 
-    let editor = state.playlist_editor.as_ref().expect("editor open");
+    let editor = state.ui.playlist_editor.as_ref().expect("editor open");
     assert_eq!(
         editor.field,
         crate::app::state::PlaylistEditorField::Description

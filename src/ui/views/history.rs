@@ -19,10 +19,10 @@ pub(super) fn render_history(
     let recent_indices = history
         .map(HistoryService::recent_unique_indices)
         .unwrap_or_default();
-    let top = (state.history_view_mode == HistoryViewMode::Top)
+    let top = (state.ui.history_view_mode == HistoryViewMode::Top)
         .then(|| history.map(HistoryService::aggregate).unwrap_or_default());
     let total = top.map_or(recent_indices.len(), <[_]>::len);
-    let mode = match state.history_view_mode {
+    let mode = match state.ui.history_view_mode {
         HistoryViewMode::Recent => "recent",
         HistoryViewMode::Top => "top",
     };
@@ -44,7 +44,7 @@ pub(super) fn render_history(
     }
 
     let inner = render_filter_bar(frame, inner, state, total, icons, theme);
-    let (right_header, rows) = match state.history_view_mode {
+    let (right_header, rows) = match state.ui.history_view_mode {
         HistoryViewMode::Recent => (
             "LISTENED",
             recent_rows(state, entries, &recent_indices, inner.width, icons, theme),
@@ -59,14 +59,14 @@ pub(super) fn render_history(
         .header(header_row(right_header, theme))
         .row_highlight_style(theme.selected)
         .highlight_symbol(icons.chevron_r);
-    state.table_state.select(Some(state.selected_index));
-    state.list_hit_area = Rect {
+    state.ui.table_state.select(Some(state.ui.selected_index));
+    state.ui.list_hit_area = Rect {
         y: inner.y + 2,
         height: inner.height.saturating_sub(2),
         ..inner
     };
-    frame.render_stateful_widget(table, inner, &mut state.table_state);
-    scrollbar(frame, inner, visible_total, state.table_state.offset());
+    frame.render_stateful_widget(table, inner, &mut state.ui.table_state);
+    scrollbar(frame, inner, visible_total, state.ui.table_state.offset());
 }
 
 /// Human wording for a playback outcome (never Debug formatting).
@@ -81,7 +81,7 @@ fn outcome_label(outcome: crate::history::model::PlaybackOutcome) -> &'static st
 
 /// Recent rows carry `outcome · time`; Top rows carry play statistics.
 fn history_layout(state: &AppState, width: u16) -> TrackTableLayout {
-    let right_width = match state.history_view_mode {
+    let right_width = match state.ui.history_view_mode {
         HistoryViewMode::Recent => 20,
         HistoryViewMode::Top => 34,
     };
@@ -98,6 +98,7 @@ fn recent_rows(
 ) -> Vec<ratatui::widgets::Row<'static>> {
     let layout = history_layout(state, width);
     let indices = state
+        .ui
         .visible_indices
         .as_deref()
         .unwrap_or(recent_indices)

@@ -18,7 +18,7 @@ impl App {
     /// Execute or dispatch the stable operation selected in the open menu.
     pub(super) async fn submit_track_context(&mut self, action_tx: &mpsc::Sender<Action>) {
         let Some((action, track, collection_revision)) =
-            self.state.track_context_menu.as_ref().and_then(|menu| {
+            self.state.ui.track_context_menu.as_ref().and_then(|menu| {
                 let action = menu.context.actions.get(menu.selected)?.clone();
                 Some((
                     action,
@@ -34,7 +34,7 @@ impl App {
                 ExternalCommandKind::Browser,
                 ExternalCommandTarget::TrackContext {
                     track_id: track.id,
-                    generation: self.state.track_context_generation,
+                    generation: self.state.ui.track_context_generation,
                 },
                 track.webpage_url,
                 action_tx.clone(),
@@ -44,7 +44,7 @@ impl App {
                     ExternalCommandKind::Clipboard,
                     ExternalCommandTarget::TrackContext {
                         track_id: track.id,
-                        generation: self.state.track_context_generation,
+                        generation: self.state.ui.track_context_generation,
                     },
                     track.webpage_url,
                     action_tx.clone(),
@@ -98,7 +98,7 @@ impl App {
                         unreachable!("process operations handled above")
                     }
                 };
-                self.state.track_context_menu = None;
+                self.state.ui.track_context_menu = None;
                 if matches!(
                     dispatched,
                     Action::Playlists(PlaylistAction::OpenPlaylistPickerForTrack(_))

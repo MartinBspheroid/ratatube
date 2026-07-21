@@ -148,8 +148,8 @@ mod tests {
     fn active_tab_highlight_includes_one_cell_of_side_padding() {
         let mut terminal = Terminal::new(TestBackend::new(100, 1)).expect("terminal");
         let mut state = AppState::new();
-        state.mpv_ready = true;
-        state.yt_dlp_ready = true;
+        state.domain.mpv_ready = true;
+        state.domain.yt_dlp_ready = true;
         let icons = icons_for(IconMode::Ascii);
         let theme = Theme::from_truecolor(false);
         terminal

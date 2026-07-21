@@ -21,7 +21,7 @@ pub(super) fn open_menu_for_action(app: &mut crate::app::App, action: TrackConte
         .iter()
         .position(|candidate| candidate == &action)
         .expect("action available");
-    app.state.track_context_menu = Some(TrackContextMenuState { context, selected });
+    app.state.ui.track_context_menu = Some(TrackContextMenuState { context, selected });
 }
 
 async fn submit(app: &mut crate::app::App) -> (mpsc::Sender<Action>, mpsc::Receiver<Action>) {
@@ -51,8 +51,8 @@ async fn track_context_menu_dispatches_typed_actions_with_the_resolved_track() {
     ] {
         let (_temp, mut app) = test_app();
         let selected = track("typed", "Typed track");
-        app.state.view = View::Search;
-        app.state.search = SearchState::Results {
+        app.state.ui.view = View::Search;
+        app.state.domain.search = SearchState::Results {
             query: "typed".to_string(),
             tracks: vec![selected],
         };
@@ -77,7 +77,7 @@ async fn track_context_menu_dispatches_typed_actions_with_the_resolved_track() {
             ) => assert_eq!(track.id, "typed"),
             (expected, actual) => panic!("{expected:?} dispatched unexpected action: {actual:?}"),
         }
-        assert!(app.state.track_context_menu.is_none());
+        assert!(app.state.ui.track_context_menu.is_none());
     }
 }
 
@@ -89,8 +89,8 @@ async fn track_context_menu_dispatches_exact_modal_transition_per_action() {
     ] {
         let (_temp, mut app) = test_app();
         let selected = track("typed", "Typed track");
-        app.state.view = View::Search;
-        app.state.search = SearchState::Results {
+        app.state.ui.view = View::Search;
+        app.state.domain.search = SearchState::Results {
             query: "typed".to_string(),
             tracks: vec![selected],
         };
@@ -103,26 +103,28 @@ async fn track_context_menu_dispatches_exact_modal_transition_per_action() {
             TrackContextAction::AddToPlaylist => {
                 assert_eq!(
                     app.state
+                        .ui
                         .picker
                         .as_ref()
                         .map(|picker| picker.track.id.as_str()),
                     Some("typed")
                 );
-                assert!(app.state.track_details_modal.is_none());
+                assert!(app.state.ui.track_details_modal.is_none());
             }
             TrackContextAction::ShowDetails => {
                 assert_eq!(
                     app.state
+                        .ui
                         .track_details_modal
                         .as_ref()
                         .map(|modal| modal.track.id.as_str()),
                     Some("typed")
                 );
-                assert!(app.state.picker.is_none());
+                assert!(app.state.ui.picker.is_none());
             }
             _ => unreachable!(),
         }
-        assert!(app.state.track_context_menu.is_none());
+        assert!(app.state.ui.track_context_menu.is_none());
     }
 }
 
@@ -138,8 +140,8 @@ async fn track_context_menu_keeps_browser_and_clipboard_failures_open() {
         let (_temp, mut app) = test_app();
         let mut selected = track("unsafe", "Unsafe URL");
         selected.webpage_url = "file:///tmp/not-a-video".to_string();
-        app.state.view = View::Search;
-        app.state.search = SearchState::Results {
+        app.state.ui.view = View::Search;
+        app.state.domain.search = SearchState::Results {
             query: "unsafe".to_string(),
             tracks: vec![selected],
         };
@@ -147,8 +149,8 @@ async fn track_context_menu_keeps_browser_and_clipboard_failures_open() {
 
         let (action_tx, mut action_rx) = submit(&mut app).await;
 
-        assert!(app.state.track_context_menu.is_some());
-        assert!(app.state.notification.is_none());
+        assert!(app.state.ui.track_context_menu.is_some());
+        assert!(app.state.ui.notification.is_none());
         let completion = receive(&mut action_rx).await;
         assert!(matches!(
             completion,
@@ -162,6 +164,7 @@ async fn track_context_menu_keeps_browser_and_clipboard_failures_open() {
         app.handle_action(completion, &action_tx).await;
         assert!(
             app.state
+                .ui
                 .notification
                 .as_ref()
                 .is_some_and(|notice| notice.is_error)
@@ -172,9 +175,13 @@ async fn track_context_menu_keeps_browser_and_clipboard_failures_open() {
 #[tokio::test]
 async fn track_context_menu_queue_removal_revalidates_exact_occurrence_before_mutation() {
     let (_temp, mut app) = test_app();
-    app.state.view = View::Queue;
-    app.state.queue.push(track("duplicate", "First occurrence"));
+    app.state.ui.view = View::Queue;
     app.state
+        .domain
+        .queue
+        .push(track("duplicate", "First occurrence"));
+    app.state
+        .domain
         .queue
         .push(track("duplicate", "Second occurrence"));
     open_menu_for_action(
@@ -183,13 +190,14 @@ async fn track_context_menu_queue_removal_revalidates_exact_occurrence_before_mu
     );
     let (action_tx, mut action_rx) = submit(&mut app).await;
     let removal = receive(&mut action_rx).await;
-    app.state.queue.order.swap(0, 1);
+    app.state.domain.queue.order.swap(0, 1);
 
     app.handle_action(removal, &action_tx).await;
 
-    assert_eq!(app.state.queue.tracks.len(), 2);
+    assert_eq!(app.state.domain.queue.tracks.len(), 2);
     assert_eq!(
         app.state
+            .ui
             .notification
             .as_ref()
             .map(|notice| notice.message.as_str()),
@@ -209,9 +217,9 @@ async fn track_context_menu_playlist_removal_revalidates_exact_occurrence_before
         "duplicate",
         "Second occurrence",
     )));
-    app.state.view = View::PlaylistDetail;
-    app.state.playlists.push(playlist);
-    app.state.selected_playlist = Some(0);
+    app.state.ui.view = View::PlaylistDetail;
+    app.state.domain.playlists.push(playlist);
+    app.state.ui.selected_playlist = Some(0);
     open_menu_for_action(
         &mut app,
         TrackContextAction::RemoveFromPlaylist {
@@ -221,13 +229,14 @@ async fn track_context_menu_playlist_removal_revalidates_exact_occurrence_before
     );
     let (action_tx, mut action_rx) = submit(&mut app).await;
     let removal = receive(&mut action_rx).await;
-    app.state.playlists[0].tracks.swap(0, 1);
+    app.state.domain.playlists[0].tracks.swap(0, 1);
 
     app.handle_action(removal, &action_tx).await;
 
-    assert_eq!(app.state.playlists[0].tracks.len(), 2);
+    assert_eq!(app.state.domain.playlists[0].tracks.len(), 2);
     assert_eq!(
         app.state
+            .ui
             .notification
             .as_ref()
             .map(|notice| notice.message.as_str()),

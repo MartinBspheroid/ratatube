@@ -75,7 +75,7 @@ pub fn render_header(
     let breakpoint = Breakpoint::from_width(area.width);
     let show_volume = breakpoint >= Breakpoint::Medium;
     let show_queue = breakpoint >= Breakpoint::Wide;
-    let dependency_problem = !state.mpv_ready || !state.yt_dlp_ready;
+    let dependency_problem = !state.domain.mpv_ready || !state.domain.yt_dlp_ready;
     let right_width = if dependency_problem && breakpoint >= Breakpoint::Medium {
         24
     } else {
@@ -102,13 +102,13 @@ pub fn render_header(
     );
 
     let narrow = breakpoint == Breakpoint::Narrow;
-    let titles: Vec<Line> = tab_titles(icons, state.view, narrow)
+    let titles: Vec<Line> = tab_titles(icons, state.ui.view, narrow)
         .into_iter()
         .map(|(_, text)| Line::from(format!(" {text} ")))
         .collect();
     let selected = View::TABS
         .iter()
-        .position(|view| *view == state.view)
+        .position(|view| *view == state.ui.view)
         .unwrap_or(0);
     frame.render_widget(
         Tabs::new(titles)
@@ -121,24 +121,24 @@ pub fn render_header(
     );
 
     let mut problems: Vec<Span> = Vec::new();
-    if !state.mpv_ready {
+    if !state.domain.mpv_ready {
         problems.push(Span::styled(
             format!("{} mpv down   ", icons.error),
             theme.error,
         ));
     }
-    if !state.yt_dlp_ready {
+    if !state.domain.yt_dlp_ready {
         problems.push(Span::styled(
             format!("{} yt-dlp down", icons.error),
             theme.error,
         ));
     }
     if !dependency_problem && show_volume {
-        problems.extend(spectrum(4, state.spinner_frame, theme, icons).spans);
+        problems.extend(spectrum(4, state.ui.spinner_frame, theme, icons).spans);
     }
     if !dependency_problem && show_queue {
         problems.push(Span::styled(
-            format!("  queue {}", state.queue.tracks.len()),
+            format!("  queue {}", state.domain.queue.tracks.len()),
             theme.dim,
         ));
     }

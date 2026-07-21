@@ -39,7 +39,7 @@ impl App {
         ));
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        while self.state.running {
+        while self.state.ui.running {
             tokio::select! {
                 maybe_event = events.next() => {
                     match maybe_event {
@@ -61,7 +61,7 @@ impl App {
                         playback.on_event(&event);
                     }
                     self.on_playback_event(&event);
-                    if event == PlaybackEvent::Shutdown && self.state.running {
+                    if event == PlaybackEvent::Shutdown && self.state.ui.running {
                         self.begin_playback_recovery(
                             playback_tx.clone(),
                             recovery_tx.clone(),
@@ -79,7 +79,7 @@ impl App {
                             Ok((process, controller)) => {
                                 self.mpv = Some(process);
                                 self.playback = Some(controller);
-                                self.state.mpv_ready = true;
+                                self.state.domain.mpv_ready = true;
                                 self.state.notify("mpv reconnected", false);
                             }
                             Err(err) => {
@@ -108,16 +108,16 @@ impl App {
                 }
                 _ = tick.tick() => {
                     self.state.tick_spinner();
-                    if self.state.notification.as_ref().is_some_and(|notification| {
+                    if self.state.ui.notification.as_ref().is_some_and(|notification| {
                         notification.is_expired_at(Instant::now())
                     }) {
-                        self.state.notification = None;
+                        self.state.ui.notification = None;
                     }
                     // Sleep timer expiry owns the stop action and clears the timer once.
-                    if let Some(timer) = self.state.sleep_timer
+                    if let Some(timer) = self.state.domain.sleep_timer
                         && timer.deadline <= Instant::now()
                     {
-                        self.state.sleep_timer = None;
+                        self.state.domain.sleep_timer = None;
                         self.state.notify("Sleep timer: stopping playback", false);
                         let _ = action_tx.send(Action::Playback(PlaybackAction::Stop)).await;
                     }

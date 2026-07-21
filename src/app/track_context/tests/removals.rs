@@ -17,7 +17,7 @@ async fn submit_removal(app: &mut crate::app::App, action: TrackContextAction) {
         .iter()
         .position(|candidate| candidate == &action)
         .expect("removal action");
-    app.state.track_context_menu = Some(TrackContextMenuState { context, selected });
+    app.state.ui.track_context_menu = Some(TrackContextMenuState { context, selected });
     let (action_tx, mut action_rx) = mpsc::channel(2);
     app.handle_action(
         Action::Navigation(NavigationAction::SubmitTrackContext),
@@ -34,10 +34,16 @@ async fn submit_removal(app: &mut crate::app::App, action: TrackContextAction) {
 #[tokio::test]
 async fn track_context_menu_removes_the_captured_queue_occurrence() {
     let (_temp, mut app) = test_app();
-    app.state.view = View::Queue;
-    app.state.queue.push(track("duplicate", "Keep first"));
-    app.state.queue.push(track("duplicate", "Remove second"));
-    app.state.selected_index = 1;
+    app.state.ui.view = View::Queue;
+    app.state
+        .domain
+        .queue
+        .push(track("duplicate", "Keep first"));
+    app.state
+        .domain
+        .queue
+        .push(track("duplicate", "Remove second"));
+    app.state.ui.selected_index = 1;
 
     submit_removal(
         &mut app,
@@ -45,8 +51,8 @@ async fn track_context_menu_removes_the_captured_queue_occurrence() {
     )
     .await;
 
-    assert_eq!(app.state.queue.tracks.len(), 1);
-    assert_eq!(app.state.queue.tracks[0].title, "Keep first");
+    assert_eq!(app.state.domain.queue.tracks.len(), 1);
+    assert_eq!(app.state.domain.queue.tracks[0].title, "Keep first");
 }
 
 #[tokio::test]
@@ -60,10 +66,10 @@ async fn track_context_menu_removes_the_captured_playlist_occurrence() {
     playlist
         .tracks
         .push(PlaylistTrack::from(&track("duplicate", "Remove second")));
-    app.state.view = View::PlaylistDetail;
-    app.state.playlists.push(playlist);
-    app.state.selected_playlist = Some(0);
-    app.state.selected_index = 1;
+    app.state.ui.view = View::PlaylistDetail;
+    app.state.domain.playlists.push(playlist);
+    app.state.ui.selected_playlist = Some(0);
+    app.state.ui.selected_index = 1;
 
     submit_removal(
         &mut app,
@@ -74,6 +80,6 @@ async fn track_context_menu_removes_the_captured_playlist_occurrence() {
     )
     .await;
 
-    assert_eq!(app.state.playlists[0].tracks.len(), 1);
-    assert_eq!(app.state.playlists[0].tracks[0].title, "Keep first");
+    assert_eq!(app.state.domain.playlists[0].tracks.len(), 1);
+    assert_eq!(app.state.domain.playlists[0].tracks[0].title, "Keep first");
 }

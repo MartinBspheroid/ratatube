@@ -13,7 +13,7 @@ pub(super) fn render_queue(
     icons: &Icons,
     theme: &Theme,
 ) {
-    let total = state.queue.order.len();
+    let total = state.domain.queue.order.len();
     let modes = queue_modes(state);
     let title = format!("Queue ({total}){modes}");
     let inner = section_panel(frame, area, &title, true, theme, icons);
@@ -37,8 +37,8 @@ pub(super) fn render_queue(
     let rows = visible_positions(state, total)
         .into_iter()
         .filter_map(|position| {
-            let track_index = *state.queue.order.get(position)?;
-            let track = state.queue.tracks.get(track_index)?;
+            let track_index = *state.domain.queue.order.get(position)?;
+            let track = state.domain.queue.tracks.get(track_index)?;
             Some(track_row(
                 &layout,
                 TrackRow {
@@ -52,7 +52,7 @@ pub(super) fn render_queue(
                     // Every row here is queued by definition; the marker
                     // column carries the cross-tab states that add signal.
                     flags: TrackFlags {
-                        playing: state.queue.position == Some(position),
+                        playing: state.domain.queue.position == Some(position),
                         queued: false,
                         in_playlist: track_flags(state, &track.id).in_playlist,
                     },
@@ -67,22 +67,22 @@ pub(super) fn render_queue(
         .header(header_row("LENGTH", theme))
         .row_highlight_style(theme.selected)
         .highlight_symbol(icons.chevron_r);
-    state.table_state.select(Some(state.selected_index));
-    state.list_hit_area = Rect {
+    state.ui.table_state.select(Some(state.ui.selected_index));
+    state.ui.list_hit_area = Rect {
         y: inner.y + 2,
         height: inner.height.saturating_sub(2),
         ..inner
     };
-    frame.render_stateful_widget(table, inner, &mut state.table_state);
-    scrollbar(frame, inner, visible_total, state.table_state.offset());
+    frame.render_stateful_widget(table, inner, &mut state.ui.table_state);
+    scrollbar(frame, inner, visible_total, state.ui.table_state.offset());
 }
 
 fn queue_modes(state: &AppState) -> String {
     let mut modes = Vec::new();
-    if state.queue.shuffle {
+    if state.domain.queue.shuffle {
         modes.push("shuffle");
     }
-    match state.queue.repeat {
+    match state.domain.queue.repeat {
         crate::queue::RepeatMode::Track => modes.push("repeat track"),
         crate::queue::RepeatMode::Queue => modes.push("repeat queue"),
         crate::queue::RepeatMode::Off => {}

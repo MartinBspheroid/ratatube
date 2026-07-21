@@ -85,7 +85,7 @@ fn return_snapshot_keeps_view_focus_and_selection() {
 #[test]
 fn stale_channel_or_page_completion_is_ignored() {
     let (_temp, mut app) = test_app();
-    app.state.channel = Some(state());
+    app.state.domain.channel = Some(state());
     app.finish_channel_page(
         "https://www.youtube.com/channel/OTHER/videos",
         0,
@@ -98,6 +98,7 @@ fn stale_channel_or_page_completion_is_ignored() {
     );
     assert!(
         app.state
+            .domain
             .channel
             .as_ref()
             .expect("channel")
@@ -112,22 +113,22 @@ fn later_failure_preserves_rows_and_back_restores_navigation() {
     let mut channel = state();
     channel.append(page(&["new"], false));
     channel.loading = true;
-    app.state.channel = Some(channel);
-    app.state.view = View::Channel;
+    app.state.domain.channel = Some(channel);
+    app.state.ui.view = View::Channel;
     app.finish_channel_page(
         "https://www.youtube.com/channel/UC1/videos",
         1,
         Err("offline".into()),
     );
-    let channel = app.state.channel.as_ref().expect("channel");
+    let channel = app.state.domain.channel.as_ref().expect("channel");
     assert_eq!(channel.tracks[0].id, "new");
     assert_eq!(channel.next_page, 1);
     assert_eq!(channel.error.as_deref(), Some("offline"));
 
     app.leave_channel();
-    assert_eq!(app.state.view, View::Search);
-    assert_eq!(app.state.focus, Focus::Content);
-    assert_eq!(app.state.selected_index, 3);
+    assert_eq!(app.state.ui.view, View::Search);
+    assert_eq!(app.state.ui.focus, Focus::Content);
+    assert_eq!(app.state.ui.selected_index, 3);
 }
 
 #[tokio::test]
@@ -136,9 +137,9 @@ async fn nested_channel_back_restores_original_channel_and_selection() {
     let mut original = state();
     original.append(page(&["first", "selected"], true));
     original.loading = true;
-    app.state.channel = Some(original);
-    app.state.view = View::Channel;
-    app.state.selected_index = 1;
+    app.state.domain.channel = Some(original);
+    app.state.ui.view = View::Channel;
+    app.state.ui.selected_index = 1;
     let mut nested_track = Track::new("nested", "Nested", "Other channel");
     nested_track.channel_url = Some("https://www.youtube.com/channel/UC2".into());
     let (action_tx, _action_rx) = tokio::sync::mpsc::channel(4);
@@ -149,19 +150,19 @@ async fn nested_channel_back_restores_original_channel_and_selection() {
         action_tx,
     );
     assert_eq!(
-        app.state.channel.as_ref().expect("nested").name,
+        app.state.domain.channel.as_ref().expect("nested").name,
         "Other channel"
     );
 
     app.leave_channel();
 
-    let restored = app.state.channel.as_ref().expect("original channel");
+    let restored = app.state.domain.channel.as_ref().expect("original channel");
     assert_eq!(restored.url, "https://www.youtube.com/channel/UC1/videos");
     assert_eq!(restored.tracks[1].id, "selected");
     assert!(
         !restored.loading,
         "cancelled page must not restore a stale spinner"
     );
-    assert_eq!(app.state.view, View::Channel);
-    assert_eq!(app.state.selected_index, 1);
+    assert_eq!(app.state.ui.view, View::Channel);
+    assert_eq!(app.state.ui.selected_index, 1);
 }

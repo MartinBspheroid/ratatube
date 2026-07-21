@@ -56,12 +56,13 @@ impl App {
                 } = target
                     && self
                         .state
+                        .ui
                         .track_context_menu
                         .as_ref()
                         .is_some_and(|menu| menu.context.track.id == track_id)
-                    && self.state.track_context_generation == generation
+                    && self.state.ui.track_context_generation == generation
                 {
-                    self.state.track_context_menu = None;
+                    self.state.ui.track_context_menu = None;
                 }
                 self.state.notify(success, false);
             }

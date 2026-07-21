@@ -3,18 +3,18 @@ use super::*;
 #[test]
 fn app_capture_resume_point_honors_boundaries() {
     let (_temp, mut app) = test_app();
-    app.state.current_track = Some(Track::new("track", "Track", "Artist"));
-    app.state.playback.duration_seconds = Some(100.0);
+    app.state.domain.current_track = Some(Track::new("track", "Track", "Artist"));
+    app.state.domain.playback.duration_seconds = Some(100.0);
 
-    app.state.playback.position_seconds = 10.0;
+    app.state.domain.playback.position_seconds = 10.0;
     app.capture_resume_point();
-    app.state.playback.position_seconds = 95.0;
+    app.state.domain.playback.position_seconds = 95.0;
     app.capture_resume_point();
-    assert_eq!(app.state.resume_points.len(), 0);
+    assert_eq!(app.state.domain.resume_points.len(), 0);
 
-    app.state.playback.position_seconds = 30.0;
+    app.state.domain.playback.position_seconds = 30.0;
     app.capture_resume_point();
-    assert_eq!(app.state.resume_points.len(), 1);
+    assert_eq!(app.state.domain.resume_points.len(), 1);
 }
 
 #[tokio::test]
@@ -22,9 +22,9 @@ async fn pause_stop_and_track_change_capture_resume_points() {
     let (_temp, mut app) = test_app();
     let (action_tx, _action_rx) = mpsc::channel(2);
     let set_track = |app: &mut App, id: &str| {
-        app.state.current_track = Some(Track::new(id, id, "Artist"));
-        app.state.playback.position_seconds = 30.0;
-        app.state.playback.duration_seconds = Some(100.0);
+        app.state.domain.current_track = Some(Track::new(id, id, "Artist"));
+        app.state.domain.playback.position_seconds = 30.0;
+        app.state.domain.playback.duration_seconds = Some(100.0);
     };
 
     set_track(&mut app, "pause");
@@ -43,6 +43,7 @@ async fn pause_stop_and_track_change_capture_resume_points() {
 
     let ids = app
         .state
+        .domain
         .resume_points
         .entries()
         .iter()
@@ -75,7 +76,7 @@ async fn session_panels_restore_even_when_playback_resume_is_offline() {
 
     app.init_session(&action_tx).await;
 
-    assert_eq!(app.state.activity.len(), 1);
-    assert_eq!(app.state.resume_points.len(), 1);
-    assert!(app.state.pending_resume.is_none());
+    assert_eq!(app.state.domain.activity.len(), 1);
+    assert_eq!(app.state.domain.resume_points.len(), 1);
+    assert!(app.state.domain.pending_resume.is_none());
 }

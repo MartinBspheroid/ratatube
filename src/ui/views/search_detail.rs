@@ -17,10 +17,11 @@ pub(super) fn render_selected(
         .constraints([Constraint::Length(10), Constraint::Min(4)])
         .split(inner);
     let cached_for_track = state
+        .ui
         .search_thumbnail_track_id
         .as_ref()
         .is_some_and(|track_id| track_id == &track.id);
-    if cached_for_track && let Some(protocol) = state.search_thumbnail.as_mut() {
+    if cached_for_track && let Some(protocol) = state.ui.search_thumbnail.as_mut() {
         let image =
             ratatui_image::StatefulImage::<ratatui_image::protocol::StatefulProtocol>::new();
         frame.render_stateful_widget(image, detail_rows[0], protocol);

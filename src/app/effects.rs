@@ -22,7 +22,7 @@ impl App {
                 Effect::ResolveAndPlay {
                     track_index_in_queue,
                 } => {
-                    self.state.pending_resume = None;
+                    self.state.domain.pending_resume = None;
                     self.spawn_resolve_and_play(track_index_in_queue, action_tx);
                 }
                 Effect::SeekBy(seconds) => {
@@ -71,7 +71,7 @@ impl App {
                 }
                 Effect::PersistQueue => self.persist_queue(),
                 Effect::PersistSession => {
-                    self.maybe_save_session(self.state.playback.position_seconds, true);
+                    self.maybe_save_session(self.state.domain.playback.position_seconds, true);
                 }
                 Effect::PersistPlaylists | Effect::Exit => {}
             }

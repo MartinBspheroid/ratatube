@@ -34,8 +34,8 @@ fn mouse_at(kind: MouseEventKind, column: u16, row: u16) -> MouseEvent {
 
 fn context_app() -> (tempfile::TempDir, crate::app::App) {
     let (temp, mut app) = test_app();
-    app.state.view = View::Search;
-    app.state.search = SearchState::Results {
+    app.state.ui.view = View::Search;
+    app.state.domain.search = SearchState::Results {
         query: "context".to_string(),
         tracks: vec![track("context", "Context track")],
     };
@@ -49,7 +49,7 @@ fn select_action(app: &mut crate::app::App, action: TrackContextAction) {
         .iter()
         .position(|candidate| candidate == &action)
         .expect("action");
-    app.state.track_context_menu = Some(TrackContextMenuState { context, selected });
+    app.state.ui.track_context_menu = Some(TrackContextMenuState { context, selected });
 }
 
 #[tokio::test]
@@ -58,7 +58,7 @@ async fn rapid_context_then_quit_is_captured_before_quit_can_queue() {
     let (action_tx, mut action_rx) = mpsc::channel(4);
 
     app.handle_key(key(KeyCode::Char('c')), &action_tx).await;
-    assert!(app.state.track_context_menu.is_some());
+    assert!(app.state.ui.track_context_menu.is_some());
 
     app.handle_key(key(KeyCode::Char('q')), &action_tx).await;
 
@@ -66,8 +66,8 @@ async fn rapid_context_then_quit_is_captured_before_quit_can_queue() {
         action_rx.try_recv().is_err(),
         "no background action may leak"
     );
-    assert!(app.state.running);
-    assert!(app.state.track_context_menu.is_some());
+    assert!(app.state.ui.running);
+    assert!(app.state.ui.track_context_menu.is_some());
 }
 
 #[tokio::test]
@@ -86,10 +86,10 @@ async fn context_menu_replaces_itself_atomically_with_picker_or_details() {
         )
         .await;
 
-        assert!(app.state.track_context_menu.is_none());
+        assert!(app.state.ui.track_context_menu.is_none());
         match action {
-            TrackContextAction::AddToPlaylist => assert!(app.state.picker.is_some()),
-            TrackContextAction::ShowDetails => assert!(app.state.track_details_modal.is_some()),
+            TrackContextAction::AddToPlaylist => assert!(app.state.ui.picker.is_some()),
+            TrackContextAction::ShowDetails => assert!(app.state.ui.track_details_modal.is_some()),
             _ => unreachable!(),
         }
         assert!(
@@ -105,7 +105,7 @@ async fn context_and_details_modals_block_all_background_mouse_actions() {
     let context = resolve_track_context(&app.state, None).expect("context");
     let (action_tx, mut action_rx) = mpsc::channel(8);
 
-    app.state.track_context_menu = Some(TrackContextMenuState {
+    app.state.ui.track_context_menu = Some(TrackContextMenuState {
         context,
         selected: 0,
     });
@@ -118,8 +118,8 @@ async fn context_and_details_modals_block_all_background_mouse_actions() {
     .await;
     assert!(action_rx.try_recv().is_err());
 
-    app.state.track_context_menu = None;
-    app.state.track_details_modal = Some(TrackDetailsModalState {
+    app.state.ui.track_context_menu = None;
+    app.state.ui.track_details_modal = Some(TrackDetailsModalState {
         track: track("details", "Details"),
         details: None,
     });
@@ -136,8 +136,8 @@ async fn context_and_details_modals_block_all_background_mouse_actions() {
 #[tokio::test]
 async fn scrolled_channel_double_click_targets_exact_visible_row() {
     let (_temp, mut app) = test_app();
-    app.state.view = View::Channel;
-    app.state.channel = Some(ChannelState {
+    app.state.ui.view = View::Channel;
+    app.state.domain.channel = Some(ChannelState {
         name: "Channel".into(),
         url: "https://www.youtube.com/channel/UC1/videos".into(),
         tracks: (0..6)
@@ -154,8 +154,8 @@ async fn scrolled_channel_double_click_targets_exact_visible_row() {
         },
         previous: None,
     });
-    app.state.list_hit_area = ratatui::layout::Rect::new(4, 5, 40, 3);
-    *app.state.table_state.offset_mut() = 2;
+    app.state.ui.list_hit_area = ratatui::layout::Rect::new(4, 5, 40, 3);
+    *app.state.ui.table_state.offset_mut() = 2;
     let (action_tx, mut action_rx) = mpsc::channel(2);
     let click = mouse_at(
         MouseEventKind::Down(crossterm::event::MouseButton::Left),
@@ -164,7 +164,7 @@ async fn scrolled_channel_double_click_targets_exact_visible_row() {
     );
 
     app.handle_mouse(click, &action_tx).await;
-    assert_eq!(app.state.selected_index, 3);
+    assert_eq!(app.state.ui.selected_index, 3);
     assert!(action_rx.try_recv().is_err());
     app.handle_mouse(click, &action_tx).await;
 
@@ -174,14 +174,14 @@ async fn scrolled_channel_double_click_targets_exact_visible_row() {
     ));
     app.handle_action(Action::Playback(PlaybackAction::PlaySelected), &action_tx)
         .await;
-    assert_eq!(app.state.queue.tracks[0].id, "track-3");
+    assert_eq!(app.state.domain.queue.tracks[0].id, "track-3");
 }
 
 #[tokio::test]
 async fn paste_routes_only_to_the_topmost_prompt_modal() {
     let (_temp, mut app) = context_app();
     let (action_tx, mut action_rx) = mpsc::channel(2);
-    app.state.prompt = Some(crate::app::state::PromptState {
+    app.state.ui.prompt = Some(crate::app::state::PromptState {
         purpose: crate::app::state::PromptPurpose::ImportPlaylistJson,
         buffer: String::new(),
     });
@@ -196,7 +196,7 @@ async fn paste_routes_only_to_the_topmost_prompt_modal() {
     ));
 
     let context = resolve_track_context(&app.state, None).expect("context");
-    app.state.track_context_menu = Some(TrackContextMenuState {
+    app.state.ui.track_context_menu = Some(TrackContextMenuState {
         context,
         selected: 0,
     });

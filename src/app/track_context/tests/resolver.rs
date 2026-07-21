@@ -9,22 +9,24 @@ use crate::app::track_context::resolve_track_context;
 
 fn resolver_cases() -> Vec<ResolverCase> {
     let mut search = AppState::new();
-    search.view = View::Search;
-    search.search = SearchState::Results {
+    search.ui.view = View::Search;
+    search.domain.search = SearchState::Results {
         query: "search".to_string(),
         tracks: vec![track("search", "Search result")],
     };
 
     let mut queue = AppState::new();
-    queue.view = View::Queue;
+    queue.ui.view = View::Queue;
     queue
+        .domain
         .queue
         .push(track("duplicate", "First queue occurrence"));
     queue
+        .domain
         .queue
         .push(track("duplicate", "Second queue occurrence"));
-    queue.queue.order = vec![1, 0];
-    queue.selected_index = 1;
+    queue.domain.queue.order = vec![1, 0];
+    queue.ui.selected_index = 1;
     let mut queue_actions = standard_actions(false);
     queue_actions.push(TrackContextAction::RemoveFromQueue { order_index: 1 });
 
@@ -39,10 +41,10 @@ fn resolver_cases() -> Vec<ResolverCase> {
         "Second playlist occurrence",
     )));
     let mut playlist_detail = AppState::new();
-    playlist_detail.view = View::PlaylistDetail;
-    playlist_detail.playlists.push(playlist);
-    playlist_detail.selected_playlist = Some(0);
-    playlist_detail.selected_index = 1;
+    playlist_detail.ui.view = View::PlaylistDetail;
+    playlist_detail.domain.playlists.push(playlist);
+    playlist_detail.ui.selected_playlist = Some(0);
+    playlist_detail.ui.selected_index = 1;
     let mut playlist_actions = standard_actions(true);
     playlist_actions.push(TrackContextAction::RemoveFromPlaylist {
         playlist_id: playlist_id.clone(),
@@ -54,8 +56,8 @@ fn resolver_cases() -> Vec<ResolverCase> {
         track("recent-new", "Recent history track"),
     ]);
     let mut recent = AppState::new();
-    recent.view = View::History;
-    recent.history_view_mode = HistoryViewMode::Recent;
+    recent.ui.view = View::History;
+    recent.ui.history_view_mode = HistoryViewMode::Recent;
 
     let top_history = history(&[
         track("top-other", "Other top track"),
@@ -63,21 +65,21 @@ fn resolver_cases() -> Vec<ResolverCase> {
         track("top", "Top history track"),
     ]);
     let mut top = AppState::new();
-    top.view = View::History;
-    top.history_view_mode = HistoryViewMode::Top;
+    top.ui.view = View::History;
+    top.ui.history_view_mode = HistoryViewMode::Top;
 
     let mut playing = AppState::new();
-    playing.view = View::NowPlaying;
-    playing.current_track = Some(track("playing", "Playing track"));
+    playing.ui.view = View::NowPlaying;
+    playing.domain.current_track = Some(track("playing", "Playing track"));
 
     let home_history = history(&[
         track("home-old", "Older home track"),
         track("home-new", "Recent home track"),
     ]);
     let mut home = AppState::new();
-    home.view = View::Home;
-    home.home_section = HomeSection::Recent;
-    home.selected_index = 1;
+    home.ui.view = View::Home;
+    home.ui.home_section = HomeSection::Recent;
+    home.ui.selected_index = 1;
 
     vec![
         ResolverCase {
@@ -162,12 +164,15 @@ fn resolves_current_track_bearing_views_with_exact_source_and_action_order() {
 fn hides_add_to_queue_when_video_id_is_already_queued() {
     let selected = track("same-video", "Search selection");
     let mut state = AppState::new();
-    state.view = View::Search;
-    state.search = SearchState::Results {
+    state.ui.view = View::Search;
+    state.domain.search = SearchState::Results {
         query: "same".to_string(),
         tracks: vec![selected],
     };
-    state.queue.push(track("same-video", "Queued occurrence"));
+    state
+        .domain
+        .queue
+        .push(track("same-video", "Queued occurrence"));
 
     let context = resolve_track_context(&state, None).expect("search context");
 
@@ -180,8 +185,8 @@ fn legacy_track_without_stored_channel_identity_still_offers_visit_channel() {
     selected.channel_id = None;
     selected.channel_url = None;
     let mut state = AppState::new();
-    state.view = View::Search;
-    state.search = SearchState::Results {
+    state.ui.view = View::Search;
+    state.domain.search = SearchState::Results {
         query: "legacy".to_string(),
         tracks: vec![selected],
     };
@@ -195,8 +200,8 @@ fn legacy_track_without_stored_channel_identity_still_offers_visit_channel() {
 fn populated_channel_resolves_selected_track_without_synthetic_row_fallback() {
     let selected = track("channel-track", "Channel track");
     let mut state = AppState::new();
-    state.view = View::Channel;
-    state.channel = Some(ChannelState {
+    state.ui.view = View::Channel;
+    state.domain.channel = Some(ChannelState {
         name: "Channel".into(),
         url: "https://www.youtube.com/channel/UC1/videos".into(),
         tracks: vec![selected.clone()],
@@ -216,6 +221,6 @@ fn populated_channel_resolves_selected_track_without_synthetic_row_fallback() {
     assert_eq!(context.track.id, selected.id);
     assert_eq!(context.source, TrackSource::Channel);
 
-    state.selected_index = 1;
+    state.ui.selected_index = 1;
     assert!(resolve_track_context(&state, None).is_none());
 }

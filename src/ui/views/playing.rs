@@ -15,9 +15,9 @@ pub(super) fn render_now_playing_view(
     theme: &Theme,
 ) {
     let breakpoint = Breakpoint::from_width(area.width);
-    let focused = breakpoint != Breakpoint::UltraWide || state.playing_pane == PlayingPane::Info;
+    let focused = breakpoint != Breakpoint::UltraWide || state.ui.playing_pane == PlayingPane::Info;
     let content = section_panel(frame, area, "Now Playing", focused, theme, icons);
-    let Some(track) = state.current_track.clone() else {
+    let Some(track) = state.domain.current_track.clone() else {
         empty_state(
             frame,
             content,

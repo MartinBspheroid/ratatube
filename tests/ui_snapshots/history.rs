@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn history_view_lists_entries() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::History;
+    state.ui.view = ytm_tui::app::state::View::History;
     let dir = tempfile::tempdir().expect("tempdir");
     let mut history = HistoryService::load(&dir.path().join("h.json"), 500).expect("load");
     history.record(HistoryEntry::from_track(
@@ -40,10 +40,10 @@ fn history_view_lists_entries() {
 #[test]
 fn visual_dump_full_screen() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::Search;
-    state.mpv_ready = true;
-    state.yt_dlp_ready = true;
-    state.search = SearchState::Results {
+    state.ui.view = ytm_tui::app::state::View::Search;
+    state.domain.mpv_ready = true;
+    state.domain.yt_dlp_ready = true;
+    state.domain.search = SearchState::Results {
         query: "massive attack".to_string(),
         tracks: (0..20)
             .map(|i| {
@@ -57,17 +57,21 @@ fn visual_dump_full_screen() {
             })
             .collect(),
     };
-    state.selected_index = 4;
-    state.current_track = Some(Track::new("u7K72X4eo_s", "Teardrop", "Massive Attack"));
-    state.playback.status = ytm_tui::playback::PlaybackStatus::Playing;
-    state.playback.position_seconds = 161.0;
-    state.playback.duration_seconds = Some(330.0);
-    state.playback.volume = 72;
-    state.queue.push(Track::new("a", "Angel", "Massive Attack"));
+    state.ui.selected_index = 4;
+    state.domain.current_track = Some(Track::new("u7K72X4eo_s", "Teardrop", "Massive Attack"));
+    state.domain.playback.status = ytm_tui::playback::PlaybackStatus::Playing;
+    state.domain.playback.position_seconds = 161.0;
+    state.domain.playback.duration_seconds = Some(330.0);
+    state.domain.playback.volume = 72;
     state
+        .domain
+        .queue
+        .push(Track::new("a", "Angel", "Massive Attack"));
+    state
+        .domain
         .queue
         .push(Track::new("b", "Teardrop", "Massive Attack"));
-    state.queue.position = Some(1);
+    state.domain.queue.position = Some(1);
 
     let out = render_to_string(&mut state, None, 110, 34);
     println!("\n{out}");
@@ -77,23 +81,23 @@ fn visual_dump_full_screen() {
 #[test]
 fn visual_dump_queue_and_playlists() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::Queue;
-    state.queue.shuffle = true;
+    state.ui.view = ytm_tui::app::state::View::Queue;
+    state.domain.queue.shuffle = true;
     for i in 0..8 {
-        state.queue.push(Track::new(
+        state.domain.queue.push(Track::new(
             format!("id{i}"),
             format!("Queue Song {i}"),
             "Artist",
         ));
     }
-    state.queue.position = Some(2);
-    state.selected_index = 2;
+    state.domain.queue.position = Some(2);
+    state.ui.selected_index = 2;
     let out = render_to_string(&mut state, None, 100, 24);
     println!("\n{out}");
     assert!(out.contains("QUEUE (8)"));
 
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::Playlists;
+    state.ui.view = ytm_tui::app::state::View::Playlists;
     let mut p1 = ytm_tui::playlists::Playlist::new("Late Night Coding");
     p1.description = "Focus music for long sessions".to_string();
     p1.tracks = (0..20)
@@ -106,7 +110,7 @@ fn visual_dump_queue_and_playlists() {
         })
         .collect();
     let p2 = ytm_tui::playlists::Playlist::new("Workout");
-    state.playlists = vec![p1, p2];
+    state.domain.playlists = vec![p1, p2];
     let out = render_to_string(&mut state, None, 100, 24);
     println!("\n{out}");
     assert!(out.contains("PLAYLISTS (2)"));

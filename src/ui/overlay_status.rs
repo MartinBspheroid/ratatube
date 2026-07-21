@@ -13,10 +13,11 @@ pub(super) fn render(
     state: &AppState,
     theme: &theme::Theme,
 ) -> bool {
-    if state.show_notification_log {
-        let height = (state.notification_log.len() as u16 + 3).clamp(5, area.height);
+    if state.ui.show_notification_log {
+        let height = (state.ui.notification_log.len() as u16 + 3).clamp(5, area.height);
         let log_area = centered_rect(area, 76, height);
         let mut lines: Vec<Line> = state
+            .ui
             .notification_log
             .iter()
             .take(height.saturating_sub(3) as usize)
@@ -61,7 +62,7 @@ pub(super) fn render(
         return true;
     }
 
-    let Some(import) = &state.import else {
+    let Some(import) = &state.domain.import else {
         return false;
     };
     let lines: Vec<Line> = match import {
@@ -69,7 +70,7 @@ pub(super) fn render(
             Line::from(""),
             Line::from(vec![
                 Span::styled(
-                    format!("{} ", widgets::spinner(state.spinner_frame)),
+                    format!("{} ", widgets::spinner(state.ui.spinner_frame)),
                     theme.accent,
                 ),
                 Span::raw("Importing playlist..."),

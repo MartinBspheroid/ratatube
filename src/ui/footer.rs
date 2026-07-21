@@ -10,10 +10,10 @@ use crate::ui::theme::Theme;
 
 /// Render context-sensitive keyboard hints as styled chips.
 pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Theme) {
-    let hints: &[(&str, &str)] = match state.view {
+    let hints: &[(&str, &str)] = match state.ui.view {
         View::Home
-            if state.home_section == crate::app::state::HomeSection::Resume
-                && state.pending_resume.is_some() =>
+            if state.ui.home_section == crate::app::state::HomeSection::Resume
+                && state.domain.pending_resume.is_some() =>
         {
             &[
                 ("Space", "resume"),
@@ -23,7 +23,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
                 ("?", "help"),
             ]
         }
-        View::Home if state.home_section == crate::app::state::HomeSection::Recent => &[
+        View::Home if state.ui.home_section == crate::app::state::HomeSection::Recent => &[
             ("Enter", "play"),
             ("a", "queue"),
             ("P", "playlist"),
@@ -32,7 +32,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             ("/", "search"),
             ("?", "help"),
         ],
-        View::Home if state.home_section == crate::app::state::HomeSection::Playlists => &[
+        View::Home if state.ui.home_section == crate::app::state::HomeSection::Playlists => &[
             ("h/l", "section"),
             ("Enter", "play all"),
             ("p", "play all"),
@@ -42,7 +42,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
         ],
         View::Home => &[("h/l", "section"), ("/", "search"), ("?", "help")],
         View::Search
-            if crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+            if crate::ui::layout::Breakpoint::from_width(state.ui.screen_area.width)
                 == crate::ui::layout::Breakpoint::Narrow =>
         {
             &[
@@ -102,7 +102,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             ("c", "actions"),
             ("Bksp", "back"),
         ],
-        View::History => match state.history_view_mode {
+        View::History => match state.ui.history_view_mode {
             crate::app::state::HistoryViewMode::Recent => &[
                 ("Enter", "replay"),
                 ("a", "queue"),
@@ -124,9 +124,9 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             ],
         },
         View::NowPlaying
-            if crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+            if crate::ui::layout::Breakpoint::from_width(state.ui.screen_area.width)
                 == crate::ui::layout::Breakpoint::UltraWide
-                && state.playing_pane == crate::app::state::PlayingPane::Queue =>
+                && state.ui.playing_pane == crate::app::state::PlayingPane::Queue =>
         {
             &[
                 ("h/l", "info/queue"),
@@ -137,7 +137,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
             ]
         }
         View::NowPlaying
-            if crate::ui::layout::Breakpoint::from_width(state.screen_area.width)
+            if crate::ui::layout::Breakpoint::from_width(state.ui.screen_area.width)
                 == crate::ui::layout::Breakpoint::UltraWide =>
         {
             &[

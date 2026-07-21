@@ -29,7 +29,7 @@ impl App {
     /// Persist the current queue through the ordered writer.
     pub(super) fn persist_queue(&mut self) {
         let path = self.paths.queue_file();
-        let queue = self.state.queue.clone();
+        let queue = self.state.domain.queue.clone();
         self.submit_persistence("queue", "queue", move || {
             crate::queue::service::save(&path, &queue)
         });

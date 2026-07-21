@@ -42,7 +42,7 @@ impl App {
                     key.code,
                     KeyCode::Esc | KeyCode::Char('!') | KeyCode::Char('q') | KeyCode::Enter
                 ) {
-                    self.state.show_notification_log = false;
+                    self.state.ui.show_notification_log = false;
                 }
             }
             ModalCapture::SearchDetails => {
@@ -53,7 +53,7 @@ impl App {
                 }
             }
             ModalCapture::Import => {
-                let action = match (self.state.import.as_ref(), key.code) {
+                let action = match (self.state.domain.import.as_ref(), key.code) {
                     (Some(ImportState::Review { .. }), KeyCode::Enter) => {
                         Some(Action::Playlists(PlaylistAction::ConfirmImport))
                     }

@@ -2,7 +2,7 @@ use super::*;
 
 fn activate_transition(state: &mut AppState) {
     let now = std::time::Instant::now();
-    state.track_transition.update(
+    state.domain.track_transition.update(
         ytm_tui::playback::TransitionInput {
             occurrence: Some(1),
             remaining_seconds: Some(15.0),
@@ -16,14 +16,15 @@ fn activate_transition(state: &mut AppState) {
 #[test]
 fn playback_transition_replaces_title_in_shared_player() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::NowPlaying;
+    state.ui.view = ytm_tui::app::state::View::NowPlaying;
     let current = Track::new("current", "Current title", "Current channel");
-    state.current_track = Some(current.clone());
-    state.queue.push(current);
+    state.domain.current_track = Some(current.clone());
+    state.domain.queue.push(current);
     state
+        .domain
         .queue
         .push(Track::new("next", "Next title", "Next channel"));
-    state.queue.position = Some(0);
+    state.domain.queue.position = Some(0);
     activate_transition(&mut state);
 
     let out = render_to_string(&mut state, None, 80, 24);
@@ -41,14 +42,14 @@ fn playback_transition_replaces_title_in_shared_player() {
 fn playback_transition_is_width_safe_and_sanitized() {
     let mut state = AppState::new();
     let current = Track::new("current", "Current\u{1b}[2J 世界 title", "Channel");
-    state.current_track = Some(current.clone());
-    state.queue.push(current);
-    state.queue.push(Track::new(
+    state.domain.current_track = Some(current.clone());
+    state.domain.queue.push(current);
+    state.domain.queue.push(Track::new(
         "next",
         "Next 🎵 title with deliberately excessive width",
         "Next channel",
     ));
-    state.queue.position = Some(0);
+    state.domain.queue.position = Some(0);
     activate_transition(&mut state);
 
     for width in [60, 80] {
@@ -68,17 +69,18 @@ fn playback_transition_is_width_safe_and_sanitized() {
 fn playback_transition_requires_a_real_next_track() {
     for repeat_track in [false, true] {
         let mut state = AppState::new();
-        state.view = ytm_tui::app::state::View::NowPlaying;
+        state.ui.view = ytm_tui::app::state::View::NowPlaying;
         let current = Track::new("current", "Regular title", "Channel");
-        state.current_track = Some(current.clone());
-        state.queue.push(current);
+        state.domain.current_track = Some(current.clone());
+        state.domain.queue.push(current);
         if repeat_track {
             state
+                .domain
                 .queue
                 .push(Track::new("next", "Suppressed next", "Channel"));
-            state.queue.repeat = ytm_tui::queue::RepeatMode::Track;
+            state.domain.queue.repeat = ytm_tui::queue::RepeatMode::Track;
         }
-        state.queue.position = Some(0);
+        state.domain.queue.position = Some(0);
         activate_transition(&mut state);
 
         let out = render_to_string(&mut state, None, 80, 24);
@@ -93,19 +95,20 @@ fn playback_transition_requires_a_real_next_track() {
 #[test]
 fn playing_view_shows_chapters_and_up_next() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::NowPlaying;
+    state.ui.view = ytm_tui::app::state::View::NowPlaying;
     let mut track = Track::new("mix1", "Essential Mix", "Skee Mask");
     track.duration_seconds = Some(7115);
-    state.current_track = Some(track.clone());
-    state.queue.push(track);
+    state.domain.current_track = Some(track.clone());
+    state.domain.queue.push(track);
     state
+        .domain
         .queue
         .push(Track::new("next1", "Next Song", "Other Artist"));
-    state.queue.position = Some(0);
-    state.playback.status = ytm_tui::playback::PlaybackStatus::Playing;
-    state.playback.position_seconds = 240.0;
-    state.playback.duration_seconds = Some(7115.0);
-    state.current_details = Some(ytm_tui::media::TrackDetails {
+    state.domain.queue.position = Some(0);
+    state.domain.playback.status = ytm_tui::playback::PlaybackStatus::Playing;
+    state.domain.playback.position_seconds = 240.0;
+    state.domain.playback.duration_seconds = Some(7115.0);
+    state.domain.current_details = Some(ytm_tui::media::TrackDetails {
         description: Some("Tracklist:\n0:00 Intro\n3:45 Second Tune\n10:00 Third Tune".to_string()),
         chapters: ytm_tui::media::parse_chapters_from_description(
             "0:00 Intro\n3:45 Second Tune\n10:00 Third Tune",
@@ -132,17 +135,18 @@ fn playing_view_shows_chapters_and_up_next() {
 fn playing_layout_exercises_all_four_breakpoints() {
     let render = |width: u16, height: u16| {
         let mut state = AppState::new();
-        state.view = ytm_tui::app::state::View::NowPlaying;
+        state.ui.view = ytm_tui::app::state::View::NowPlaying;
         let mut track = Track::new("mix", "Width-safe title", "Artist");
         track.duration_seconds = Some(600);
-        state.current_track = Some(track.clone());
-        state.queue.push(track);
+        state.domain.current_track = Some(track.clone());
+        state.domain.queue.push(track);
         state
+            .domain
             .queue
             .push(Track::new("next", "Next width-safe", "Other"));
-        state.queue.position = Some(0);
-        state.playback.duration_seconds = Some(600.0);
-        state.current_details = Some(ytm_tui::media::TrackDetails {
+        state.domain.queue.position = Some(0);
+        state.domain.playback.duration_seconds = Some(600.0);
+        state.domain.current_details = Some(ytm_tui::media::TrackDetails {
             description: Some("A useful description".to_string()),
             uploader: Some("Verified channel".to_string()),
             upload_date: Some("20210515".to_string()),
@@ -200,9 +204,9 @@ fn playing_ultra_wide_does_not_render_persisted_activity() {
     use ytm_tui::history::activity::{ActivityEvent, ActivityKind};
 
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::NowPlaying;
-    state.current_track = Some(Track::new("playing", "Playing", "Artist"));
-    state.activity.push(ActivityEvent::new(
+    state.ui.view = ytm_tui::app::state::View::NowPlaying;
+    state.domain.current_track = Some(Track::new("playing", "Playing", "Artist"));
+    state.domain.activity.push(ActivityEvent::new(
         ActivityKind::PlaylistImported,
         "Imported activity",
         "12 tracks",
@@ -219,9 +223,9 @@ fn playing_ultra_wide_does_not_render_persisted_activity() {
 #[test]
 fn playing_layout_omits_unknown_format_chips() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::NowPlaying;
-    state.current_track = Some(Track::new("id", "No details", "Artist"));
-    state.current_details = Some(ytm_tui::media::TrackDetails::default());
+    state.ui.view = ytm_tui::app::state::View::NowPlaying;
+    state.domain.current_track = Some(Track::new("id", "No details", "Artist"));
+    state.domain.current_details = Some(ytm_tui::media::TrackDetails::default());
     let out = render_to_string(&mut state, None, 150, 40);
     for unsupported in ["kbps", "Hz", "Stereo"] {
         assert!(

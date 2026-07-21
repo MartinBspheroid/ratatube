@@ -3,11 +3,11 @@ use super::*;
 #[test]
 fn now_playing_bar_renders_when_track_loaded() {
     let mut state = AppState::new();
-    state.current_track = Some(Track::new("abc", "Teardrop", "Massive Attack"));
-    state.playback.status = ytm_tui::playback::PlaybackStatus::Playing;
-    state.playback.position_seconds = 161.0;
-    state.playback.duration_seconds = Some(330.0);
-    state.playback.volume = 72;
+    state.domain.current_track = Some(Track::new("abc", "Teardrop", "Massive Attack"));
+    state.domain.playback.status = ytm_tui::playback::PlaybackStatus::Playing;
+    state.domain.playback.position_seconds = 161.0;
+    state.domain.playback.duration_seconds = Some(330.0);
+    state.domain.playback.volume = 72;
     let out = render_to_string(&mut state, None, 100, 30);
     assert!(out.contains("Teardrop"), "title:\n{out}");
     assert!(out.contains("02:41 / 05:30"), "elapsed/total times:\n{out}");
@@ -22,10 +22,10 @@ fn now_playing_bar_renders_when_track_loaded() {
 #[test]
 fn header_clusters_follow_collapse_boundaries() {
     let mut state = AppState::new();
-    state.mpv_ready = true;
-    state.yt_dlp_ready = true;
-    state.playback.volume = 58;
-    state.queue.push(Track::new("q", "Queued", "Artist"));
+    state.domain.mpv_ready = true;
+    state.domain.yt_dlp_ready = true;
+    state.domain.playback.volume = 58;
+    state.domain.queue.push(Track::new("q", "Queued", "Artist"));
 
     let collapsed = render_to_string(&mut state, None, 99, 24);
     assert!(
@@ -75,8 +75,8 @@ fn header_clusters_follow_collapse_boundaries() {
 fn layouts_render_width_safe_content_at_every_breakpoint_edge() {
     for width in [99, 100, 139, 140, 169, 170] {
         let mut state = AppState::new();
-        state.view = ytm_tui::app::state::View::Search;
-        state.search = SearchState::Results {
+        state.ui.view = ytm_tui::app::state::View::Search;
+        state.domain.search = SearchState::Results {
             query: "boundary".to_string(),
             tracks: vec![Track::new("edge", "Boundary stem", "Edge artist")],
         };
@@ -91,7 +91,7 @@ fn layouts_render_width_safe_content_at_every_breakpoint_edge() {
 #[test]
 fn narrow_header_keeps_active_tab_label() {
     let mut state = AppState::new();
-    state.view = ytm_tui::app::state::View::Search;
+    state.ui.view = ytm_tui::app::state::View::Search;
     let out = render_to_string(&mut state, None, 80, 24);
     assert!(
         out.lines()
@@ -106,7 +106,7 @@ fn narrow_header_keeps_active_tab_label() {
 fn footers_never_advertise_rejected_unbound_features() {
     for view in ytm_tui::app::state::View::TABS {
         let mut state = AppState::new();
-        state.view = view;
+        state.ui.view = view;
         let out = render_to_string(&mut state, None, 100, 24);
         let footer = out.lines().last().unwrap_or_default();
         for rejected in ["Sort", "Filters", "Refresh", "Library", "Settings"] {

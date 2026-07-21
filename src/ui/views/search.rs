@@ -21,8 +21,8 @@ pub(super) fn render_search(
         .split(area);
     render_input(frame, rows[0], state, icons, theme);
 
-    let results_focused = state.focus != Focus::SearchInput;
-    match state.search.clone() {
+    let results_focused = state.ui.focus != Focus::SearchInput;
+    match state.domain.search.clone() {
         SearchState::Idle => render_message(
             frame,
             rows[1],
@@ -42,7 +42,7 @@ pub(super) fn render_search(
             ResultsMessage {
                 title: "Results",
                 message: &format!("Searching for \"{}\"...", sanitize_terminal_text(&query)),
-                icon: spinner(state.spinner_frame),
+                icon: spinner(state.ui.spinner_frame),
                 focused: results_focused,
                 hints: &[],
             },
@@ -69,16 +69,16 @@ pub(super) fn render_search(
 }
 
 fn render_input(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icons, theme: &Theme) {
-    let focused = state.focus == Focus::SearchInput;
+    let focused = state.ui.focus == Focus::SearchInput;
     let inner = section_panel(frame, area, "Search", focused, theme, icons);
-    let line = if state.search_input.is_empty() && !focused {
+    let line = if state.ui.search_input.is_empty() && !focused {
         Line::from(Span::styled(
             "Press / to search, or paste a YouTube URL...",
             theme.dim,
         ))
     } else {
         Line::from(vec![
-            Span::raw(sanitize_terminal_text(&state.search_input)),
+            Span::raw(sanitize_terminal_text(&state.ui.search_input)),
             Span::styled(if focused { icons.section_bar } else { "" }, theme.accent),
         ])
     };
@@ -123,7 +123,7 @@ fn render_results(
     icons: &Icons,
     theme: &Theme,
 ) {
-    let selected = tracks.get(state.selected_index).cloned();
+    let selected = tracks.get(state.ui.selected_index).cloned();
     let breakpoint = Breakpoint::from_width(area.width);
     let columns = if breakpoint == Breakpoint::Narrow {
         Layout::default()
@@ -144,7 +144,7 @@ fn render_results(
         render_selected(frame, columns[1], state, track, icons, theme);
     }
     if breakpoint == Breakpoint::Narrow
-        && state.search_detail_open
+        && state.ui.search_detail_open
         && let Some(track) = &selected
     {
         render_overlay(frame, area, state, track, icons, theme);
@@ -164,7 +164,7 @@ fn render_result_table(
         frame,
         area,
         "Results",
-        state.focus != Focus::SearchInput,
+        state.ui.focus != Focus::SearchInput,
         theme,
         icons,
     );
@@ -222,12 +222,12 @@ fn render_result_table(
         .header(header_row("LENGTH", theme))
         .row_highlight_style(theme.selected)
         .highlight_symbol(icons.chevron_r);
-    state.table_state.select(Some(state.selected_index));
-    state.list_hit_area = Rect {
+    state.ui.table_state.select(Some(state.ui.selected_index));
+    state.ui.list_hit_area = Rect {
         y: rows[1].y + 2,
         height: rows[1].height.saturating_sub(2),
         ..rows[1]
     };
-    frame.render_stateful_widget(table, rows[1], &mut state.table_state);
-    scrollbar(frame, rows[1], tracks.len(), state.table_state.offset());
+    frame.render_stateful_widget(table, rows[1], &mut state.ui.table_state);
+    scrollbar(frame, rows[1], tracks.len(), state.ui.table_state.offset());
 }

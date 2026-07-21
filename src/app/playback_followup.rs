@@ -11,33 +11,33 @@ impl App {
     /// After a track starts, prefetch the next stream and, in radio mode,
     /// refill the queue when playback reaches its boundary.
     pub(super) fn after_track_started(&mut self, action_tx: &mpsc::Sender<Action>) {
-        let len = self.state.queue.order.len();
-        let Some(position) = self.state.queue.position else {
+        let len = self.state.domain.queue.order.len();
+        let Some(position) = self.state.domain.queue.position else {
             return;
         };
 
-        if self.state.radio
+        if self.state.domain.radio
             && position + 1 >= len
             && !self.radio_fetching
-            && let Some(track) = self.state.current_track.clone()
+            && let Some(track) = self.state.domain.current_track.clone()
         {
             self.spawn_radio_refill(track.id, action_tx);
         }
 
-        if self.state.queue.repeat == crate::queue::RepeatMode::Track {
+        if self.state.domain.queue.repeat == crate::queue::RepeatMode::Track {
             return;
         }
         // Prefetching is pointless when repeating the current track.
         let next_position = if position + 1 < len {
             Some(position + 1)
-        } else if self.state.queue.repeat == crate::queue::RepeatMode::Queue && len > 0 {
+        } else if self.state.domain.queue.repeat == crate::queue::RepeatMode::Queue && len > 0 {
             Some(0)
         } else {
             None
         };
         let Some(next_track) = next_position
-            .and_then(|queue_position| self.state.queue.order.get(queue_position))
-            .map(|&index| self.state.queue.tracks[index].clone())
+            .and_then(|queue_position| self.state.domain.queue.order.get(queue_position))
+            .map(|&index| self.state.domain.queue.tracks[index].clone())
         else {
             return;
         };

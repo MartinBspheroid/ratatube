@@ -11,11 +11,11 @@ pub(super) fn render(
     icon_set: &icons::Icons,
     theme: &theme::Theme,
 ) {
-    if let Some(menu) = &state.track_context_menu {
+    if let Some(menu) = &state.ui.track_context_menu {
         context_menu::render(frame, area, menu, theme);
         return;
     }
-    if let Some(details) = &state.track_details_modal {
+    if let Some(details) = &state.ui.track_details_modal {
         context_menu::render_details(frame, area, details, theme);
         return;
     }

@@ -22,10 +22,11 @@ impl App {
     ) {
         let Some(track) = self
             .state
+            .domain
             .queue
             .order
             .get(queue_position)
-            .and_then(|index| self.state.queue.tracks.get(*index))
+            .and_then(|index| self.state.domain.queue.tracks.get(*index))
             .cloned()
         else {
             return;

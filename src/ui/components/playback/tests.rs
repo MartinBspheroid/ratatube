@@ -26,9 +26,9 @@ fn playback_mode_colors(
     let mut terminal = Terminal::new(backend).expect("terminal");
     let icons = icons_for(IconMode::Ascii);
     let mut state = AppState::new();
-    state.current_track = Some(Track::new("id", "Title", "Artist"));
-    state.queue.shuffle = shuffle;
-    state.queue.repeat = repeat;
+    state.domain.current_track = Some(Track::new("id", "Title", "Artist"));
+    state.domain.queue.shuffle = shuffle;
+    state.domain.queue.repeat = repeat;
     terminal
         .draw(|frame| {
             super::playback_summary(

@@ -27,30 +27,30 @@ async fn receive_action(action_rx: &mut mpsc::Receiver<Action>, label: &str) -> 
 async fn open_menu_for(view: View) {
     let (_temp, mut app) = test_app();
     let selected = track("context", "Context track");
-    app.state.view = view;
-    app.state.playback.status = PlaybackStatus::Playing;
+    app.state.ui.view = view;
+    app.state.domain.playback.status = PlaybackStatus::Playing;
     match view {
         View::Search => {
-            app.state.search = SearchState::Results {
+            app.state.domain.search = SearchState::Results {
                 query: "context".to_string(),
                 tracks: vec![selected],
             };
         }
-        View::Queue => app.state.queue.push(selected),
+        View::Queue => app.state.domain.queue.push(selected),
         View::PlaylistDetail => {
             let mut playlist = Playlist::new("Context playlist");
             playlist.tracks.push(PlaylistTrack::from(&selected));
-            app.state.playlists.push(playlist);
-            app.state.selected_playlist = Some(0);
+            app.state.domain.playlists.push(playlist);
+            app.state.ui.selected_playlist = Some(0);
         }
         View::History => app.history = Some(history(&[selected])),
-        View::NowPlaying => app.state.current_track = Some(selected),
+        View::NowPlaying => app.state.domain.current_track = Some(selected),
         View::Home => {
-            app.state.home_section = HomeSection::Recent;
+            app.state.ui.home_section = HomeSection::Recent;
             app.history = Some(history(&[selected]));
         }
         View::Channel => {
-            app.state.channel = Some(ChannelState {
+            app.state.domain.channel = Some(ChannelState {
                 name: "Context channel".to_string(),
                 url: "https://www.youtube.com/channel/UC123".to_string(),
                 tracks: vec![selected],
@@ -71,11 +71,11 @@ async fn open_menu_for(view: View) {
     let (action_tx, mut action_rx) = mpsc::channel(4);
 
     app.handle_key(key(KeyCode::Char('c')), &action_tx).await;
-    assert!(app.state.track_context_menu.is_some(), "view: {view:?}");
+    assert!(app.state.ui.track_context_menu.is_some(), "view: {view:?}");
     assert!(action_rx.try_recv().is_err(), "opening is atomic");
-    assert_eq!(app.state.playback.status, PlaybackStatus::Playing);
+    assert_eq!(app.state.domain.playback.status, PlaybackStatus::Playing);
 
-    let content_selection = app.state.selected_index;
+    let content_selection = app.state.ui.selected_index;
     app.handle_key(key(KeyCode::Char('j')), &action_tx).await;
     let action = receive_action(&mut action_rx, "move action").await;
     assert!(matches!(
@@ -85,19 +85,21 @@ async fn open_menu_for(view: View) {
     app.handle_action(action, &action_tx).await;
     assert_eq!(
         app.state
+            .ui
             .track_context_menu
             .as_ref()
             .map(|menu| menu.selected),
         Some(1)
     );
-    assert_eq!(app.state.selected_index, content_selection);
-    assert_eq!(app.state.playback.status, PlaybackStatus::Playing);
+    assert_eq!(app.state.ui.selected_index, content_selection);
+    assert_eq!(app.state.domain.playback.status, PlaybackStatus::Playing);
 
     app.handle_key(key(KeyCode::Char('k')), &action_tx).await;
     let action = receive_action(&mut action_rx, "move action").await;
     app.handle_action(action, &action_tx).await;
     assert_eq!(
         app.state
+            .ui
             .track_context_menu
             .as_ref()
             .map(|menu| menu.selected),
@@ -111,8 +113,8 @@ async fn open_menu_for(view: View) {
         Action::Navigation(NavigationAction::CloseTrackContext)
     ));
     app.handle_action(action, &action_tx).await;
-    assert!(app.state.track_context_menu.is_none());
-    assert_eq!(app.state.playback.status, PlaybackStatus::Playing);
+    assert!(app.state.ui.track_context_menu.is_none());
+    assert_eq!(app.state.domain.playback.status, PlaybackStatus::Playing);
 }
 
 #[tokio::test]
@@ -134,14 +136,14 @@ async fn track_context_menu_keys_work_on_every_track_bearing_view() {
 #[tokio::test]
 async fn track_context_menu_swallows_unhandled_global_keys() {
     let (_temp, mut app) = test_app();
-    app.state.view = View::Search;
-    app.state.search = SearchState::Results {
+    app.state.ui.view = View::Search;
+    app.state.domain.search = SearchState::Results {
         query: "context".to_string(),
         tracks: vec![track("context", "Context track")],
     };
     let context =
         crate::app::track_context::resolve_track_context(&app.state, None).expect("track context");
-    app.state.track_context_menu = Some(crate::app::state::TrackContextMenuState {
+    app.state.ui.track_context_menu = Some(crate::app::state::TrackContextMenuState {
         context,
         selected: 0,
     });
@@ -150,14 +152,14 @@ async fn track_context_menu_swallows_unhandled_global_keys() {
     app.handle_key(key(KeyCode::Char('q')), &action_tx).await;
 
     assert!(action_rx.try_recv().is_err());
-    assert!(app.state.running);
-    assert!(app.state.track_context_menu.is_some());
+    assert!(app.state.ui.running);
+    assert!(app.state.ui.track_context_menu.is_some());
 }
 
 #[tokio::test]
 async fn track_context_menu_details_modal_is_modal_first_and_closes_with_escape() {
     let (_temp, mut app) = test_app();
-    app.state.track_details_modal = Some(crate::app::state::TrackDetailsModalState {
+    app.state.ui.track_details_modal = Some(crate::app::state::TrackDetailsModalState {
         track: track("details", "Details track"),
         details: None,
     });
@@ -165,7 +167,7 @@ async fn track_context_menu_details_modal_is_modal_first_and_closes_with_escape(
 
     app.handle_key(key(KeyCode::Char('q')), &action_tx).await;
     assert!(action_rx.try_recv().is_err());
-    assert!(app.state.running);
+    assert!(app.state.ui.running);
 
     app.handle_key(key(KeyCode::Esc), &action_tx).await;
     let action = receive_action(&mut action_rx, "close details action").await;
@@ -174,5 +176,5 @@ async fn track_context_menu_details_modal_is_modal_first_and_closes_with_escape(
         Action::Navigation(NavigationAction::CloseTrackDetails)
     ));
     app.handle_action(action, &action_tx).await;
-    assert!(app.state.track_details_modal.is_none());
+    assert!(app.state.ui.track_details_modal.is_none());
 }

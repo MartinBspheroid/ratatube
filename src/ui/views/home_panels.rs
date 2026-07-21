@@ -37,7 +37,7 @@ pub(super) fn render_recent(
         frame,
         area,
         "Recent Tracks",
-        state.home_section == HomeSection::Recent,
+        state.ui.home_section == HomeSection::Recent,
         Some((&link, '5')),
         icons,
         theme,
@@ -62,11 +62,12 @@ pub(super) fn render_recent(
                     ),
                     right_columns: &right,
                     playing: state
+                        .domain
                         .current_track
                         .as_ref()
                         .is_some_and(|current| current.id == track.id),
-                    selected: state.home_section == HomeSection::Recent
-                        && state.selected_index == index,
+                    selected: state.ui.home_section == HomeSection::Recent
+                        && state.ui.selected_index == index,
                 },
                 inner.width as usize,
                 theme,
@@ -88,14 +89,14 @@ pub(super) fn render_playlists(
         frame,
         area,
         "Playlists",
-        state.home_section == HomeSection::Playlists,
+        state.ui.home_section == HomeSection::Playlists,
         Some(("View all", '4')),
         icons,
         theme,
     );
     if inner.width >= crate::ui::layout::HOME_GRID_MIN_WIDTH {
-        let page_count = state.playlists.len().max(1).div_ceil(4);
-        let page = (state.selected_index / 4).min(page_count - 1);
+        let page_count = state.domain.playlists.len().max(1).div_ceil(4);
+        let page = (state.ui.selected_index / 4).min(page_count - 1);
         if page_count > 1 {
             frame.render_widget(
                 Paragraph::new(Line::from(Span::styled(
@@ -117,6 +118,7 @@ pub(super) fn render_playlists(
             .constraints([Constraint::Percentage(25); 4])
             .split(inner);
         for ((index, playlist), column) in state
+            .domain
             .playlists
             .iter()
             .enumerate()
@@ -132,8 +134,8 @@ pub(super) fn render_playlists(
                             &sanitize_terminal_text(&playlist.name),
                             column.width as usize,
                         ),
-                        if state.home_section == HomeSection::Playlists
-                            && state.selected_index == index
+                        if state.ui.home_section == HomeSection::Playlists
+                            && state.ui.selected_index == index
                         {
                             theme.selected
                         } else {
@@ -152,6 +154,7 @@ pub(super) fn render_playlists(
         }
     } else {
         let lines = state
+            .domain
             .playlists
             .iter()
             .enumerate()
@@ -163,8 +166,8 @@ pub(super) fn render_playlists(
                         title: &sanitize_terminal_text(&playlist.name),
                         right_columns: &[format!("{} tracks", playlist.tracks.len())],
                         playing: false,
-                        selected: state.home_section == HomeSection::Playlists
-                            && state.selected_index == index,
+                        selected: state.ui.home_section == HomeSection::Playlists
+                            && state.ui.selected_index == index,
                     },
                     inner.width as usize,
                     theme,

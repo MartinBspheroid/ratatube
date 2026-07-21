@@ -14,7 +14,7 @@ pub(super) fn render_up_next(
     theme: &Theme,
 ) {
     let inner = section_panel(frame, area, "Up Next", false, theme, icons);
-    let Some(position) = state.queue.position else {
+    let Some(position) = state.domain.queue.position else {
         empty_state(
             frame,
             inner,
@@ -27,14 +27,20 @@ pub(super) fn render_up_next(
         );
         return;
     };
-    let upcoming = state.queue.order.iter().enumerate().skip(position + 1);
-    let total = state.queue.order.len().saturating_sub(position + 1);
+    let upcoming = state
+        .domain
+        .queue
+        .order
+        .iter()
+        .enumerate()
+        .skip(position + 1);
+    let total = state.domain.queue.order.len().saturating_sub(position + 1);
     let mut shown = 0usize;
     let lines = upcoming
         .take(inner.height as usize)
         .map(|(queue_position, &track_index)| {
             shown += 1;
-            let track = &state.queue.tracks[track_index];
+            let track = &state.domain.queue.tracks[track_index];
             numbered_row(
                 NumberedRow {
                     index: queue_position,
@@ -54,7 +60,7 @@ pub(super) fn render_up_next(
         })
         .collect::<Vec<_>>();
     if shown == 0 {
-        let message = if state.queue.repeat == crate::queue::RepeatMode::Queue {
+        let message = if state.domain.queue.repeat == crate::queue::RepeatMode::Queue {
             "Queue repeats from the top"
         } else {
             "Queue ends after this track"
@@ -74,12 +80,13 @@ pub(super) fn render_description(
     theme: &Theme,
 ) {
     let chapters = state.chapters();
-    if !chapters.is_empty() && !state.now_playing_show_description {
+    if !chapters.is_empty() && !state.ui.now_playing_show_description {
         render_chapters(frame, area, state, chapters, icons, theme);
         return;
     }
     let inner = section_panel(frame, area, "Description", false, theme, icons);
     let description = state
+        .domain
         .current_details
         .as_ref()
         .and_then(|details| details.description.as_deref())
@@ -94,10 +101,15 @@ pub(super) fn render_description(
         Paragraph::new(description)
             .wrap(ratatui::widgets::Wrap { trim: true })
             .style(theme.dim)
-            .scroll((state.now_playing_scroll, 0)),
+            .scroll((state.ui.now_playing_scroll, 0)),
         inner,
     );
-    scrollbar(frame, inner, line_count, state.now_playing_scroll as usize);
+    scrollbar(
+        frame,
+        inner,
+        line_count,
+        state.ui.now_playing_scroll as usize,
+    );
 }
 
 fn render_chapters(
@@ -147,13 +159,15 @@ pub(super) fn render_queue(
     icons: &Icons,
     theme: &Theme,
 ) {
-    let focused = state.playing_pane == PlayingPane::Queue;
+    let focused = state.ui.playing_pane == PlayingPane::Queue;
     let inner = section_panel(frame, area, "Queue", focused, theme, icons);
-    state.list_hit_area = inner;
+    state.ui.list_hit_area = inner;
     let start = state
+        .ui
         .selected_index
         .saturating_sub(inner.height as usize / 2);
     let lines = state
+        .domain
         .queue
         .order
         .iter()
@@ -161,14 +175,14 @@ pub(super) fn render_queue(
         .skip(start)
         .take(inner.height as usize)
         .map(|(position, &track_index)| {
-            let track = &state.queue.tracks[track_index];
+            let track = &state.domain.queue.tracks[track_index];
             numbered_row(
                 NumberedRow {
                     index: position,
                     title: &sanitize_terminal_text(&track.title),
                     right_columns: &[],
-                    playing: state.queue.position == Some(position),
-                    selected: focused && state.selected_index == position,
+                    playing: state.domain.queue.position == Some(position),
+                    selected: focused && state.ui.selected_index == position,
                 },
                 inner.width as usize,
                 theme,
@@ -177,5 +191,10 @@ pub(super) fn render_queue(
         })
         .collect::<Vec<_>>();
     frame.render_widget(Paragraph::new(lines), inner);
-    scrollbar(frame, inner, state.queue.order.len(), state.selected_index);
+    scrollbar(
+        frame,
+        inner,
+        state.domain.queue.order.len(),
+        state.ui.selected_index,
+    );
 }

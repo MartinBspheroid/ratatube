@@ -10,7 +10,7 @@ async fn command_path_reduces_executes_and_persists_queue_action() {
     )
     .await;
 
-    assert_eq!(app.state.queue.tracks.len(), 1);
+    assert_eq!(app.state.domain.queue.tracks.len(), 1);
     let restored = crate::queue::service::load(&app.paths.queue_file()).expect("saved queue");
     assert_eq!(restored.tracks[0].id, "id");
 }
@@ -18,16 +18,16 @@ async fn command_path_reduces_executes_and_persists_queue_action() {
 #[tokio::test]
 async fn home_enter_dispatches_for_every_populated_iteration_four_section() {
     let (_temp, mut app) = test_app();
-    app.state.view = View::Home;
+    app.state.ui.view = View::Home;
     let resume = Track::new("resume", "Resume", "Artist");
-    app.state.pending_resume = Some(crate::app::state::PendingResume {
+    app.state.domain.pending_resume = Some(crate::app::state::PendingResume {
         track: resume,
         position_seconds: 30.0,
         armed: true,
         play_on_load: false,
     });
     let (action_tx, mut action_rx) = mpsc::channel(8);
-    app.state.home_section = crate::app::state::HomeSection::Resume;
+    app.state.ui.home_section = crate::app::state::HomeSection::Resume;
     app.handle_action(Action::Playback(PlaybackAction::PlaySelected), &action_tx)
         .await;
     assert!(matches!(
@@ -43,8 +43,8 @@ async fn home_enter_dispatches_for_every_populated_iteration_four_section() {
         10,
     ));
     app.history = Some(history);
-    app.state.home_section = crate::app::state::HomeSection::Recent;
-    app.state.selected_index = 0;
+    app.state.ui.home_section = crate::app::state::HomeSection::Recent;
+    app.state.ui.selected_index = 0;
     app.handle_action(Action::Playback(PlaybackAction::PlaySelected), &action_tx)
         .await;
     assert!(
@@ -53,9 +53,9 @@ async fn home_enter_dispatches_for_every_populated_iteration_four_section() {
 
     let playlist = Playlist::new("Home playlist");
     let playlist_id = playlist.id.clone();
-    app.state.playlists.push(playlist);
-    app.state.home_section = crate::app::state::HomeSection::Playlists;
-    app.state.selected_index = 0;
+    app.state.domain.playlists.push(playlist);
+    app.state.ui.home_section = crate::app::state::HomeSection::Playlists;
+    app.state.ui.selected_index = 0;
     app.handle_action(Action::Playback(PlaybackAction::PlaySelected), &action_tx)
         .await;
     assert!(matches!(
@@ -71,8 +71,8 @@ async fn playlist_mutations_emit_persistable_activity() {
     let (_temp, mut app) = test_app();
     let playlist = Playlist::new("Target");
     app.playlists.save(&playlist).expect("save target");
-    app.state.playlists.push(playlist);
-    app.state.picker = Some(crate::app::state::PickerState {
+    app.state.domain.playlists.push(playlist);
+    app.state.ui.picker = Some(crate::app::state::PickerState {
         track: Track::new("track", "Added track", "Artist"),
         filter: String::new(),
         selected: 0,
@@ -81,11 +81,16 @@ async fn playlist_mutations_emit_persistable_activity() {
     app.handle_action(Action::Playlists(PlaylistAction::PickerSubmit), &action_tx)
         .await;
     assert_eq!(
-        app.state.activity.entries().front().map(|event| event.kind),
+        app.state
+            .domain
+            .activity
+            .entries()
+            .front()
+            .map(|event| event.kind),
         Some(ActivityKind::AddedToPlaylist)
     );
 
-    app.state.import = Some(ImportState::Review {
+    app.state.domain.import = Some(ImportState::Review {
         summary: crate::playlists::import::ImportSummary {
             remote_title: "Imported".to_string(),
             remote_url: "https://www.youtube.com/playlist?list=safe".to_string(),
@@ -103,7 +108,12 @@ async fn playlist_mutations_emit_persistable_activity() {
     app.handle_action(Action::Playlists(PlaylistAction::ConfirmImport), &action_tx)
         .await;
     assert_eq!(
-        app.state.activity.entries().front().map(|event| event.kind),
+        app.state
+            .domain
+            .activity
+            .entries()
+            .front()
+            .map(|event| event.kind),
         Some(ActivityKind::PlaylistImported)
     );
 }

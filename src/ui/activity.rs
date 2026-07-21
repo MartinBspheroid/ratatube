@@ -28,7 +28,7 @@ pub fn render_activity_panel(
             Rect { height: 1, ..area },
         );
     }
-    if state.activity.is_empty() {
+    if state.domain.activity.is_empty() {
         frame.render_widget(
             Paragraph::new(Span::styled("No activity yet", theme.dim)),
             inner,
@@ -37,6 +37,7 @@ pub fn render_activity_panel(
     }
     let now = Utc::now();
     let lines = state
+        .domain
         .activity
         .entries()
         .iter()
@@ -54,7 +55,7 @@ pub fn render_activity_panel(
                     Span::styled(format!("{icon} "), style),
                     Span::styled(
                         sanitize_terminal_text(&event.title),
-                        if focused && state.selected_index == index {
+                        if focused && state.ui.selected_index == index {
                             theme.selected
                         } else {
                             theme.base

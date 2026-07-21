@@ -19,15 +19,15 @@ impl App {
             self.handle_modal_key(capture, &key, action_tx).await;
             return;
         }
-        match self.state.focus {
+        match self.state.ui.focus {
             Focus::SearchInput => {
                 if keymap::submits_search(&key) {
-                    let query = self.state.search_input.trim().to_string();
+                    let query = self.state.ui.search_input.trim().to_string();
                     self.submit_text_query(query, action_tx).await;
                     return;
                 }
                 if keymap::leaves_search(&key) {
-                    self.state.focus = Focus::Content;
+                    self.state.ui.focus = Focus::Content;
                     return;
                 }
                 if let Some(action) = keymap::search_input_action(&key) {
@@ -40,32 +40,33 @@ impl App {
                 KeyCode::Enter => {
                     if self
                         .state
+                        .ui
                         .list_filter
                         .as_deref()
                         .is_none_or(|filter| filter.trim().is_empty())
                     {
-                        self.state.list_filter = None;
+                        self.state.ui.list_filter = None;
                     }
-                    self.state.focus = Focus::Content;
+                    self.state.ui.focus = Focus::Content;
                 }
                 KeyCode::Esc => {
-                    self.state.list_filter = None;
-                    self.state.focus = Focus::Content;
+                    self.state.ui.list_filter = None;
+                    self.state.ui.focus = Focus::Content;
                 }
                 KeyCode::Backspace => {
-                    if let Some(filter) = &mut self.state.list_filter
+                    if let Some(filter) = &mut self.state.ui.list_filter
                         && filter.pop().is_none()
                     {
-                        self.state.list_filter = None;
-                        self.state.focus = Focus::Content;
+                        self.state.ui.list_filter = None;
+                        self.state.ui.focus = Focus::Content;
                     }
-                    self.state.selected_index = 0;
+                    self.state.ui.selected_index = 0;
                 }
                 KeyCode::Char(character) => {
-                    if let Some(filter) = &mut self.state.list_filter {
+                    if let Some(filter) = &mut self.state.ui.list_filter {
                         filter.push(character);
                     }
-                    self.state.selected_index = 0;
+                    self.state.ui.selected_index = 0;
                 }
                 // Allow movement while editing so users can filter, then pick,
                 // without leaving the filter bar.
@@ -82,10 +83,10 @@ impl App {
                 _ => {}
             },
             Focus::Content => {
-                if self.state.view == View::Channel
+                if self.state.ui.view == View::Channel
                     && key.code == KeyCode::Enter
-                    && let Some(channel) = self.state.channel.as_ref()
-                    && self.state.selected_index == channel.tracks.len()
+                    && let Some(channel) = self.state.domain.channel.as_ref()
+                    && self.state.ui.selected_index == channel.tracks.len()
                     && !channel.exhausted
                     && !channel.loading
                 {
@@ -101,36 +102,36 @@ impl App {
                     // In list views `/` filters in place; elsewhere it moves
                     // focus to the Search tab.
                     if matches!(
-                        self.state.view,
+                        self.state.ui.view,
                         View::Queue | View::History | View::Playlists | View::PlaylistDetail
                     ) {
-                        self.state.list_filter = Some(String::new());
-                        self.state.focus = Focus::ListFilter;
-                        self.state.selected_index = 0;
+                        self.state.ui.list_filter = Some(String::new());
+                        self.state.ui.focus = Focus::ListFilter;
+                        self.state.ui.selected_index = 0;
                     } else {
-                        self.state.view = View::Search;
-                        self.state.focus = Focus::SearchInput;
+                        self.state.ui.view = View::Search;
+                        self.state.ui.focus = Focus::SearchInput;
                     }
                     return;
                 }
                 // Esc clears a locked list filter and its derived index mapping.
-                if key.code == KeyCode::Esc && self.state.list_filter.is_some() {
-                    self.state.list_filter = None;
-                    self.state.visible_indices = None;
+                if key.code == KeyCode::Esc && self.state.ui.list_filter.is_some() {
+                    self.state.ui.list_filter = None;
+                    self.state.ui.visible_indices = None;
                     self.state.clamp_selection();
                     return;
                 }
-                if self.state.view == View::NowPlaying
+                if self.state.ui.view == View::NowPlaying
                     && let Some(action) = keymap::playing_pane_action(
                         &key,
-                        self.state.playing_pane,
-                        crate::ui::layout::Breakpoint::from_width(self.state.screen_area.width),
+                        self.state.ui.playing_pane,
+                        crate::ui::layout::Breakpoint::from_width(self.state.ui.screen_area.width),
                     )
                 {
                     let _ = action_tx.send(action).await;
                     return;
                 }
-                if let Some(action) = keymap::route(&key, Focus::Content, self.state.view) {
+                if let Some(action) = keymap::route(&key, Focus::Content, self.state.ui.view) {
                     if matches!(
                         action,
                         Action::Navigation(NavigationAction::OpenTrackContext)

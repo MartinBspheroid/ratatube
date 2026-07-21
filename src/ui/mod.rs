@@ -46,12 +46,12 @@ where
     B: ratatui::backend::Backend,
     B::Error: std::fmt::Display,
 {
-    let icons = icons::icons_for(state.icon_mode);
+    let icons = icons::icons_for(state.ui.icon_mode);
     let theme = theme::Theme::default();
     terminal
         .draw(|frame| {
             let area = frame.area();
-            state.screen_area = area;
+            state.ui.screen_area = area;
             frame.buffer_mut().set_style(area, theme.bg);
             if is_compact(area) {
                 // Below the hard floor nothing useful fits; warn instead of
@@ -101,7 +101,7 @@ where
             // Modal content stays below notifications so operation failures
             // remain visible while the context menu is open.
             overlays::render(frame, regions.main, state, &icons, &theme);
-            if let Some(notification) = &state.notification {
+            if let Some(notification) = &state.ui.notification {
                 let style = if notification.is_error {
                     theme.error
                 } else {

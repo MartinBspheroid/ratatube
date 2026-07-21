@@ -10,8 +10,8 @@ use super::track;
 fn app_with_open_browser_menu() -> crate::app::App {
     let (_temp, mut app) = test_app();
     let selected = track("selected", "Selected track");
-    app.state.view = View::Search;
-    app.state.search = SearchState::Results {
+    app.state.ui.view = View::Search;
+    app.state.domain.search = SearchState::Results {
         query: "selected".to_string(),
         tracks: vec![selected],
     };
@@ -32,14 +32,18 @@ fn every_external_command_failure_keeps_the_track_menu_open() {
             ExternalCommandKind::Browser,
             ExternalCommandTarget::TrackContext {
                 track_id: "selected".to_string(),
-                generation: app.state.track_context_generation,
+                generation: app.state.ui.track_context_generation,
             },
             Err(failure.to_string()),
         );
 
-        assert!(app.state.track_context_menu.is_some(), "failure: {failure}");
+        assert!(
+            app.state.ui.track_context_menu.is_some(),
+            "failure: {failure}"
+        );
         assert!(
             app.state
+                .ui
                 .notification
                 .as_ref()
                 .is_some_and(|notice| notice.is_error && notice.message.contains(failure))
@@ -50,7 +54,7 @@ fn every_external_command_failure_keeps_the_track_menu_open() {
 #[test]
 fn zero_exit_completion_closes_only_the_matching_track_menu() {
     let mut app = app_with_open_browser_menu();
-    let generation = app.state.track_context_generation;
+    let generation = app.state.ui.track_context_generation;
 
     app.finish_external_command(
         ExternalCommandKind::Browser,
@@ -61,9 +65,10 @@ fn zero_exit_completion_closes_only_the_matching_track_menu() {
         Ok(()),
     );
 
-    assert!(app.state.track_context_menu.is_none());
+    assert!(app.state.ui.track_context_menu.is_none());
     assert!(
         app.state
+            .ui
             .notification
             .as_ref()
             .is_some_and(|notice| !notice.is_error)
@@ -73,8 +78,8 @@ fn zero_exit_completion_closes_only_the_matching_track_menu() {
 #[test]
 fn stale_success_does_not_close_reopened_menu_for_the_same_track() {
     let mut app = app_with_open_browser_menu();
-    let stale_generation = app.state.track_context_generation;
-    app.state.track_context_menu = None;
+    let stale_generation = app.state.ui.track_context_generation;
+    app.state.ui.track_context_menu = None;
     crate::app::track_context::open_track_context(&mut app.state, app.history.as_ref());
 
     app.finish_external_command(
@@ -86,6 +91,6 @@ fn stale_success_does_not_close_reopened_menu_for_the_same_track() {
         Ok(()),
     );
 
-    assert!(app.state.track_context_menu.is_some());
-    assert_ne!(app.state.track_context_generation, stale_generation);
+    assert!(app.state.ui.track_context_menu.is_some());
+    assert_ne!(app.state.ui.track_context_generation, stale_generation);
 }

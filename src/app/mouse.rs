@@ -21,7 +21,7 @@ impl App {
         }
         match mouse.kind {
             MouseEventKind::ScrollDown => {
-                if self.state.view == View::NowPlaying {
+                if self.state.ui.view == View::NowPlaying {
                     let _ = action_tx
                         .send(Action::Playback(PlaybackAction::ScrollNowPlaying(3)))
                         .await;
@@ -34,7 +34,7 @@ impl App {
                 }
             }
             MouseEventKind::ScrollUp => {
-                if self.state.view == View::NowPlaying {
+                if self.state.ui.view == View::NowPlaying {
                     let _ = action_tx
                         .send(Action::Playback(PlaybackAction::ScrollNowPlaying(-3)))
                         .await;
@@ -49,12 +49,12 @@ impl App {
             MouseEventKind::Down(MouseButton::Left) => {
                 // The header row is reserved for tab hit zones.
                 if mouse.row == 0 {
-                    let icons = crate::ui::icons::icons_for(self.state.icon_mode);
+                    let icons = crate::ui::icons::icons_for(self.state.ui.icon_mode);
                     let narrow =
-                        crate::ui::layout::Breakpoint::from_width(self.state.screen_area.width)
+                        crate::ui::layout::Breakpoint::from_width(self.state.ui.screen_area.width)
                             == crate::ui::layout::Breakpoint::Narrow;
                     for (view, start, end) in
-                        crate::ui::header::tab_hit_zones(&icons, self.state.view, narrow)
+                        crate::ui::header::tab_hit_zones(&icons, self.state.ui.view, narrow)
                     {
                         if mouse.column >= start && mouse.column < end {
                             let _ = action_tx
@@ -68,7 +68,7 @@ impl App {
                 // A click on the now-playing progress row seeks by fraction.
                 if self.state.has_now_playing() {
                     let layout =
-                        crate::ui::layout::AppLayout::new(self.state.screen_area, true, true);
+                        crate::ui::layout::AppLayout::new(self.state.ui.screen_area, true, true);
                     let bar = layout.now_playing;
                     // The five-row bar has three bordered content rows; the
                     // progress gauge is the middle content row.
@@ -87,22 +87,22 @@ impl App {
                         return;
                     }
                 }
-                let area = self.state.list_hit_area;
+                let area = self.state.ui.list_hit_area;
                 if mouse.column >= area.x
                     && mouse.column < area.x + area.width
                     && mouse.row >= area.y
                     && mouse.row < area.y + area.height
                 {
-                    let offset = if matches!(self.state.view, View::Search | View::Channel) {
-                        self.state.table_state.offset()
+                    let offset = if matches!(self.state.ui.view, View::Search | View::Channel) {
+                        self.state.ui.table_state.offset()
                     } else {
-                        self.state.list_state.offset()
+                        self.state.ui.list_state.offset()
                     };
                     let index = offset + usize::from(mouse.row - area.y);
                     if index < self.state.active_list_len() {
-                        self.state.selected_index = index;
+                        self.state.ui.selected_index = index;
                         let now = Instant::now();
-                        let target = (self.state.view, index);
+                        let target = (self.state.ui.view, index);
                         let double_click = self.last_click.is_some_and(|(at, view, clicked)| {
                             (view, clicked) == target
                                 && now.duration_since(at) < Duration::from_millis(400)

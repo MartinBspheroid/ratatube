@@ -10,7 +10,7 @@ impl App {
         match action {
             PlaylistAction::OpenPlaylistPicker => {
                 if let Some(track) = self.resolve_selected_track() {
-                    self.state.picker = Some(crate::app::state::PickerState {
+                    self.state.ui.picker = Some(crate::app::state::PickerState {
                         track,
                         filter: String::new(),
                         selected: 0,
@@ -22,14 +22,14 @@ impl App {
             }
             PlaylistAction::PickerSubmit => self.submit_picker().await,
             PlaylistAction::RemoveSelectedFromPlaylist => {
-                if self.state.view != View::PlaylistDetail {
+                if self.state.ui.view != View::PlaylistDetail {
                     return;
                 }
-                let index = self.state.resolve_index(self.state.selected_index);
-                let Some(playlist) = self
-                    .state
-                    .selected_playlist
-                    .and_then(|playlist_index| self.state.playlists.get_mut(playlist_index))
+                let index = self.state.resolve_index(self.state.ui.selected_index);
+                let Some(playlist) =
+                    self.state.ui.selected_playlist.and_then(|playlist_index| {
+                        self.state.domain.playlists.get_mut(playlist_index)
+                    })
                 else {
                     return;
                 };
@@ -52,13 +52,14 @@ impl App {
                 expected_track,
                 expected_revision,
             } => {
-                if self.state.playlists_revision != expected_revision {
+                if self.state.domain.playlists_revision != expected_revision {
                     self.state
                         .notify("Playlist changed; removal cancelled", true);
                     return;
                 }
                 let Some(playlist_index) = self
                     .state
+                    .domain
                     .playlists
                     .iter()
                     .position(|playlist| playlist.id == playlist_id)
@@ -67,7 +68,7 @@ impl App {
                         .notify("Playlist changed; removal cancelled", true);
                     return;
                 };
-                let still_matches = self.state.playlists[playlist_index]
+                let still_matches = self.state.domain.playlists[playlist_index]
                     .tracks
                     .get(track_index)
                     .map(crate::media::Track::from)
@@ -78,8 +79,8 @@ impl App {
                         .notify("Playlist changed; removal cancelled", true);
                     return;
                 }
-                let previous = self.state.playlists[playlist_index].clone();
-                let playlist = &mut self.state.playlists[playlist_index];
+                let previous = self.state.domain.playlists[playlist_index].clone();
+                let playlist = &mut self.state.domain.playlists[playlist_index];
                 playlist.tracks.remove(track_index);
                 playlist.updated_at = chrono::Utc::now();
                 let snapshot = playlist.clone();
@@ -87,14 +88,14 @@ impl App {
                 match self.playlists.save(&snapshot) {
                     Ok(()) => self.state.notify("Removed from playlist", false),
                     Err(error) => {
-                        self.state.playlists[playlist_index] = previous;
+                        self.state.domain.playlists[playlist_index] = previous;
                         self.state.notify(&format!("Save failed: {error}"), true);
                     }
                 }
                 self.state.clamp_selection();
             }
             PlaylistAction::PlaylistEditorSubmit => {
-                let Some(editor) = self.state.playlist_editor.clone() else {
+                let Some(editor) = self.state.ui.playlist_editor.clone() else {
                     return;
                 };
                 let name = editor.name.trim();
@@ -104,10 +105,11 @@ impl App {
                 }
                 let Some(playlist) = self
                     .state
+                    .ui
                     .selected_playlist
-                    .and_then(|index| self.state.playlists.get_mut(index))
+                    .and_then(|index| self.state.domain.playlists.get_mut(index))
                 else {
-                    self.state.playlist_editor = None;
+                    self.state.ui.playlist_editor = None;
                     return;
                 };
                 let previous = playlist.clone();
@@ -116,7 +118,7 @@ impl App {
                 playlist.updated_at = chrono::Utc::now();
                 match self.playlists.save(playlist) {
                     Ok(()) => {
-                        self.state.playlist_editor = None;
+                        self.state.ui.playlist_editor = None;
                         self.state.notify("Playlist details saved", false);
                     }
                     Err(error) => {
@@ -126,19 +128,20 @@ impl App {
                 }
             }
             PlaylistAction::MoveSelectedInPlaylist(delta) => {
-                if self.state.view != View::PlaylistDetail {
+                if self.state.ui.view != View::PlaylistDetail {
                     return;
                 }
-                if self.state.visible_indices.is_some() {
+                if self.state.ui.visible_indices.is_some() {
                     self.state
                         .notify("Clear the filter (Esc) to reorder", false);
                     return;
                 }
-                let from = self.state.selected_index;
+                let from = self.state.ui.selected_index;
                 let Some(playlist) = self
                     .state
+                    .ui
                     .selected_playlist
-                    .and_then(|index| self.state.playlists.get_mut(index))
+                    .and_then(|index| self.state.domain.playlists.get_mut(index))
                 else {
                     return;
                 };
@@ -155,7 +158,7 @@ impl App {
                 playlist.updated_at = chrono::Utc::now();
                 let snapshot = playlist.clone();
                 self.state.bump_playlists_revision();
-                self.state.selected_index = to;
+                self.state.ui.selected_index = to;
                 if let Err(err) = self.playlists.save(&snapshot) {
                     self.state.notify(&format!("Save failed: {err}"), true);
                 }

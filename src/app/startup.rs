@@ -18,12 +18,12 @@ impl App {
         };
         let session = crate::persistence::session::load(&self.paths.session_file());
         if let Some(document) = &session {
-            self.state.activity = document.activity.clone();
-            self.state.resume_points = document.resume_points.clone();
+            self.state.domain.activity = document.activity.clone();
+            self.state.domain.resume_points = document.resume_points.clone();
         }
 
         if let Some(StartupIntent::PlayQuery(query)) = self.startup_intent.clone() {
-            self.state.view = View::Search;
+            self.state.ui.view = View::Search;
             self.autoplay_first_search = true;
             self.submit_text_query(query, action_tx).await;
             return;
@@ -48,21 +48,22 @@ impl App {
 
         if let Some(position) = self
             .state
+            .domain
             .queue
             .order
             .iter()
-            .position(|&index| self.state.queue.tracks[index].id == track.id)
+            .position(|&index| self.state.domain.queue.tracks[index].id == track.id)
         {
             // Align the restored queue cursor with the session track so
             // next and previous continue from the expected position.
-            self.state.queue.position = Some(position);
+            self.state.domain.queue.position = Some(position);
         }
 
-        self.state.current_track = Some(track.clone());
-        self.state.playback.position_seconds = doc.position_seconds;
-        self.state.playback.duration_seconds =
+        self.state.domain.current_track = Some(track.clone());
+        self.state.domain.playback.position_seconds = doc.position_seconds;
+        self.state.domain.playback.duration_seconds =
             track.duration_seconds.map(|duration| duration as f64);
-        self.state.pending_resume = Some(crate::app::state::PendingResume {
+        self.state.domain.pending_resume = Some(crate::app::state::PendingResume {
             track: track.clone(),
             position_seconds: doc.position_seconds,
             armed: false,

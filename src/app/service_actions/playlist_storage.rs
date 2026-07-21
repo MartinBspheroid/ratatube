@@ -24,11 +24,12 @@ impl App {
             }
             PlaylistAction::LoadPlaylistIntoQueue(id) => {
                 if let Some(tracks) = self.playlist_tracks(&id) {
-                    self.state.queue.load_tracks(tracks);
+                    self.state.domain.queue.load_tracks(tracks);
                     self.state.bump_queue_revision();
-                    if !self.state.queue.order.is_empty() {
-                        self.state.queue.position = Some(0);
-                        self.state.current_track = self.state.queue.current().cloned();
+                    if !self.state.domain.queue.order.is_empty() {
+                        self.state.domain.queue.position = Some(0);
+                        self.state.domain.current_track =
+                            self.state.domain.queue.current().cloned();
                         self.execute(
                             vec![
                                 Effect::ResolveAndPlay {
@@ -46,7 +47,7 @@ impl App {
                 if let Some(tracks) = self.playlist_tracks(&id) {
                     let changed = !tracks.is_empty();
                     for track in tracks {
-                        self.state.queue.push(track);
+                        self.state.domain.queue.push(track);
                     }
                     if changed {
                         self.state.bump_queue_revision();
@@ -57,25 +58,28 @@ impl App {
             }
             PlaylistAction::DeletePlaylistConfirmed(id) => match self.playlists.delete(&id) {
                 Ok(()) => {
-                    let previous_len = self.state.playlists.len();
-                    self.state.playlists.retain(|playlist| playlist.id != id);
-                    if self.state.playlists.len() != previous_len {
+                    let previous_len = self.state.domain.playlists.len();
+                    self.state
+                        .domain
+                        .playlists
+                        .retain(|playlist| playlist.id != id);
+                    if self.state.domain.playlists.len() != previous_len {
                         self.state.bump_playlists_revision();
                     }
-                    self.state.selected_playlist = None;
+                    self.state.ui.selected_playlist = None;
                     self.state.clamp_selection();
                     self.state.notify("Playlist deleted", false);
                 }
                 Err(err) => self.state.notify(&format!("Delete failed: {err}"), true),
             },
             PlaylistAction::ConfirmYes => {
-                if let Some(confirm) = self.state.confirm.take() {
+                if let Some(confirm) = self.state.ui.confirm.take() {
                     let action = *confirm.action;
                     let _ = action_tx.send(action).await;
                 }
             }
             PlaylistAction::PromptSubmit => {
-                if let Some(prompt) = self.state.prompt.take() {
+                if let Some(prompt) = self.state.ui.prompt.take() {
                     let text = prompt.buffer.trim().to_string();
                     match (prompt.purpose, text.is_empty()) {
                         (purpose, true) => {
@@ -102,7 +106,7 @@ impl App {
                             match crate::playlists::import::parse_pasted_json(&text) {
                                 Ok(playlists) => self.save_json_playlists(playlists),
                                 Err(message) => {
-                                    self.state.prompt = Some(crate::app::state::PromptState {
+                                    self.state.ui.prompt = Some(crate::app::state::PromptState {
                                         purpose: PromptPurpose::ImportPlaylistJson,
                                         buffer: text,
                                     });
@@ -114,18 +118,22 @@ impl App {
                 }
             }
             PlaylistAction::ConfirmImport => {
-                if let Some(ImportState::Review { playlist, .. }) = self.state.import.take() {
+                if let Some(ImportState::Review { playlist, .. }) = self.state.domain.import.take()
+                {
                     match self.playlists.save(&playlist) {
                         Ok(()) => {
                             let saved = *playlist;
-                            self.state
-                                .activity
-                                .push(crate::history::activity::ActivityEvent::new(
+                            self.state.domain.activity.push(
+                                crate::history::activity::ActivityEvent::new(
                                     crate::history::activity::ActivityKind::PlaylistImported,
                                     saved.name.clone(),
                                     format!("{} tracks", saved.tracks.len()),
-                                ));
-                            self.maybe_save_session(self.state.playback.position_seconds, true);
+                                ),
+                            );
+                            self.maybe_save_session(
+                                self.state.domain.playback.position_seconds,
+                                true,
+                            );
                             self.state
                                 .notify(&format!("Imported \"{}\"", saved.name), false);
                             let _ = action_tx

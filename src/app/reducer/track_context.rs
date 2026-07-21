@@ -7,9 +7,9 @@ use crate::app::state::AppState;
 /// Reduce context-menu intents that do not require application services.
 pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effect> {
     match action {
-        NavigationAction::CloseTrackContext => state.track_context_menu = None,
+        NavigationAction::CloseTrackContext => state.ui.track_context_menu = None,
         NavigationAction::MoveTrackContext(delta) => {
-            if let Some(menu) = &mut state.track_context_menu {
+            if let Some(menu) = &mut state.ui.track_context_menu {
                 let len = menu.context.actions.len();
                 if len > 0 {
                     let selected = menu.selected % len;
@@ -23,7 +23,7 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
             }
         }
         NavigationAction::ShowTrackDetails(track) => state.show_track_details(track),
-        NavigationAction::CloseTrackDetails => state.track_details_modal = None,
+        NavigationAction::CloseTrackDetails => state.ui.track_details_modal = None,
         // Opening needs HistoryService; submission dispatches the selected
         // stable action through existing action domains.
         NavigationAction::OpenTrackContext | NavigationAction::SubmitTrackContext => {}

@@ -18,12 +18,12 @@ impl App {
         }
         self.last_session_save = Some(Instant::now());
         let mut document = crate::persistence::session::SessionDocument::new(
-            self.state.current_track.clone(),
+            self.state.domain.current_track.clone(),
             position_seconds,
-            self.state.playback.volume,
+            self.state.domain.playback.volume,
         );
-        document.activity = self.state.activity.clone();
-        document.resume_points = self.state.resume_points.clone();
+        document.activity = self.state.domain.activity.clone();
+        document.resume_points = self.state.domain.resume_points.clone();
         let path = self.paths.session_file();
         self.submit_persistence("session", "session", move || {
             crate::persistence::session::save(&path, &document)
@@ -62,7 +62,7 @@ impl App {
 
     /// Append the outgoing track to history with the supplied outcome.
     pub(super) fn record_current(&mut self, outcome: PlaybackOutcome) {
-        let Some(track) = self.state.current_track.clone() else {
+        let Some(track) = self.state.domain.current_track.clone() else {
             let _ = self.listening.finish();
             return;
         };
@@ -78,24 +78,25 @@ impl App {
 
     /// Capture a durable per-track resume point when playback is in its resumable range.
     pub(super) fn capture_resume_point(&mut self) {
-        let Some(track) = &self.state.current_track else {
+        let Some(track) = &self.state.domain.current_track else {
             return;
         };
         let Some(duration) = self
             .state
+            .domain
             .playback
             .duration_seconds
             .or_else(|| track.duration_seconds.map(|value| value as f64))
         else {
             return;
         };
-        if self.state.resume_points.record(
+        if self.state.domain.resume_points.record(
             track.id.clone(),
-            self.state.playback.position_seconds,
+            self.state.domain.playback.position_seconds,
             duration,
             chrono::Utc::now(),
         ) {
-            self.maybe_save_session(self.state.playback.position_seconds, true);
+            self.maybe_save_session(self.state.domain.playback.position_seconds, true);
         }
     }
 }

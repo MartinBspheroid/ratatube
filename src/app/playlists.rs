@@ -8,22 +8,27 @@ use crate::playlists::Playlist;
 impl App {
     /// Resolve the playlist ID relevant to the current view and selection.
     pub(super) fn selected_playlist_id(&self) -> Option<String> {
-        match self.state.view {
-            View::Home if self.state.home_section == crate::app::state::HomeSection::Playlists => {
+        match self.state.ui.view {
+            View::Home
+                if self.state.ui.home_section == crate::app::state::HomeSection::Playlists =>
+            {
                 self.state
+                    .domain
                     .playlists
-                    .get(self.state.selected_index)
+                    .get(self.state.ui.selected_index)
                     .map(|playlist| playlist.id.clone())
             }
             View::Playlists => self
                 .state
+                .domain
                 .playlists
-                .get(self.state.selected_index)
+                .get(self.state.ui.selected_index)
                 .map(|playlist| playlist.id.clone()),
             View::PlaylistDetail => self
                 .state
+                .ui
                 .selected_playlist
-                .and_then(|index| self.state.playlists.get(index))
+                .and_then(|index| self.state.domain.playlists.get(index))
                 .map(|playlist| playlist.id.clone()),
             _ => None,
         }
@@ -32,6 +37,7 @@ impl App {
     /// Clone the tracks belonging to a stored playlist ID.
     pub(super) fn playlist_tracks(&self, id: &str) -> Option<Vec<Track>> {
         self.state
+            .domain
             .playlists
             .iter()
             .find(|playlist| playlist.id == id)
@@ -40,13 +46,14 @@ impl App {
 
     /// Save the current queue as a named playlist and refresh presentation order.
     pub(super) fn save_queue_as_playlist(&mut self, name: &str) {
-        if self.state.queue.tracks.is_empty() {
+        if self.state.domain.queue.tracks.is_empty() {
             self.state.notify("Queue is empty", true);
             return;
         }
         let mut playlist = Playlist::new(name);
         playlist.tracks = self
             .state
+            .domain
             .queue
             .tracks
             .iter()
@@ -54,7 +61,7 @@ impl App {
             .collect();
         match self.playlists.save(&playlist) {
             Ok(()) => {
-                self.state.playlists.push(playlist);
+                self.state.domain.playlists.push(playlist);
                 self.state.bump_playlists_revision();
                 self.state.sort_playlists_by_updated();
                 self.state.notify("Queue saved as playlist", false);
@@ -68,7 +75,7 @@ impl App {
         let playlist = Playlist::new(name);
         match self.playlists.save(&playlist) {
             Ok(()) => {
-                self.state.playlists.push(playlist);
+                self.state.domain.playlists.push(playlist);
                 self.state.bump_playlists_revision();
                 self.state.sort_playlists_by_updated();
                 self.state.notify("Playlist created", false);
@@ -93,7 +100,7 @@ impl App {
                     .trim()
                     .eq_ignore_ascii_case(incoming.name.trim())
             });
-            let matching_existing = self.state.playlists.iter().find(|playlist| {
+            let matching_existing = self.state.domain.playlists.iter().find(|playlist| {
                 playlist
                     .name
                     .trim()
@@ -114,6 +121,7 @@ impl App {
             .iter()
             .filter_map(|staged_playlist| {
                 self.state
+                    .domain
                     .playlists
                     .iter()
                     .find(|playlist| playlist.id == staged_playlist.id)
@@ -147,12 +155,13 @@ impl App {
         for playlist in staged {
             match self
                 .state
+                .domain
                 .playlists
                 .iter()
                 .position(|existing| existing.id == playlist.id)
             {
-                Some(index) => self.state.playlists[index] = playlist,
-                None => self.state.playlists.push(playlist),
+                Some(index) => self.state.domain.playlists[index] = playlist,
+                None => self.state.domain.playlists.push(playlist),
             }
         }
         if changed {
@@ -160,13 +169,14 @@ impl App {
         }
         self.state.sort_playlists_by_updated();
         self.state
+            .domain
             .activity
             .push(crate::history::activity::ActivityEvent::new(
                 crate::history::activity::ActivityKind::PlaylistImported,
                 format!("{requested_playlist_count} JSON playlists"),
                 format!("{added_tracks} new tracks"),
             ));
-        self.maybe_save_session(self.state.playback.position_seconds, true);
+        self.maybe_save_session(self.state.domain.playback.position_seconds, true);
         self.state.notify(
             &format!(
                 "Imported {added_tracks} new tracks · {} duplicates skipped",
@@ -183,6 +193,7 @@ impl App {
         };
         let Some(playlist) = self
             .state
+            .domain
             .playlists
             .iter_mut()
             .find(|playlist| playlist.id == id)

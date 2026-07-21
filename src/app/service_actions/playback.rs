@@ -25,24 +25,25 @@ impl App {
             } => {
                 let existing_position = self
                     .state
+                    .domain
                     .queue
                     .order
                     .iter()
-                    .position(|&index| self.state.queue.tracks[index].id == track.id);
+                    .position(|&index| self.state.domain.queue.tracks[index].id == track.id);
                 let queue_position = match existing_position {
                     Some(position) => position,
                     None => {
-                        self.state.queue.push(track.clone());
+                        self.state.domain.queue.push(track.clone());
                         self.state.bump_queue_revision();
-                        self.state.queue.order.len() - 1
+                        self.state.domain.queue.order.len() - 1
                     }
                 };
-                self.state.queue.position = Some(queue_position);
-                self.state.current_track = Some(track.clone());
-                self.state.playback.position_seconds = position_seconds;
-                self.state.playback.duration_seconds =
+                self.state.domain.queue.position = Some(queue_position);
+                self.state.domain.current_track = Some(track.clone());
+                self.state.domain.playback.position_seconds = position_seconds;
+                self.state.domain.playback.duration_seconds =
                     track.duration_seconds.map(|value| value as f64);
-                self.state.pending_resume = Some(crate::app::state::PendingResume {
+                self.state.domain.pending_resume = Some(crate::app::state::PendingResume {
                     track: track.clone(),
                     position_seconds,
                     armed: false,
@@ -54,6 +55,7 @@ impl App {
             PlaybackAction::PlaybackResolved { track_id, url, .. } => {
                 let Some(track) = self
                     .state
+                    .domain
                     .current_track
                     .clone()
                     .filter(|track| track.id == track_id)
@@ -81,10 +83,11 @@ impl App {
             } => {
                 let still_requested = self
                     .state
+                    .domain
                     .queue
                     .order
                     .get(queue_position)
-                    .and_then(|index| self.state.queue.tracks.get(*index))
+                    .and_then(|index| self.state.domain.queue.tracks.get(*index))
                     .is_some_and(|track| track.id == track_id);
                 if still_requested && self.config.playback.continue_on_error {
                     let _ = action_tx
@@ -103,20 +106,24 @@ impl App {
                 // The reducer already appended; prefetch the fresh next track.
                 self.after_track_started(action_tx);
             }
-            PlaybackAction::ToggleRadio if self.state.radio => {
+            PlaybackAction::ToggleRadio if self.state.domain.radio => {
                 // Radio switched on with a finished queue: refill immediately.
-                if self.state.queue.position.is_none() || self.state.current_track.is_none() {
+                if self.state.domain.queue.position.is_none()
+                    || self.state.domain.current_track.is_none()
+                {
                     let seed = self
                         .state
+                        .domain
                         .current_track
                         .as_ref()
                         .map(|track| track.id.clone())
                         .or_else(|| {
                             self.state
+                                .domain
                                 .queue
                                 .order
                                 .last()
-                                .map(|&index| self.state.queue.tracks[index].id.clone())
+                                .map(|&index| self.state.domain.queue.tracks[index].id.clone())
                         })
                         .or_else(|| {
                             self.history
@@ -133,7 +140,7 @@ impl App {
                 }
             }
             PlaybackAction::SessionStreamResolved { track_id, url, .. } => {
-                let Some(pending) = self.state.pending_resume.as_mut() else {
+                let Some(pending) = self.state.domain.pending_resume.as_mut() else {
                     return;
                 };
                 if pending.track.id != track_id {
@@ -150,11 +157,11 @@ impl App {
                 match loaded {
                     Ok(()) => {
                         if paused {
-                            if let Some(pending) = self.state.pending_resume.as_mut() {
+                            if let Some(pending) = self.state.domain.pending_resume.as_mut() {
                                 pending.armed = true;
                             }
                         } else {
-                            self.state.pending_resume = None;
+                            self.state.domain.pending_resume = None;
                         }
                         self.spawn_details_fetch(&track, action_tx);
                         self.spawn_thumbnail_fetch(
@@ -164,7 +171,7 @@ impl App {
                         );
                     }
                     Err(err) => {
-                        self.state.pending_resume = None;
+                        self.state.domain.pending_resume = None;
                         self.state.notify(&format!("Resume failed: {err}"), true);
                     }
                 }
@@ -174,26 +181,28 @@ impl App {
             } => {
                 if self
                     .state
+                    .domain
                     .pending_resume
                     .as_ref()
                     .is_some_and(|pending| pending.track.id == track_id)
                 {
-                    self.state.pending_resume = None;
+                    self.state.domain.pending_resume = None;
                     if self
                         .state
+                        .domain
                         .current_track
                         .as_ref()
                         .map(|track| track.id.as_str())
                         == Some(track_id.as_str())
                     {
-                        self.state.current_track = None;
+                        self.state.domain.current_track = None;
                     }
                     tracing::warn!(%message, "session resume resolve failed");
                     self.state.notify("Couldn't resume the last session", true);
                 }
             }
-            PlaybackAction::PlaySelected if self.state.view == View::Home => {
-                match self.state.home_section {
+            PlaybackAction::PlaySelected if self.state.ui.view == View::Home => {
+                match self.state.ui.home_section {
                     HomeSection::Resume => {
                         let _ = action_tx
                             .send(Action::Playback(PlaybackAction::PlayPause))
@@ -215,7 +224,7 @@ impl App {
                     }
                 }
             }
-            PlaybackAction::PlaySelected if self.state.view == View::History => {
+            PlaybackAction::PlaySelected if self.state.ui.view == View::History => {
                 if let Some(track) = self.resolve_selected_track() {
                     let _ = action_tx
                         .send(Action::Playback(PlaybackAction::PlayTrack(track)))

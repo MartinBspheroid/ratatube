@@ -120,7 +120,7 @@ impl App {
                     return;
                 }
             }
-            Action::Playback(PlaybackAction::ToggleRadio) if self.state.radio => {
+            Action::Playback(PlaybackAction::ToggleRadio) if self.state.domain.radio => {
                 self.operations.cancel(OperationKind::Radio);
                 self.radio_fetching = false;
             }
