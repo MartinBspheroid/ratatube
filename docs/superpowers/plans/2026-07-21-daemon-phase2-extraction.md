@@ -130,8 +130,16 @@ then `ytm` stays single-process and `ytm --attach` opts in.
 
 ## Progress notes (2026-07-21)
 
-Tasks 1–3 are implemented and gated; Tasks 4–6 (TUI attach, round-out,
-final verification) remain. Real-process smoke verified: `play` auto-spawns
+Tasks 1–4 are implemented and gated. Task 4 shipped as designed in the
+blueprint: `ytm --attach` runs the TUI as a daemon client (mirror hydration,
+exhaustive wildcard-free routing table in `src/app/client_route.rs`,
+client-owned search over deferred replies, read-only history reload on
+`HistoryChanged`, bounded respawn-reattach). The deferred-while-attached
+list (channel browsing, imports, playlist rename/edit/reorder,
+add-to-playlist picker, history entry deletion, activity clear) surfaces as
+notifications; `ytm` stays single-process by default until that list closes
+(Task 5). Interactive smoke of `--attach` still pending (needs a real
+terminal). Real-process smoke verified: `play` auto-spawns
 the daemon, the daemon survives the CLI exiting, `status` attaches, `quit`
 shuts down and removes socket + pidfile.
 
