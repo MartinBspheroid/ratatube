@@ -29,6 +29,8 @@ enum Command {
         #[arg(required = true, num_args = 1..)]
         query: Vec<String>,
     },
+    /// Run the background playback service in the foreground.
+    Daemon,
 }
 
 #[tokio::main]
@@ -45,6 +47,7 @@ async fn main() -> Result<()> {
             let query = query.join(" ");
             run_tui(paths, Some(app::StartupIntent::PlayQuery(query))).await
         }
+        Some(Command::Daemon) => run_daemon_mode(paths, cli.resume).await,
         None => {
             let intent = cli.resume.then_some(app::StartupIntent::Resume);
             run_tui(paths, intent).await
@@ -152,6 +155,24 @@ fn run_doctor(paths: &persistence::AppPaths) -> Result<()> {
             "doctor checks failed".to_string(),
         ))
     }
+}
+
+/// Run the background service in the foreground (what auto-spawn executes).
+async fn run_daemon_mode(paths: persistence::AppPaths, resume: bool) -> Result<()> {
+    paths.ensure_dirs()?;
+    if let Err(err) = init_tracing(&paths) {
+        eprintln!("warning: logging unavailable: {err}");
+    }
+    let config = match config::load(&paths.config_file()) {
+        Ok(config) => config,
+        Err(err @ ytm_tui::error::AppError::MalformedData(_)) => {
+            eprintln!("warning: {err}; continuing with default configuration");
+            config::Config::default()
+        }
+        Err(err) => return Err(err),
+    };
+    let intent = resume.then_some(app::StartupIntent::Resume);
+    ytm_tui::daemon::run(paths, config, intent).await
 }
 
 /// Launch the terminal UI.

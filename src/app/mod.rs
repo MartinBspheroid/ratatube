@@ -15,6 +15,7 @@ pub use domain::operations;
 
 mod action_dispatch;
 mod browser;
+mod daemon_runtime;
 mod external_command;
 mod input;
 mod lifecycle;

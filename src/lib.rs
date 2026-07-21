@@ -6,6 +6,7 @@
 
 pub mod app;
 pub mod config;
+pub mod daemon;
 pub mod diagnostics;
 pub mod error;
 pub mod history;
