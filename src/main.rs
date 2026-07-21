@@ -15,6 +15,10 @@ struct Cli {
     /// Restore the previous session and start playing immediately.
     #[arg(long)]
     resume: bool,
+    /// Attach the TUI to the background service (experimental; some flows
+    /// are not yet available while attached).
+    #[arg(long)]
+    attach: bool,
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -57,6 +61,7 @@ async fn main() -> Result<()> {
         Some(Command::Stop) => run_control(paths, ytm_tui::protocol::Command::Stop).await,
         Some(Command::Status) => run_status(paths).await,
         Some(Command::Quit) => run_quit(paths).await,
+        None if cli.attach => run_attached(paths).await,
         None => {
             let intent = cli.resume.then_some(app::StartupIntent::Resume);
             run_tui(paths, intent).await
@@ -249,6 +254,39 @@ async fn run_quit(paths: persistence::AppPaths) -> Result<()> {
         .await?;
     println!("Daemon stopped.");
     Ok(())
+}
+
+/// Attach the TUI to the background service, auto-spawning it if needed.
+/// The client keeps no local playback or persistence; the mirror hydrates
+/// from the daemon's snapshot. Client-side tracing is skipped for now: the
+/// daemon owns `ytm-tui.log` (a separate `ytm-ui.log` lands in phase 3).
+async fn run_attached(paths: persistence::AppPaths) -> Result<()> {
+    paths.ensure_dirs()?;
+    let config = match config::load(&paths.config_file()) {
+        Ok(config) => config,
+        Err(err @ ytm_tui::error::AppError::MalformedData(_)) => {
+            eprintln!("warning: {err}; continuing with default configuration");
+            config::Config::default()
+        }
+        Err(err) => return Err(err),
+    };
+    let connection = ytm_tui::client::connect_or_spawn(&paths).await?;
+    let state = app::state::AppState::new();
+    let mut app = app::App::new(config, paths, state, Some(create_picker()));
+
+    let original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        ratatui::restore();
+        original_hook(info);
+    }));
+    let mut terminal = ratatui::init();
+    let _ = crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture);
+    let _ = crossterm::execute!(std::io::stdout(), crossterm::event::EnableBracketedPaste);
+    let result = app.run_client(&mut terminal, connection).await;
+    let _ = crossterm::execute!(std::io::stdout(), crossterm::event::DisableBracketedPaste);
+    let _ = crossterm::execute!(std::io::stdout(), crossterm::event::DisableMouseCapture);
+    ratatui::restore();
+    result
 }
 
 /// Run the background service in the foreground (what auto-spawn executes).

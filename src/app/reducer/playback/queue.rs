@@ -11,6 +11,18 @@ use crate::queue::PreviousOutcome;
 pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect> {
     match action {
         PlaybackAction::PlayTrack(track) => play_track(&mut state.domain, track),
+        PlaybackAction::PlayQueuePosition(position) => {
+            if position < state.domain.queue.order.len() {
+                state.domain.queue.position = Some(position);
+                return vec![
+                    Effect::ResolveAndPlay {
+                        track_index_in_queue: position,
+                    },
+                    Effect::PersistQueue,
+                ];
+            }
+            Vec::new()
+        }
         // Resolved by the app layer through the existing pending-session flow.
         PlaybackAction::ResumeTrack { .. } => Vec::new(),
         PlaybackAction::SessionStreamResolved { track_id, .. } => {

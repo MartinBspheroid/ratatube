@@ -114,6 +114,25 @@ pub enum Command {
     },
     /// Clear playback history (the client confirms before sending).
     HistoryClear,
+    ToggleMute,
+    SpeedUp,
+    SpeedDown,
+    SpeedReset,
+    CycleSleepTimer,
+    ToggleRadio,
+    /// Jump the queue cursor to an order position and play it.
+    PlayQueuePosition {
+        position: usize,
+    },
+    /// Resume a previous-session track at a stored position.
+    Resume {
+        track: Track,
+        position_seconds: f64,
+    },
+    /// Fetch one exact video by URL (client classified the input).
+    SearchExact {
+        url: String,
+    },
     Status,
     Shutdown,
 }
@@ -145,6 +164,7 @@ pub struct Snapshot {
     pub current_track: Option<Track>,
     pub current_details: Option<TrackDetails>,
     pub playlists: Vec<Playlist>,
+    pub playlists_revision: u64,
     pub health: Health,
 }
 
@@ -157,6 +177,7 @@ impl From<&DomainState> for Snapshot {
             current_track: domain.current_track.clone(),
             current_details: domain.current_details.clone(),
             playlists: domain.playlists.clone(),
+            playlists_revision: domain.playlists_revision,
             health: Health {
                 mpv_ready: domain.mpv_ready,
                 yt_dlp_ready: domain.yt_dlp_ready,
@@ -169,12 +190,26 @@ impl From<&DomainState> for Snapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum WireEvent {
-    QueueChanged { queue: Queue, queue_revision: u64 },
-    PlaybackProgress { playback: PlaybackSnapshot },
-    TrackChanged { track: Option<Track> },
-    TrackDetailsChanged { details: Option<TrackDetails> },
-    PlaylistsChanged { playlists: Vec<Playlist> },
+    QueueChanged {
+        queue: Queue,
+        queue_revision: u64,
+    },
+    PlaybackProgress {
+        playback: PlaybackSnapshot,
+    },
+    TrackChanged {
+        track: Option<Track>,
+    },
+    TrackDetailsChanged {
+        details: Option<TrackDetails>,
+    },
+    PlaylistsChanged {
+        playlists: Vec<Playlist>,
+        playlists_revision: u64,
+    },
     HistoryChanged,
     ImportChanged,
-    Health { health: Health },
+    Health {
+        health: Health,
+    },
 }

@@ -35,6 +35,7 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
         | PlaybackAction::CycleSleepTimer
         | PlaybackAction::ToggleRadio) => controls::reduce(state, action),
         action @ (PlaybackAction::PlaySelected
+        | PlaybackAction::PlayQueuePosition(_)
         | PlaybackAction::PlayTrack(_)
         | PlaybackAction::ResumeTrack { .. }
         | PlaybackAction::SessionStreamResolved { .. }

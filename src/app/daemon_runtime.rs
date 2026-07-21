@@ -145,7 +145,7 @@ impl App {
                 command,
             } => {
                 let (result, events) = self
-                    .apply_command(client_id, id, command, pending_search, action_tx)
+                    .apply_command(client_id, id, *command, pending_search, action_tx)
                     .await;
                 if let Some(result) = result {
                     clients.send_to(client_id, DaemonFrame::Reply { id, result });
@@ -272,10 +272,34 @@ impl App {
                 })
             }
             Command::HistoryClear => Action::History(HistoryAction::ClearHistoryConfirmed),
+            Command::ToggleMute => Action::Playback(PlaybackAction::ToggleMute),
+            Command::SpeedUp => Action::Playback(PlaybackAction::SpeedUp),
+            Command::SpeedDown => Action::Playback(PlaybackAction::SpeedDown),
+            Command::SpeedReset => Action::Playback(PlaybackAction::SpeedReset),
+            Command::CycleSleepTimer => Action::Playback(PlaybackAction::CycleSleepTimer),
+            Command::ToggleRadio => Action::Playback(PlaybackAction::ToggleRadio),
+            Command::PlayQueuePosition { position } => {
+                Action::Playback(PlaybackAction::PlayQueuePosition(position))
+            }
+            Command::Resume {
+                track,
+                position_seconds,
+            } => Action::Playback(PlaybackAction::ResumeTrack {
+                track,
+                position_seconds,
+            }),
             Command::QueueClear => Action::Queue(QueueAction::ClearQueueConfirmed),
             Command::QueueUndo => Action::Queue(QueueAction::UndoQueueRemoval),
-            Command::Search { query } => {
-                let action = Action::Navigation(NavigationAction::SubmitSearch(query));
+            Command::Search { query } | Command::SearchExact { url: query } => {
+                let exact = matches!(
+                    crate::media::import::classify_input(&query),
+                    crate::media::import::InputKind::Video(_)
+                );
+                let action = if exact {
+                    Action::Navigation(NavigationAction::SubmitExactVideo(query))
+                } else {
+                    Action::Navigation(NavigationAction::SubmitSearch(query))
+                };
                 let events = self.handle_action(action, action_tx).await;
                 // SubmitSearch bumps the generation; remember whose reply it is.
                 *pending_search = Some(PendingSearch {
@@ -367,6 +391,7 @@ fn wire_event(domain: &DomainState, event: DomainEvent) -> Option<WireEvent> {
         }),
         DomainEvent::PlaylistsChanged => Some(WireEvent::PlaylistsChanged {
             playlists: domain.playlists.clone(),
+            playlists_revision: domain.playlists_revision,
         }),
         DomainEvent::HistoryChanged => Some(WireEvent::HistoryChanged),
         DomainEvent::ImportChanged => Some(WireEvent::ImportChanged),

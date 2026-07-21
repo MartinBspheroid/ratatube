@@ -28,7 +28,7 @@ pub enum ServerMessage {
     Command {
         client_id: u64,
         id: u64,
-        command: Command,
+        command: Box<Command>,
     },
     /// The client's connection ended.
     Disconnected { client_id: u64 },
@@ -94,7 +94,7 @@ async fn serve_client(stream: UnixStream, client_id: u64, server_tx: mpsc::Sende
                     .send(ServerMessage::Command {
                         client_id,
                         id,
-                        command: *command,
+                        command,
                     })
                     .await
                     .is_err()

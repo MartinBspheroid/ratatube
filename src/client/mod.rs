@@ -122,6 +122,62 @@ impl Connection {
     }
 }
 
+/// Non-blocking command writer for the streaming (TUI) mode.
+pub struct CommandSender {
+    writer: OwnedWriteHalf,
+    next_id: u64,
+}
+
+impl CommandSender {
+    /// Send one command; the reply arrives on the frame stream with the
+    /// returned id.
+    pub async fn send(&mut self, command: Command) -> Result<u64> {
+        let id = self.next_id;
+        self.next_id += 1;
+        protocol::write_frame(
+            &mut self.writer,
+            &ClientFrame::Command {
+                id,
+                command: Box::new(command),
+            },
+        )
+        .await
+        .map_err(io_error)?;
+        Ok(id)
+    }
+}
+
+impl Connection {
+    /// Split into streaming halves for the TUI: a command sender, the
+    /// welcome snapshot, and a receiver fed by a background reader task.
+    /// The receiver closing means the daemon connection is gone.
+    pub fn into_stream(
+        self,
+    ) -> (
+        CommandSender,
+        Snapshot,
+        tokio::sync::mpsc::Receiver<DaemonFrame>,
+    ) {
+        let (frame_tx, frame_rx) = tokio::sync::mpsc::channel::<DaemonFrame>(1024);
+        let mut reader = self.reader;
+        tokio::spawn(async move {
+            while let Ok(Some(frame)) = protocol::read_frame::<_, DaemonFrame>(&mut reader).await {
+                if frame_tx.send(frame).await.is_err() {
+                    break;
+                }
+            }
+        });
+        (
+            CommandSender {
+                writer: self.writer,
+                next_id: self.next_id,
+            },
+            self.snapshot,
+            frame_rx,
+        )
+    }
+}
+
 /// Connect, transparently starting the daemon when the socket is silent.
 pub async fn connect_or_spawn(paths: &AppPaths) -> Result<Connection> {
     let socket = crate::daemon::socket_path(paths);

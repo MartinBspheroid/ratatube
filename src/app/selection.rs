@@ -142,60 +142,61 @@ impl App {
     /// Resolve the selected track across track-listing views, mapping through
     /// the in-list filter and History presentation mode.
     pub(super) fn resolve_selected_track(&self) -> Option<Track> {
-        let index = self.state.resolve_index(self.state.ui.selected_index);
-        match self.state.ui.view {
-            View::Home => match self.state.ui.home_section {
-                crate::app::state::HomeSection::Recent => {
-                    self.history.as_ref().and_then(|history| {
-                        history
-                            .recent_unique(self.state.ui.selected_index + 1)
-                            .into_iter()
-                            .nth(self.state.ui.selected_index)
-                    })
-                }
-                crate::app::state::HomeSection::Resume
-                | crate::app::state::HomeSection::Playlists => None,
-            },
-            View::History => match self.state.ui.history_view_mode {
-                HistoryViewMode::Recent => self
-                    .history
-                    .as_ref()
-                    .and_then(|history| history.entries().get(index).map(|entry| entry.to_track())),
-                HistoryViewMode::Top => self.history.as_ref().and_then(|history| {
-                    history
-                        .aggregate()
-                        .get(index)
-                        .map(|summary| summary.entry.to_track())
-                }),
-            },
-            View::Search => match &self.state.domain.search {
-                crate::media::search::SearchState::Results { tracks, .. } => {
-                    tracks.get(index).cloned()
-                }
-                _ => None,
-            },
-            View::Queue => self
-                .state
-                .domain
-                .queue
-                .order
-                .get(index)
-                .map(|&queue_index| self.state.domain.queue.tracks[queue_index].clone()),
-            View::PlaylistDetail => self
-                .state
-                .ui
-                .selected_playlist
-                .and_then(|playlist_index| self.state.domain.playlists.get(playlist_index))
-                .and_then(|playlist| playlist.tracks.get(index))
-                .map(Track::from),
-            View::Channel => self
-                .state
-                .domain
-                .channel
-                .as_ref()
-                .and_then(|channel| channel.tracks.get(index))
-                .cloned(),
+        resolve_selected_track(&self.state, self.history.as_ref())
+    }
+}
+
+/// Free-function form of selected-track resolution so the client-mode
+/// router can reuse it without an `App`.
+pub(crate) fn resolve_selected_track(
+    state: &crate::app::state::AppState,
+    history: Option<&crate::history::HistoryService>,
+) -> Option<Track> {
+    let index = state.resolve_index(state.ui.selected_index);
+    match state.ui.view {
+        View::Home => match state.ui.home_section {
+            crate::app::state::HomeSection::Recent => history.and_then(|history| {
+                history
+                    .recent_unique(state.ui.selected_index + 1)
+                    .into_iter()
+                    .nth(state.ui.selected_index)
+            }),
+            crate::app::state::HomeSection::Resume | crate::app::state::HomeSection::Playlists => {
+                None
+            }
+        },
+        View::History => match state.ui.history_view_mode {
+            HistoryViewMode::Recent => history
+                .and_then(|history| history.entries().get(index).map(|entry| entry.to_track())),
+            HistoryViewMode::Top => history.and_then(|history| {
+                history
+                    .aggregate()
+                    .get(index)
+                    .map(|summary| summary.entry.to_track())
+            }),
+        },
+        View::Search => match &state.domain.search {
+            crate::media::search::SearchState::Results { tracks, .. } => tracks.get(index).cloned(),
             _ => None,
-        }
+        },
+        View::Queue => state
+            .domain
+            .queue
+            .order
+            .get(index)
+            .map(|&queue_index| state.domain.queue.tracks[queue_index].clone()),
+        View::PlaylistDetail => state
+            .ui
+            .selected_playlist
+            .and_then(|playlist_index| state.domain.playlists.get(playlist_index))
+            .and_then(|playlist| playlist.tracks.get(index))
+            .map(Track::from),
+        View::Channel => state
+            .domain
+            .channel
+            .as_ref()
+            .and_then(|channel| channel.tracks.get(index))
+            .cloned(),
+        _ => None,
     }
 }

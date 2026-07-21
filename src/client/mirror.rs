@@ -16,6 +16,7 @@ pub fn apply_snapshot(domain: &mut DomainState, snapshot: Snapshot) {
         current_track,
         current_details,
         playlists,
+        playlists_revision,
         health,
     } = snapshot;
     domain.queue = queue;
@@ -24,6 +25,7 @@ pub fn apply_snapshot(domain: &mut DomainState, snapshot: Snapshot) {
     domain.current_track = current_track;
     domain.current_details = current_details;
     domain.playlists = playlists;
+    domain.playlists_revision = playlists_revision;
     domain.mpv_ready = health.mpv_ready;
     domain.yt_dlp_ready = health.yt_dlp_ready;
 }
@@ -46,7 +48,13 @@ pub fn apply_event(domain: &mut DomainState, event: WireEvent) {
             domain.current_details = None;
         }
         WireEvent::TrackDetailsChanged { details } => domain.current_details = details,
-        WireEvent::PlaylistsChanged { playlists } => domain.playlists = playlists,
+        WireEvent::PlaylistsChanged {
+            playlists,
+            playlists_revision,
+        } => {
+            domain.playlists = playlists;
+            domain.playlists_revision = playlists_revision;
+        }
         WireEvent::Health { health } => {
             domain.mpv_ready = health.mpv_ready;
             domain.yt_dlp_ready = health.yt_dlp_ready;
