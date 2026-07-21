@@ -58,12 +58,16 @@ fn search_table_has_membership_icons_and_minimal_selected_metadata() {
         !before.contains("ARTIST"),
         "channel mislabeled as artist:\n{before}"
     );
-    for removed in ["Source", "ID", "In queue", "+"] {
+    for removed in ["Source", "ID", "In queue"] {
         assert!(
             !before.contains(removed),
             "removed field {removed}:\n{before}"
         );
     }
+    assert!(
+        before.contains("in playlist"),
+        "marker legend on the meta line:\n{before}"
+    );
     assert!(
         !before.contains("QUICK ACTIONS"),
         "footer is the only shortcut surface:\n{before}"
@@ -76,18 +80,35 @@ fn search_table_has_membership_icons_and_minimal_selected_metadata() {
     }
 
     state.queue.push(track.clone());
+    let playlist_only = Track::new("playlist-id", "Playlist member", "Other channel");
+    state.search = SearchState::Results {
+        query: "selected".to_string(),
+        tracks: vec![track.clone(), playlist_only.clone()],
+    };
     let mut playlist = ytm_tui::playlists::Playlist::new("Membership");
     playlist
         .tracks
         .push(ytm_tui::playlists::model::PlaylistTrack::from(&track));
+    playlist
+        .tracks
+        .push(ytm_tui::playlists::model::PlaylistTrack::from(
+            &playlist_only,
+        ));
     state.playlists.push(playlist);
     let after = render_to_string(&mut state, None, 150, 40);
-    let result_row = after
+    let queued_row = after
         .lines()
         .find(|line| line.contains("Selected width-safe"))
-        .expect("selected result row");
-    assert!(result_row.contains("[QUEUE]"), "queued icon:\n{after}");
-    assert!(result_row.contains('*'), "playlist dot:\n{after}");
+        .expect("queued result row");
+    assert!(
+        queued_row.contains('+'),
+        "queued marker outranks the playlist marker:\n{after}"
+    );
+    let playlist_row = after
+        .lines()
+        .find(|line| line.contains("Playlist member"))
+        .expect("playlist result row");
+    assert!(playlist_row.contains('*'), "playlist marker:\n{after}");
 }
 
 #[test]

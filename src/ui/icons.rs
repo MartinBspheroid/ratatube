@@ -32,6 +32,9 @@ pub struct Icons {
     pub loading: &'static str,
     pub import: &'static str,
     pub dot: &'static str,
+    /// Single-cell "in queue" marker for track-table rows (the wide `queue`
+    /// tab icon does not fit the marker column in ASCII mode).
+    pub marker_queued: &'static str,
 }
 
 /// Nerd Font glyphs.
@@ -63,6 +66,7 @@ const NERD: Icons = Icons {
     loading: "\u{f251}",
     import: "\u{f019}",
     dot: "●",
+    marker_queued: "\u{f0ca}",
 };
 
 /// ASCII fallbacks; the UI must stay fully understandable in this mode.
@@ -94,6 +98,7 @@ const ASCII: Icons = Icons {
     loading: "[...]",
     import: "[IMPORT]",
     dot: "*",
+    marker_queued: "+",
 };
 
 /// Select the active icon set from the configured mode.
@@ -184,6 +189,7 @@ mod tests {
                 icons.chevron_r,
                 icons.dropdown,
                 icons.dot,
+                icons.marker_queued,
             ] {
                 assert_eq!(glyph.width(), 1, "glyph {glyph:?}");
             }

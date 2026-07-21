@@ -11,8 +11,13 @@ use crate::ui::icons::Icons;
 use crate::ui::theme::Theme;
 
 mod playback;
+mod track_table;
 
 pub use playback::playback_summary;
+pub use track_table::{
+    TrackFlags, TrackRow, TrackTableLayout, header_row, marker_legend, message_row, track_flags,
+    track_row,
+};
 
 /// Draw a dedicated title line and return the content rectangle below it.
 pub fn section_panel(

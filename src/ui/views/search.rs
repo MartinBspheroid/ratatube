@@ -1,7 +1,10 @@
 //! Responsive Search view renderer.
 
 use super::*;
-use crate::ui::components::{scrollbar, section_panel};
+use crate::ui::components::{
+    TrackRow, TrackTableLayout, header_row, marker_legend, scrollbar, section_panel, track_flags,
+    track_row,
+};
 use crate::ui::layout::Breakpoint;
 use crate::ui::views::search_detail::{render_overlay, render_selected};
 
@@ -165,17 +168,16 @@ fn render_result_table(
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(1), Constraint::Min(1)])
         .split(inner);
-    frame.render_widget(
-        Paragraph::new(Span::styled(
-            format!(
-                "{} results for \"{}\"",
-                tracks.len(),
-                sanitize_terminal_text(query)
-            ),
-            theme.dim,
-        )),
-        rows[0],
-    );
+    let mut meta = vec![Span::styled(
+        format!(
+            "{} results for \"{}\"",
+            tracks.len(),
+            sanitize_terminal_text(query)
+        ),
+        theme.dim,
+    )];
+    meta.extend(marker_legend(theme, icons));
+    frame.render_widget(Paragraph::new(Line::from(meta)), rows[0]);
     if tracks.is_empty() {
         frame.render_widget(
             Paragraph::new(Span::styled("No results — try another query", theme.dim)),
@@ -184,68 +186,32 @@ fn render_result_table(
         return;
     }
 
+    let layout = TrackTableLayout::new(rows[1].width, 8);
     let table_rows = tracks
         .iter()
         .enumerate()
         .map(|(index, track)| {
-            let queued = state
-                .queue
-                .tracks
-                .iter()
-                .any(|queued| queued.id == track.id);
-            let in_playlist = state.playlists.iter().any(|playlist| {
-                playlist
-                    .tracks
-                    .iter()
-                    .any(|playlist_track| playlist_track.id == track.id)
-            });
-            let marker = if state
-                .current_track
-                .as_ref()
-                .is_some_and(|current| current.id == track.id)
-            {
-                icons.play_btn.to_string()
-            } else {
-                format!("{:02}", index + 1)
-            };
-            Row::new(vec![
-                Cell::from(Span::styled(
-                    if queued { icons.queue } else { "" },
-                    theme.accent,
-                )),
-                Cell::from(Span::styled(
-                    if in_playlist { icons.dot } else { "" },
-                    theme.orange,
-                )),
-                Cell::from(marker),
-                Cell::from(sanitize_terminal_text(&track.title)),
-                Cell::from(sanitize_terminal_text(&track.artist)),
-                Cell::from(
-                    track
+            track_row(
+                &layout,
+                TrackRow {
+                    index,
+                    title: sanitize_terminal_text(&track.title),
+                    channel: sanitize_terminal_text(&track.artist),
+                    right: track
                         .duration_seconds
                         .map(|seconds| format_time(seconds as f64))
                         .unwrap_or_else(|| "--:--".to_string()),
-                ),
-            ])
+                    flags: track_flags(state, &track.id),
+                },
+                theme,
+                icons,
+            )
         })
         .collect::<Vec<_>>();
-    let table = Table::new(
-        table_rows,
-        [
-            Constraint::Length(icons.queue.width() as u16 + 1),
-            Constraint::Length(2),
-            Constraint::Length(3),
-            Constraint::Percentage(50),
-            Constraint::Percentage(30),
-            Constraint::Length(8),
-        ],
-    )
-    .header(
-        Row::new(vec!["", "", "#", "TITLE", "CHANNEL", "DURATION"])
-            .style(theme.dim)
-            .bottom_margin(1),
-    )
-    .row_highlight_style(theme.selected);
+    let table = Table::new(table_rows, layout.constraints())
+        .header(header_row("LENGTH", theme))
+        .row_highlight_style(theme.selected)
+        .highlight_symbol(icons.chevron_r);
     state.table_state.select(Some(state.selected_index));
     state.list_hit_area = Rect {
         y: rows[1].y + 2,

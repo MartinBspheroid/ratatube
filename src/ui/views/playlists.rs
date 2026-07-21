@@ -2,6 +2,7 @@
 
 use super::*;
 
+use crate::ui::components::{TrackRow, TrackTableLayout, header_row, track_flags, track_row};
 use crate::ui::layout::Breakpoint;
 
 pub(super) fn render_playlists(
@@ -104,7 +105,7 @@ fn render_selected(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icon
         .spacing(crate::ui::layout::PANE_GUTTER)
         .split(area);
     render_info(frame, rows[0], playlist, icons, theme);
-    render_preview(frame, rows[1], playlist, icons, theme);
+    render_preview(frame, rows[1], state, playlist, icons, theme);
 }
 
 fn render_info(
@@ -162,31 +163,39 @@ fn render_info(
 fn render_preview(
     frame: &mut Frame,
     area: Rect,
+    state: &AppState,
     playlist: &crate::playlists::Playlist,
     icons: &Icons,
     theme: &Theme,
 ) {
     let title = format!("Track preview ({})", playlist.tracks.len());
     let inner = section_panel(frame, area, &title, false, theme, icons);
-    let header = Row::new(["#", "TRACK", "CHANNEL", "LENGTH"]).style(theme.label);
-    let rows = playlist.tracks.iter().enumerate().map(|(index, track)| {
-        Row::new([
-            format!("{:02}", index + 1),
-            sanitize_terminal_text(&track.title),
-            sanitize_terminal_text(&track.artist),
-            track
-                .duration_seconds
-                .map(|seconds| format_time(seconds as f64))
-                .unwrap_or_else(|| "--:--".to_string()),
-        ])
-    });
-    let widths = [
-        Constraint::Length(3),
-        Constraint::Percentage(45),
-        Constraint::Percentage(35),
-        Constraint::Length(8),
-    ];
-    frame.render_widget(Table::new(rows, widths).header(header), inner);
+    let layout = TrackTableLayout::new(inner.width, 8);
+    let rows =
+        playlist.tracks.iter().enumerate().map(|(index, track)| {
+            track_row(&layout, preview_row(state, index, track), theme, icons)
+        });
+    frame.render_widget(
+        Table::new(rows, layout.constraints()).header(header_row("LENGTH", theme)),
+        inner,
+    );
+}
+
+fn preview_row(
+    state: &AppState,
+    index: usize,
+    track: &crate::playlists::model::PlaylistTrack,
+) -> TrackRow {
+    TrackRow {
+        index,
+        title: sanitize_terminal_text(&track.title),
+        channel: sanitize_terminal_text(&track.artist),
+        right: track
+            .duration_seconds
+            .map(|seconds| format_time(seconds as f64))
+            .unwrap_or_else(|| "--:--".to_string()),
+        flags: track_flags(state, &track.id),
+    }
 }
 
 pub(super) fn render_playlist_detail(
@@ -240,31 +249,15 @@ pub(super) fn render_playlist_detail(
     } else {
         vec![inner]
     };
-    let header = Row::new(["#", "VIDEO", "CHANNEL", "LENGTH"])
-        .style(theme.label)
-        .bottom_margin(1);
-    let table_rows = playlist.tracks.iter().enumerate().map(|(index, track)| {
-        Row::new([
-            format!("{:02}", index + 1),
-            sanitize_terminal_text(&track.title),
-            sanitize_terminal_text(&track.artist),
-            track
-                .duration_seconds
-                .map_or_else(|| "--:--".to_string(), |value| format_time(value as f64)),
-        ])
-    });
-    let table = Table::new(
-        table_rows,
-        [
-            Constraint::Length(3),
-            Constraint::Percentage(48),
-            Constraint::Percentage(34),
-            Constraint::Length(8),
-        ],
-    )
-    .header(header)
-    .row_highlight_style(theme.selected)
-    .highlight_symbol(icons.chevron_r);
+    let layout = TrackTableLayout::new(panes[0].width, 8);
+    let table_rows =
+        playlist.tracks.iter().enumerate().map(|(index, track)| {
+            track_row(&layout, preview_row(state, index, track), theme, icons)
+        });
+    let table = Table::new(table_rows, layout.constraints())
+        .header(header_row("LENGTH", theme))
+        .row_highlight_style(theme.selected)
+        .highlight_symbol(icons.chevron_r);
     state.table_state.select(Some(state.selected_index));
     state.list_hit_area = Rect {
         y: panes[0].y + 2,

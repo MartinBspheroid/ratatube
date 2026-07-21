@@ -3,6 +3,7 @@
 use super::*;
 
 use crate::app::state::HistoryViewMode;
+use crate::ui::components::{TrackRow, TrackTableLayout, header_row, track_flags, track_row};
 
 pub(super) fn render_history(
     frame: &mut Frame,
@@ -35,16 +36,38 @@ pub(super) fn render_history(
     }
 
     let inner = render_filter_bar(frame, inner, state, total, icons, theme);
-    let lines = match state.history_view_mode {
-        HistoryViewMode::Recent => {
-            recent_rows(state, entries, &recent_indices, inner.width, icons, theme)
-        }
-        HistoryViewMode::Top => top_rows(state, top.unwrap_or_default(), inner.width, icons, theme),
+    let (right_header, rows) = match state.history_view_mode {
+        HistoryViewMode::Recent => (
+            "LISTENED",
+            recent_rows(state, entries, &recent_indices, inner.width, icons, theme),
+        ),
+        HistoryViewMode::Top => (
+            "PLAYS",
+            top_rows(state, top.unwrap_or_default(), inner.width, icons, theme),
+        ),
     };
-    state.list_state.select(Some(state.selected_index));
-    state.list_hit_area = inner;
-    frame.render_widget(Paragraph::new(lines), inner);
-    scrollbar(frame, inner, total, state.list_state.offset());
+    let visible_total = rows.len();
+    let table = Table::new(rows, history_layout(state, inner.width).constraints())
+        .header(header_row(right_header, theme))
+        .row_highlight_style(theme.selected)
+        .highlight_symbol(icons.chevron_r);
+    state.table_state.select(Some(state.selected_index));
+    state.list_hit_area = Rect {
+        y: inner.y + 2,
+        height: inner.height.saturating_sub(2),
+        ..inner
+    };
+    frame.render_stateful_widget(table, inner, &mut state.table_state);
+    scrollbar(frame, inner, visible_total, state.table_state.offset());
+}
+
+/// Recent rows carry `outcome · time`; Top rows carry play statistics.
+fn history_layout(state: &AppState, width: u16) -> TrackTableLayout {
+    let right_width = match state.history_view_mode {
+        HistoryViewMode::Recent => 20,
+        HistoryViewMode::Top => 34,
+    };
+    TrackTableLayout::new(width, right_width)
 }
 
 fn recent_rows(
@@ -54,8 +77,8 @@ fn recent_rows(
     width: u16,
     icons: &Icons,
     theme: &Theme,
-) -> Vec<Line<'static>> {
-    let selected = state.resolve_index(state.selected_index);
+) -> Vec<ratatui::widgets::Row<'static>> {
+    let layout = history_layout(state, width);
     let indices = state
         .visible_indices
         .as_deref()
@@ -66,26 +89,21 @@ fn recent_rows(
         .enumerate()
         .filter_map(|(row, index)| {
             let entry = entries.get(index)?;
-            let title = format!(
-                "{} — {}",
-                sanitize_terminal_text(&entry.title),
-                sanitize_terminal_text(&entry.artist)
-            );
             let outcome = format!("{:?}", entry.outcome);
             let listened = format!(
                 "{} · {}",
                 outcome,
                 format_time(entry.listened_seconds as f64)
             );
-            Some(numbered_row(
-                NumberedRow {
+            Some(track_row(
+                &layout,
+                TrackRow {
                     index: row,
-                    title: &title,
-                    right_columns: &[listened],
-                    playing: false,
-                    selected: selected == index,
+                    title: sanitize_terminal_text(&entry.title),
+                    channel: sanitize_terminal_text(&entry.artist),
+                    right: listened,
+                    flags: track_flags(state, &entry.track_id),
                 },
-                width.saturating_sub(1) as usize,
                 theme,
                 icons,
             ))
@@ -99,32 +117,27 @@ fn top_rows(
     width: u16,
     icons: &Icons,
     theme: &Theme,
-) -> Vec<Line<'static>> {
-    let selected = state.resolve_index(state.selected_index);
+) -> Vec<ratatui::widgets::Row<'static>> {
+    let layout = history_layout(state, width);
     visible_positions(state, stats.len())
         .into_iter()
         .filter_map(|index| {
             let stat = stats.get(index)?;
-            let title = format!(
-                "{} — {}",
-                sanitize_terminal_text(&stat.entry.title),
-                sanitize_terminal_text(&stat.entry.artist)
-            );
             let counts = format!(
                 "{} plays · {} tries · {} total",
                 stat.completed_plays,
                 stat.attempts,
                 format_time(stat.total_listened_seconds as f64)
             );
-            Some(numbered_row(
-                NumberedRow {
+            Some(track_row(
+                &layout,
+                TrackRow {
                     index,
-                    title: &title,
-                    right_columns: &[counts],
-                    playing: false,
-                    selected: selected == index,
+                    title: sanitize_terminal_text(&stat.entry.title),
+                    channel: sanitize_terminal_text(&stat.entry.artist),
+                    right: counts,
+                    flags: track_flags(state, &stat.entry.track_id),
                 },
-                width.saturating_sub(1) as usize,
                 theme,
                 icons,
             ))

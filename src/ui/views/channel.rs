@@ -3,10 +3,13 @@
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Cell, Paragraph, Row, Table};
+use ratatui::widgets::{Paragraph, Table};
 
 use crate::app::state::AppState;
-use crate::ui::components::{scrollbar, section_panel};
+use crate::ui::components::{
+    TrackRow, TrackTableLayout, header_row, message_row, scrollbar, section_panel, track_flags,
+    track_row,
+};
 use crate::ui::icons::{Icons, sanitize_terminal_text};
 use crate::ui::layout::Breakpoint;
 use crate::ui::theme::Theme;
@@ -63,31 +66,35 @@ fn render_table(
         theme,
         icons,
     );
+    let layout = TrackTableLayout::new(inner.width, 8);
     let mut rows = channel
         .tracks
         .iter()
         .enumerate()
         .map(|(index, track)| {
-            Row::new(vec![
-                Cell::from(format!("{:02}", index + 1)),
-                Cell::from(sanitize_terminal_text(&track.title)),
-                Cell::from(sanitize_terminal_text(&track.artist)),
-                Cell::from(
-                    track
+            track_row(
+                &layout,
+                TrackRow {
+                    index,
+                    title: sanitize_terminal_text(&track.title),
+                    channel: sanitize_terminal_text(&track.artist),
+                    right: track
                         .duration_seconds
                         .map(|seconds| format_time(seconds as f64))
                         .unwrap_or_else(|| "--:--".to_string()),
-                ),
-            ])
+                    flags: track_flags(state, &track.id),
+                },
+                theme,
+                icons,
+            )
         })
         .collect::<Vec<_>>();
     if channel.loading {
-        rows.push(Row::new(vec![
-            Cell::from(""),
-            Cell::from(format!("{} Loading…", spinner(state.spinner_frame))),
-            Cell::from(""),
-            Cell::from(""),
-        ]));
+        rows.push(message_row(
+            format!("{} Loading…", spinner(state.spinner_frame)),
+            String::new(),
+            theme,
+        ));
     } else if !channel.exhausted {
         let label = if channel.error.is_some() {
             "Retry…"
@@ -99,34 +106,29 @@ fn render_table(
             .as_deref()
             .map(sanitize_terminal_text)
             .unwrap_or_default();
-        rows.push(Row::new(vec![
-            Cell::from(""),
-            Cell::from(label),
-            Cell::from(detail),
-            Cell::from(""),
-        ]));
+        rows.push(message_row(label.to_string(), detail, theme));
     }
     if rows.is_empty() {
         let message = channel
             .error
             .as_deref()
             .unwrap_or("This channel has no public videos");
-        frame.render_widget(Paragraph::new(sanitize_terminal_text(message)), inner);
+        frame.render_widget(
+            Paragraph::new(Span::styled(sanitize_terminal_text(message), theme.dim)),
+            inner,
+        );
         return;
     }
-    let table = Table::new(
-        rows,
-        [
-            Constraint::Length(4),
-            Constraint::Percentage(55),
-            Constraint::Percentage(30),
-            Constraint::Length(8),
-        ],
-    )
-    .header(Row::new(["#", "TITLE", "CHANNEL", "DURATION"]).style(theme.dim))
-    .row_highlight_style(theme.selected);
+    let table = Table::new(rows, layout.constraints())
+        .header(header_row("LENGTH", theme))
+        .row_highlight_style(theme.selected)
+        .highlight_symbol(icons.chevron_r);
     state.table_state.select(Some(state.selected_index));
-    state.list_hit_area = inner;
+    state.list_hit_area = Rect {
+        y: inner.y + 2,
+        height: inner.height.saturating_sub(2),
+        ..inner
+    };
     frame.render_stateful_widget(table, inner, &mut state.table_state);
     scrollbar(
         frame,
