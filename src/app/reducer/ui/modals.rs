@@ -1,6 +1,7 @@
-//! Pure modal transitions for the universal track-context menu and details.
+//! Pure modal transitions: the universal track-context menu, details, and
+//! the playlist picker/prompt/editor family.
 
-use crate::app::action::NavigationAction;
+use crate::app::action::{NavigationAction, PlaylistAction};
 use crate::app::reducer::Effect;
 use crate::app::state::{DomainState, UiState};
 
@@ -44,4 +45,119 @@ pub(in crate::app::reducer) fn reduce_track_context(
         _ => unreachable!("non-context action routed to context reducer"),
     }
     Vec::new()
+}
+
+/// Reduce picker, prompt, editor, and confirmation modal transitions.
+pub(in crate::app::reducer) fn reduce_playlist_modals(
+    ui: &mut UiState,
+    domain: &DomainState,
+    action: PlaylistAction,
+) -> Vec<Effect> {
+    match action {
+        PlaylistAction::PickerInput(c) => {
+            if let Some(picker) = &mut ui.picker {
+                picker.filter.push(c);
+                picker.selected = 0;
+            }
+        }
+        PlaylistAction::PickerBackspace => {
+            if let Some(picker) = &mut ui.picker {
+                picker.filter.pop();
+                picker.selected = 0;
+            }
+        }
+        PlaylistAction::PickerNext => picker_move(ui, domain, 1),
+        PlaylistAction::PickerPrevious => picker_move(ui, domain, -1),
+        PlaylistAction::PickerCancel => ui.picker = None,
+        PlaylistAction::OpenPrompt(purpose) => {
+            ui.prompt = Some(crate::app::state::PromptState {
+                purpose,
+                buffer: String::new(),
+            });
+        }
+        PlaylistAction::PromptInput(c) => {
+            if let Some(prompt) = &mut ui.prompt
+                && prompt.buffer.len() < 1_048_576
+            {
+                prompt.buffer.push(c);
+            }
+        }
+        PlaylistAction::PromptPaste(text) => {
+            if let Some(prompt) = &mut ui.prompt {
+                let remaining = 1_048_576usize.saturating_sub(prompt.buffer.len());
+                prompt.buffer.extend(text.chars().take(remaining));
+            }
+        }
+        PlaylistAction::PromptBackspace => {
+            if let Some(prompt) = &mut ui.prompt {
+                prompt.buffer.pop();
+            }
+        }
+        PlaylistAction::PromptCancel => ui.prompt = None,
+        PlaylistAction::OpenPlaylistEditor => {
+            ui.playlist_editor = ui
+                .selected_playlist
+                .and_then(|index| domain.playlists.get(index))
+                .map(|playlist| crate::app::state::PlaylistEditorState {
+                    name: playlist.name.clone(),
+                    description: playlist.description.clone(),
+                    field: crate::app::state::PlaylistEditorField::Name,
+                });
+        }
+        PlaylistAction::PlaylistEditorInput(character) => {
+            if let Some(editor) = &mut ui.playlist_editor {
+                match editor.field {
+                    crate::app::state::PlaylistEditorField::Name => editor.name.push(character),
+                    crate::app::state::PlaylistEditorField::Description => {
+                        editor.description.push(character);
+                    }
+                }
+            }
+        }
+        PlaylistAction::PlaylistEditorBackspace => {
+            if let Some(editor) = &mut ui.playlist_editor {
+                match editor.field {
+                    crate::app::state::PlaylistEditorField::Name => {
+                        editor.name.pop();
+                    }
+                    crate::app::state::PlaylistEditorField::Description => {
+                        editor.description.pop();
+                    }
+                }
+            }
+        }
+        PlaylistAction::PlaylistEditorNextField => {
+            if let Some(editor) = &mut ui.playlist_editor {
+                editor.field = match editor.field {
+                    crate::app::state::PlaylistEditorField::Name => {
+                        crate::app::state::PlaylistEditorField::Description
+                    }
+                    crate::app::state::PlaylistEditorField::Description => {
+                        crate::app::state::PlaylistEditorField::Name
+                    }
+                };
+            }
+        }
+        PlaylistAction::PlaylistEditorCancel => ui.playlist_editor = None,
+        PlaylistAction::ConfirmNo => ui.confirm = None,
+        // PromptSubmit / ConfirmYes are resolved by the app layer, which
+        // knows the services required by each purpose.
+        _ => {}
+    }
+    Vec::new()
+}
+
+/// Move the picker selection through its candidate list, wrapping.
+fn picker_move(ui: &mut UiState, domain: &DomainState, delta: i32) {
+    let Some(picker) = &ui.picker else {
+        return;
+    };
+    let (create_new, matching) =
+        crate::app::filter::picker_candidates(&domain.playlists, &picker.filter);
+    let total = usize::from(create_new) + matching.len();
+    if total > 0
+        && let Some(picker) = &mut ui.picker
+    {
+        picker.selected = (picker.selected as i32 + delta).rem_euclid(total as i32) as usize;
+    }
 }

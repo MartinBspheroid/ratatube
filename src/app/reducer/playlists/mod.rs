@@ -2,7 +2,6 @@
 
 mod catalog;
 mod imports;
-mod modals;
 
 use crate::app::action::PlaylistAction;
 use crate::app::reducer::Effect;
@@ -26,7 +25,11 @@ pub(super) fn reduce(state: &mut AppState, action: PlaylistAction) -> Vec<Effect
         | PlaylistAction::PlaylistEditorBackspace
         | PlaylistAction::PlaylistEditorNextField
         | PlaylistAction::PlaylistEditorCancel
-        | PlaylistAction::ConfirmNo) => modals::reduce(state, action),
+        | PlaylistAction::ConfirmNo) => crate::app::reducer::ui::modals::reduce_playlist_modals(
+            &mut state.ui,
+            &state.domain,
+            action,
+        ),
         action @ (PlaylistAction::OpenPlaylistDetail
         | PlaylistAction::PlaylistSaved(_)
         | PlaylistAction::DeletePlaylist(_)) => catalog::reduce(state, action),

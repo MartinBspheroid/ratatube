@@ -2,12 +2,13 @@
 
 use crate::app::action::{Action, PlaylistAction};
 use crate::app::reducer::Effect;
-use crate::app::state::{AppState, View};
+use crate::app::state::{AppState, DomainState, View};
+use crate::playlists::Playlist;
 
 /// Reduce playlist catalog state transitions.
 pub(super) fn reduce(state: &mut AppState, action: PlaylistAction) -> Vec<Effect> {
-    match Action::Playlists(action) {
-        Action::Playlists(PlaylistAction::OpenPlaylistDetail) => {
+    match action {
+        PlaylistAction::OpenPlaylistDetail => {
             if state.ui.view == View::Playlists && !state.domain.playlists.is_empty() {
                 state.ui.selected_playlist = Some(state.resolve_index(state.ui.selected_index));
                 state.ui.view = View::PlaylistDetail;
@@ -16,20 +17,8 @@ pub(super) fn reduce(state: &mut AppState, action: PlaylistAction) -> Vec<Effect
                 state.ui.visible_indices = None;
             }
         }
-        Action::Playlists(PlaylistAction::PlaylistSaved(playlist)) => {
-            match state
-                .domain
-                .playlists
-                .iter()
-                .position(|p| p.id == playlist.id)
-            {
-                Some(i) => state.domain.playlists[i] = playlist,
-                None => state.domain.playlists.push(playlist),
-            }
-            state.bump_playlists_revision();
-            state.sort_playlists_by_updated();
-        }
-        Action::Playlists(PlaylistAction::DeletePlaylist(id)) => {
+        PlaylistAction::PlaylistSaved(playlist) => playlist_saved(&mut state.domain, playlist),
+        PlaylistAction::DeletePlaylist(id) => {
             state.ui.confirm = Some(crate::app::state::ConfirmState {
                 message: "Delete this playlist? (local file only, y/n)".to_string(),
                 action: Box::new(Action::Playlists(PlaylistAction::DeletePlaylistConfirmed(
@@ -37,8 +26,17 @@ pub(super) fn reduce(state: &mut AppState, action: PlaylistAction) -> Vec<Effect
                 ))),
             });
         }
-
         _ => {}
     }
     Vec::new()
+}
+
+/// Upsert a saved playlist and re-sort the catalog newest-updated first.
+fn playlist_saved(domain: &mut DomainState, playlist: Playlist) {
+    match domain.playlists.iter().position(|p| p.id == playlist.id) {
+        Some(i) => domain.playlists[i] = playlist,
+        None => domain.playlists.push(playlist),
+    }
+    domain.bump_playlists_revision();
+    domain.sort_playlists_by_updated();
 }
