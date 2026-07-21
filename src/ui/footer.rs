@@ -146,8 +146,8 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Th
         View::NowPlaying => &[
             ("Space", "pause"),
             ("h/l", "seek"),
+            ("j/k", "scroll"),
             ("./,", "chapter"),
-            ("+/-", "volume"),
             ("n/b", "next/prev"),
             ("v", "pane"),
         ],

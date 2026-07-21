@@ -116,7 +116,10 @@ fn playlist_editor_uses_stateful_table_inspector_and_edit_popup() {
     );
     assert!(browse.contains("SELECTED TRACK"), "inspector:\n{browse}");
     assert!(browse.contains("Selected video"), "selected row:\n{browse}");
-    assert!(browse.contains("BROWSE MODE"), "mode status:\n{browse}");
+    assert!(
+        browse.contains("e edit details"),
+        "footer keeps the editor hints after the BROWSE MODE row removal:\n{browse}"
+    );
 
     state.playlist_editor = Some(ytm_tui::app::state::PlaylistEditorState {
         name: "Edited name".to_string(),

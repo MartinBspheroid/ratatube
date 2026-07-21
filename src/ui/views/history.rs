@@ -23,7 +23,7 @@ pub(super) fn render_history(
         HistoryViewMode::Recent => "recent",
         HistoryViewMode::Top => "top",
     };
-    let title = format!("History ({total}) · {mode} · g toggles");
+    let title = format!("History ({total}) · {mode}");
     let inner = section_panel(frame, area, &title, true, theme, icons);
 
     if total == 0 {

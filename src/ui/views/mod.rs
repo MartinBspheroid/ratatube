@@ -105,14 +105,7 @@ fn visible_positions(state: &AppState, total: usize) -> Vec<usize> {
 
 /// Home dashboard: resume card on top, recent tracks and playlists below.
 fn render_help(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icons, theme: &Theme) {
-    let inner = section_panel(
-        frame,
-        area,
-        "Help · j/k or PgUp/PgDn scroll · Esc/? returns",
-        true,
-        theme,
-        icons,
-    );
+    let inner = section_panel(frame, area, "Help", true, theme, icons);
 
     let section = |title: &str| Line::from(Span::styled(title.to_string(), theme.accent));
     let binding = |key: &str, desc: &str| {

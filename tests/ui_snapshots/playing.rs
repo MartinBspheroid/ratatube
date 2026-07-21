@@ -114,7 +114,7 @@ fn playing_view_shows_chapters_and_up_next() {
     });
     let out = render_to_string(&mut state, None, 120, 34);
     println!("\n{out}");
-    assert!(out.contains("TRACKLIST (2/3)"), "chapter counter:\n{out}");
+    assert!(out.contains("TRACKLIST (3)"), "chapter count:\n{out}");
     assert!(out.contains("Second Tune"), "chapter titles:\n{out}");
     assert!(out.contains("UP NEXT"), "up next pane:\n{out}");
     assert!(out.contains("Next Song"), "upcoming track:\n{out}");
@@ -183,7 +183,7 @@ fn playing_layout_exercises_all_four_breakpoints() {
     assert!(wide.contains("[OPUS]"), "conditional chips:\n{wide}");
 
     let ultra = render(180, 48);
-    assert!(ultra.contains("QUEUE · H/L FOCUS"), "ultra queue:\n{ultra}");
+    assert!(ultra.contains("QUEUE"), "ultra queue:\n{ultra}");
     assert!(
         !ultra.contains("ACTIVITY"),
         "activity belongs on Home:\n{ultra}"

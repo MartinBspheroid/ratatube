@@ -201,12 +201,7 @@ pub(super) fn render_playlist_detail(
         section_panel(frame, area, "Playlist", true, theme, icons);
         return;
     };
-    let rows = Layout::vertical([
-        Constraint::Length(2),
-        Constraint::Min(5),
-        Constraint::Length(1),
-    ])
-    .split(area);
+    let rows = Layout::vertical([Constraint::Length(2), Constraint::Min(5)]).split(area);
     let inner = section_panel(frame, rows[1], "Playlist editor", true, theme, icons);
     frame.render_widget(
         Paragraph::new(Line::from(vec![
@@ -270,8 +265,19 @@ pub(super) fn render_playlist_detail(
         playlist.tracks.len(),
         state.table_state.offset(),
     );
+    render_inspector(frame, &panes, &playlist, state.selected_index, theme, icons);
+}
+
+fn render_inspector(
+    frame: &mut Frame,
+    panes: &[Rect],
+    playlist: &crate::playlists::Playlist,
+    selected_index: usize,
+    theme: &Theme,
+    icons: &Icons,
+) {
     if let Some(inspector) = panes.get(1).copied() {
-        let selected = playlist.tracks.get(state.selected_index);
+        let selected = playlist.tracks.get(selected_index);
         let inspector_inner =
             section_panel(frame, inspector, "Selected track", false, theme, icons);
         let lines = selected.map_or_else(
@@ -302,14 +308,4 @@ pub(super) fn render_playlist_detail(
             inspector_inner,
         );
     }
-    frame.render_widget(
-        Paragraph::new(Line::from(vec![
-            Span::styled(" BROWSE MODE ", theme.chip),
-            Span::styled(
-                "  e edit details  J/K move  d remove  Enter play  Backspace back",
-                theme.dim,
-            ),
-        ])),
-        rows[2],
-    );
 }

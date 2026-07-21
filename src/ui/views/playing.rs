@@ -16,12 +16,7 @@ pub(super) fn render_now_playing_view(
 ) {
     let breakpoint = Breakpoint::from_width(area.width);
     let focused = breakpoint != Breakpoint::UltraWide || state.playing_pane == PlayingPane::Info;
-    let title = if breakpoint == Breakpoint::UltraWide {
-        "Now Playing · h/l focus"
-    } else {
-        "Now Playing"
-    };
-    let content = section_panel(frame, area, title, focused, theme, icons);
+    let content = section_panel(frame, area, "Now Playing", focused, theme, icons);
     let Some(track) = state.current_track.clone() else {
         frame.render_widget(
             Paragraph::new(vec![

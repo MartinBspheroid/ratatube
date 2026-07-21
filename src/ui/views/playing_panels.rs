@@ -70,12 +70,7 @@ pub(super) fn render_description(
         render_chapters(frame, area, state, chapters, icons, theme);
         return;
     }
-    let title = if chapters.is_empty() {
-        "Description · j/k scroll"
-    } else {
-        "Description · v tracklist"
-    };
-    let inner = section_panel(frame, area, title, false, theme, icons);
+    let inner = section_panel(frame, area, "Description", false, theme, icons);
     let description = state
         .current_details
         .as_ref()
@@ -106,11 +101,7 @@ fn render_chapters(
     theme: &Theme,
 ) {
     let current = state.current_chapter_index();
-    let title = format!(
-        "Tracklist ({}/{}) · v description",
-        current.map_or(0, |index| index + 1),
-        chapters.len()
-    );
+    let title = format!("Tracklist ({})", chapters.len());
     let inner = section_panel(frame, area, &title, false, theme, icons);
     let visible = inner.height as usize;
     let offset = current
@@ -149,7 +140,7 @@ pub(super) fn render_queue(
     theme: &Theme,
 ) {
     let focused = state.playing_pane == PlayingPane::Queue;
-    let inner = section_panel(frame, area, "Queue · h/l focus", focused, theme, icons);
+    let inner = section_panel(frame, area, "Queue", focused, theme, icons);
     state.list_hit_area = inner;
     let start = state
         .selected_index

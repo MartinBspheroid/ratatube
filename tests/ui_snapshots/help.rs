@@ -5,7 +5,11 @@ fn help_is_scrollable_at_minimum_supported_viewport() {
     let mut state = AppState::new();
     state.view = ytm_tui::app::state::View::Help;
     let first = render_to_string(&mut state, None, 80, 24);
-    assert!(first.contains("J/K OR PGUP/PGDN SCROLL"));
+    assert!(first.contains("HELP"), "help title:\n{first}");
+    assert!(
+        first.contains("j/k scroll"),
+        "scroll hint lives in the footer, not the title:\n{first}"
+    );
     state.help_scroll = u16::MAX;
     let last = render_to_string(&mut state, None, 80, 24);
     assert!(last.contains("Message log"), "last help page:\n{last}");
