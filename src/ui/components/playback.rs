@@ -168,14 +168,14 @@ fn render_status(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icons,
             ..area
         });
     let position = state.playback.position_seconds;
-    let remaining = state
-        .playback
-        .duration_seconds
-        .map(|total| (total - position).max(0.0));
+    // Elapsed / total, matching the Quick Resume gauge; a right-hand value
+    // after "/" always means the full track length.
     let time = format!(
         "{} / {}",
         crate::ui::widgets::format_time(position),
-        remaining
+        state
+            .playback
+            .duration_seconds
             .map(crate::ui::widgets::format_time)
             .unwrap_or_else(|| "--:--".into())
     );

@@ -39,7 +39,7 @@ pub(super) fn render_hero(
         horizontal: 1,
         vertical: 0,
     });
-    render_track_info(frame, info, state, theme);
+    render_track_info(frame, info, state, track, theme);
 
     if show_metadata {
         let metadata = columns[columns.len() - 1];
@@ -65,9 +65,27 @@ fn render_art(frame: &mut Frame, area: Rect, state: &mut AppState, icons: &Icons
     }
 }
 
-fn render_track_info(frame: &mut Frame, area: Rect, state: &AppState, theme: &Theme) {
+fn render_track_info(
+    frame: &mut Frame,
+    area: Rect,
+    state: &AppState,
+    track: &crate::media::Track,
+    theme: &Theme,
+) {
     let details = state.current_details.as_ref();
-    let mut lines = vec![stats_line(details, theme)];
+    let width = area.width as usize;
+    let mut lines = vec![
+        Line::from(Span::styled(
+            crate::ui::widgets::truncate_middle(&sanitize_terminal_text(&track.title), width),
+            theme.header,
+        )),
+        Line::from(Span::styled(
+            crate::ui::widgets::truncate_end(&sanitize_terminal_text(&track.artist), width),
+            theme.accent,
+        )),
+        Line::from(""),
+        stats_line(details, theme),
+    ];
     let chip_values = detail_chips(details);
     if !chip_values.is_empty() {
         lines.push(chips(&chip_values, theme));

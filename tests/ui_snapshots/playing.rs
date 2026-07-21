@@ -122,7 +122,7 @@ fn playing_view_shows_chapters_and_up_next() {
     assert!(!out.contains("vol 0%"), "volume row removed:\n{out}");
     // Playback information appears once, in the shared bottom bar.
     assert_eq!(
-        out.matches("04:00 / 1:54:35").count(),
+        out.matches("04:00 / 1:58:35").count(),
         1,
         "single gauge:\n{out}"
     );

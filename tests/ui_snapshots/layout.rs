@@ -10,10 +10,7 @@ fn now_playing_bar_renders_when_track_loaded() {
     state.playback.volume = 72;
     let out = render_to_string(&mut state, None, 100, 30);
     assert!(out.contains("Teardrop"), "title:\n{out}");
-    assert!(
-        out.contains("02:41 / 02:49"),
-        "current/remaining times:\n{out}"
-    );
+    assert!(out.contains("02:41 / 05:30"), "elapsed/total times:\n{out}");
     assert!(out.contains("72%"), "volume:\n{out}");
     assert!(!out.contains("NOW PLAYING"), "badge removed:\n{out}");
     assert!(!out.contains("< | >"), "transport cluster removed:\n{out}");
