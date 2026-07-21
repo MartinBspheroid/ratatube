@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::app::state::PlayingPane;
-use crate::ui::components::section_panel;
+use crate::ui::components::{EmptyState, empty_state, section_panel};
 use crate::ui::layout::Breakpoint;
 use crate::ui::views::playing_hero::render_hero;
 use crate::ui::views::playing_panels::{render_description, render_queue, render_up_next};
@@ -18,16 +18,15 @@ pub(super) fn render_now_playing_view(
     let focused = breakpoint != Breakpoint::UltraWide || state.playing_pane == PlayingPane::Info;
     let content = section_panel(frame, area, "Now Playing", focused, theme, icons);
     let Some(track) = state.current_track.clone() else {
-        frame.render_widget(
-            Paragraph::new(vec![
-                Line::from(""),
-                Line::from(Span::styled("Nothing is playing", theme.dim)),
-                Line::from(Span::styled(
-                    "Search (2) and press Enter on a result",
-                    theme.dim,
-                )),
-            ]),
+        empty_state(
+            frame,
             content,
+            EmptyState {
+                icon: icons.music,
+                headline: "Nothing is playing",
+                hints: &[("2", "open Search"), ("Enter", "play a result")],
+            },
+            theme,
         );
         return;
     };

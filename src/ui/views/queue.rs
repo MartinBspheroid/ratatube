@@ -2,7 +2,8 @@
 
 use super::*;
 use crate::ui::components::{
-    TrackFlags, TrackRow, TrackTableLayout, header_row, track_flags, track_row,
+    EmptyState, TrackFlags, TrackRow, TrackTableLayout, empty_state, header_row, track_flags,
+    track_row,
 };
 
 pub(super) fn render_queue(
@@ -19,17 +20,15 @@ pub(super) fn render_queue(
     let inner = render_filter_bar(frame, inner, state, total, icons, theme);
 
     if total == 0 {
-        frame.render_widget(
-            Paragraph::new(vec![
-                Line::from(""),
-                Line::from(Span::styled("Queue is empty", theme.dim)),
-                Line::from(""),
-                Line::from(Span::styled(
-                    "Search for something and press a to add it",
-                    theme.dim,
-                )),
-            ]),
+        empty_state(
+            frame,
             inner,
+            EmptyState {
+                icon: icons.queue,
+                headline: "Queue is empty",
+                hints: &[("/", "search"), ("a", "queue a result")],
+            },
+            theme,
         );
         return;
     }

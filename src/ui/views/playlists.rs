@@ -2,7 +2,9 @@
 
 use super::*;
 
-use crate::ui::components::{TrackRow, TrackTableLayout, header_row, track_flags, track_row};
+use crate::ui::components::{
+    EmptyState, TrackRow, TrackTableLayout, empty_state, header_row, track_flags, track_row,
+};
 use crate::ui::layout::Breakpoint;
 
 pub(super) fn render_playlists(
@@ -33,21 +35,20 @@ pub(super) fn render_playlists(
 
 fn render_empty(frame: &mut Frame, area: Rect, icons: &Icons, theme: &Theme) {
     let inner = section_panel(frame, area, "Playlists (0)", true, theme, icons);
-    frame.render_widget(
-        Paragraph::new(vec![
-            Line::from(""),
-            Line::from(Span::styled("No playlists yet", theme.dim)),
-            Line::from(""),
-            Line::from(Span::styled(
-                "i import from YouTube · I paste JSON · N new playlist",
-                theme.dim,
-            )),
-            Line::from(Span::styled(
-                "w saves the current queue from Queue",
-                theme.dim,
-            )),
-        ]),
+    empty_state(
+        frame,
         inner,
+        EmptyState {
+            icon: icons.playlist,
+            headline: "No playlists yet",
+            hints: &[
+                ("i", "import URL"),
+                ("I", "paste JSON"),
+                ("N", "new"),
+                ("w", "save queue (in Queue)"),
+            ],
+        },
+        theme,
     );
 }
 

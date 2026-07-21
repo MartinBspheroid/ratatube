@@ -7,8 +7,8 @@ use ratatui::widgets::{Paragraph, Table};
 
 use crate::app::state::AppState;
 use crate::ui::components::{
-    TrackRow, TrackTableLayout, header_row, message_row, scrollbar, section_panel, track_flags,
-    track_row,
+    EmptyState, TrackRow, TrackTableLayout, empty_state, header_row, message_row, scrollbar,
+    section_panel, track_flags, track_row,
 };
 use crate::ui::icons::{Icons, sanitize_terminal_text};
 use crate::ui::layout::Breakpoint;
@@ -24,9 +24,15 @@ pub(super) fn render_channel(
 ) {
     let Some(channel) = state.channel.clone() else {
         let inner = section_panel(frame, area, "Channel", true, theme, icons);
-        frame.render_widget(
-            Paragraph::new(Span::styled("Channel is unavailable", theme.dim)),
+        empty_state(
+            frame,
             inner,
+            EmptyState {
+                icon: icons.error,
+                headline: "Channel is unavailable",
+                hints: &[("Bksp", "back")],
+            },
+            theme,
         );
         return;
     };
@@ -112,10 +118,21 @@ fn render_table(
         let message = channel
             .error
             .as_deref()
-            .unwrap_or("This channel has no public videos");
-        frame.render_widget(
-            Paragraph::new(Span::styled(sanitize_terminal_text(message), theme.dim)),
+            .map(sanitize_terminal_text)
+            .unwrap_or_else(|| "This channel has no public videos".to_string());
+        empty_state(
+            frame,
             inner,
+            EmptyState {
+                icon: if channel.error.is_some() {
+                    icons.error
+                } else {
+                    icons.music
+                },
+                headline: &message,
+                hints: &[("Bksp", "back")],
+            },
+            theme,
         );
         return;
     }

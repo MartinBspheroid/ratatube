@@ -2,8 +2,8 @@
 
 use super::*;
 use crate::ui::components::{
-    TrackRow, TrackTableLayout, header_row, marker_legend, scrollbar, section_panel, track_flags,
-    track_row,
+    EmptyState, TrackRow, TrackTableLayout, empty_state, header_row, marker_legend, scrollbar,
+    section_panel, track_flags, track_row,
 };
 use crate::ui::layout::Breakpoint;
 use crate::ui::views::search_detail::{render_overlay, render_selected};
@@ -31,6 +31,7 @@ pub(super) fn render_search(
                 message: "Type a query and press Enter",
                 icon: icons.search,
                 focused: results_focused,
+                hints: &[("/", "search"), ("Enter", "run the query")],
             },
             icons,
             theme,
@@ -43,6 +44,7 @@ pub(super) fn render_search(
                 message: &format!("Searching for \"{}\"...", sanitize_terminal_text(&query)),
                 icon: spinner(state.spinner_frame),
                 focused: results_focused,
+                hints: &[],
             },
             icons,
             theme,
@@ -55,6 +57,7 @@ pub(super) fn render_search(
                 message: &sanitize_terminal_text(&message),
                 icon: icons.error,
                 focused: results_focused,
+                hints: &[("/", "try another query")],
             },
             icons,
             theme,
@@ -88,6 +91,7 @@ struct ResultsMessage<'a> {
     message: &'a str,
     icon: &'a str,
     focused: bool,
+    hints: &'a [(&'a str, &'a str)],
 }
 
 fn render_message(
@@ -98,15 +102,15 @@ fn render_message(
     theme: &Theme,
 ) {
     let inner = section_panel(frame, area, content.title, content.focused, theme, icons);
-    frame.render_widget(
-        Paragraph::new(vec![
-            Line::from(""),
-            Line::from(vec![
-                Span::styled(format!("{} ", content.icon), theme.accent),
-                Span::styled(content.message.to_string(), theme.dim),
-            ]),
-        ]),
+    empty_state(
+        frame,
         inner,
+        EmptyState {
+            icon: content.icon,
+            headline: content.message,
+            hints: content.hints,
+        },
+        theme,
     );
 }
 
@@ -179,9 +183,15 @@ fn render_result_table(
     meta.extend(marker_legend(theme, icons));
     frame.render_widget(Paragraph::new(Line::from(meta)), rows[0]);
     if tracks.is_empty() {
-        frame.render_widget(
-            Paragraph::new(Span::styled("No results — try another query", theme.dim)),
+        empty_state(
+            frame,
             rows[1],
+            EmptyState {
+                icon: icons.search,
+                headline: "No results for this query",
+                hints: &[("/", "try another query")],
+            },
+            theme,
         );
         return;
     }

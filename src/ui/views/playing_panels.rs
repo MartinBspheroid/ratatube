@@ -2,7 +2,9 @@
 
 use super::*;
 use crate::app::state::PlayingPane;
-use crate::ui::components::{NumberedRow, numbered_row, scrollbar, section_panel};
+use crate::ui::components::{
+    EmptyState, NumberedRow, empty_state, numbered_row, scrollbar, section_panel,
+};
 
 pub(super) fn render_up_next(
     frame: &mut Frame,
@@ -13,9 +15,15 @@ pub(super) fn render_up_next(
 ) {
     let inner = section_panel(frame, area, "Up Next", false, theme, icons);
     let Some(position) = state.queue.position else {
-        frame.render_widget(
-            Paragraph::new(Span::styled("Queue is empty", theme.dim)),
+        empty_state(
+            frame,
             inner,
+            EmptyState {
+                icon: icons.queue,
+                headline: "Queue is empty",
+                hints: &[("a", "queue from Search")],
+            },
+            theme,
         );
         return;
     };

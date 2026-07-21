@@ -71,6 +71,41 @@ pub fn section_panel(
     }
 }
 
+/// Standard empty-state content: an icon, a headline, and the keys that fix
+/// it. Every empty state names its next action.
+pub struct EmptyState<'a> {
+    pub icon: &'a str,
+    pub headline: &'a str,
+    pub hints: &'a [(&'a str, &'a str)],
+}
+
+/// Render the shared empty-state pattern inside a pane's content area.
+pub fn empty_state(frame: &mut Frame, area: Rect, content: EmptyState<'_>, theme: &Theme) {
+    let mut lines = vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::styled(format!("{} ", content.icon), theme.accent),
+            Span::styled(content.headline.to_string(), theme.dim),
+        ]),
+    ];
+    if !content.hints.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(
+            content
+                .hints
+                .iter()
+                .flat_map(|(key, label)| {
+                    [
+                        Span::styled(format!(" {key} "), theme.key_chip),
+                        Span::styled(format!("{label}  "), theme.dim),
+                    ]
+                })
+                .collect::<Vec<_>>(),
+        ));
+    }
+    frame.render_widget(Paragraph::new(lines), area);
+}
+
 /// Build a link label and optional, truthful accelerator chip.
 pub fn header_link<'a>(label: &'a str, key: Option<char>, theme: &Theme) -> Vec<Span<'a>> {
     let mut spans = vec![Span::styled(

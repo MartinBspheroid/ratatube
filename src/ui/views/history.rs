@@ -3,7 +3,9 @@
 use super::*;
 
 use crate::app::state::HistoryViewMode;
-use crate::ui::components::{TrackRow, TrackTableLayout, header_row, track_flags, track_row};
+use crate::ui::components::{
+    EmptyState, TrackRow, TrackTableLayout, empty_state, header_row, track_flags, track_row,
+};
 
 pub(super) fn render_history(
     frame: &mut Frame,
@@ -28,9 +30,15 @@ pub(super) fn render_history(
     let inner = section_panel(frame, area, &title, true, theme, icons);
 
     if total == 0 {
-        frame.render_widget(
-            Paragraph::new(Span::styled("No playback history", theme.dim)),
+        empty_state(
+            frame,
             inner,
+            EmptyState {
+                icon: icons.history,
+                headline: "No playback history",
+                hints: &[("/", "search"), ("Enter", "play a result")],
+            },
+            theme,
         );
         return;
     }
