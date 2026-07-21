@@ -33,13 +33,20 @@ impl Notification {
     }
 }
 
-impl AppState {
+impl crate::app::state::UiState {
     /// Record a transient notification and retain it in the bounded log.
     pub fn notify(&mut self, message: &str, is_error: bool) {
         let notification = Notification::new_at(message, is_error, std::time::Instant::now());
-        self.ui.notification_log.push_front(notification.clone());
-        self.ui.notification_log.truncate(50);
-        self.ui.notification = Some(notification);
+        self.notification_log.push_front(notification.clone());
+        self.notification_log.truncate(50);
+        self.notification = Some(notification);
+    }
+}
+
+impl AppState {
+    /// Record a transient notification and retain it in the bounded log.
+    pub fn notify(&mut self, message: &str, is_error: bool) {
+        self.ui.notify(message, is_error);
     }
 }
 
