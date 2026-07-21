@@ -19,7 +19,8 @@ pub(super) fn render_playlists(
     let panes = if breakpoint == Breakpoint::Narrow {
         vec![area]
     } else {
-        Layout::horizontal([Constraint::Percentage(38), Constraint::Percentage(62)])
+        Layout::horizontal(crate::ui::layout::PLAYLIST_MASTER.map(Constraint::Percentage))
+            .spacing(crate::ui::layout::PANE_GUTTER)
             .split(area)
             .to_vec()
     };
@@ -99,7 +100,9 @@ fn render_selected(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icon
     else {
         return;
     };
-    let rows = Layout::vertical([Constraint::Length(9), Constraint::Min(5)]).split(area);
+    let rows = Layout::vertical([Constraint::Length(9), Constraint::Min(5)])
+        .spacing(crate::ui::layout::PANE_GUTTER)
+        .split(area);
     render_info(frame, rows[0], playlist, icons, theme);
     render_preview(frame, rows[1], playlist, icons, theme);
 }
@@ -219,9 +222,9 @@ pub(super) fn render_playlist_detail(
         ])),
         rows[0],
     );
-    let panes = if inner.width >= 88 {
+    let panes = if inner.width >= crate::ui::layout::INSPECTOR_MIN_WIDTH {
         Layout::horizontal([Constraint::Percentage(68), Constraint::Percentage(32)])
-            .spacing(1)
+            .spacing(crate::ui::layout::PANE_GUTTER)
             .split(inner)
             .to_vec()
     } else {

@@ -28,7 +28,7 @@ pub(super) fn render_resume(
         );
         return;
     };
-    let show_art = inner.width >= 36;
+    let show_art = inner.width >= crate::ui::layout::RESUME_ART_MIN_WIDTH;
     let columns = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(if show_art {

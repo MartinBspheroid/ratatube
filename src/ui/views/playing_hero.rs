@@ -27,6 +27,7 @@ pub(super) fn render_hero(
     let columns = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(constraints)
+        .spacing(crate::ui::layout::PANE_GUTTER)
         .split(area);
 
     let mut info_index = 0;

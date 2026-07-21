@@ -11,6 +11,25 @@ pub const MIN_ROWS: u16 = 24;
 pub const FLOOR_COLS: u16 = 40;
 pub const FLOOR_ROWS: u16 = 10;
 
+/// One-cell gap between adjacent panes so separation survives terminals
+/// where `panel_bg` is a no-op (non-truecolor).
+pub const PANE_GUTTER: u16 = 1;
+
+/// Shared list/detail split for browse views (Search, Channel).
+pub const LIST_DETAIL: [u16; 2] = [65, 35];
+
+/// Master/detail split for the Playlists overview.
+pub const PLAYLIST_MASTER: [u16; 2] = [38, 62];
+
+/// Minimum pane width for the Home playlists card grid.
+pub const HOME_GRID_MIN_WIDTH: u16 = 68;
+
+/// Minimum editor width before the playlist inspector pane appears.
+pub const INSPECTOR_MIN_WIDTH: u16 = 88;
+
+/// Minimum Quick Resume pane width before thumbnail art appears.
+pub const RESUME_ART_MIN_WIDTH: u16 = 36;
+
 /// Responsive layout band selected only from terminal width.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Breakpoint {

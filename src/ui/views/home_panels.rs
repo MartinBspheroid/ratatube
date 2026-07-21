@@ -93,7 +93,7 @@ pub(super) fn render_playlists(
         icons,
         theme,
     );
-    if inner.width >= 68 {
+    if inner.width >= crate::ui::layout::HOME_GRID_MIN_WIDTH {
         let page_count = state.playlists.len().max(1).div_ceil(4);
         let page = (state.selected_index / 4).min(page_count - 1);
         if page_count > 1 {

@@ -122,7 +122,8 @@ fn render_results(
     } else {
         Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(65), Constraint::Percentage(35)])
+            .constraints(crate::ui::layout::LIST_DETAIL.map(Constraint::Percentage))
+            .spacing(crate::ui::layout::PANE_GUTTER)
             .split(area)
     };
     render_result_table(frame, columns[0], state, query, tracks, icons, theme);

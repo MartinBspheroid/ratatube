@@ -27,9 +27,14 @@ pub(super) fn render_channel(
     let columns = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(if wide {
-            [Constraint::Percentage(68), Constraint::Percentage(32)]
+            crate::ui::layout::LIST_DETAIL.map(Constraint::Percentage)
         } else {
             [Constraint::Percentage(100), Constraint::Length(0)]
+        })
+        .spacing(if wide {
+            crate::ui::layout::PANE_GUTTER
+        } else {
+            0
         })
         .split(area);
     render_table(frame, columns[0], state, &channel, icons, theme);

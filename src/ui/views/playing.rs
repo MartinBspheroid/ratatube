@@ -59,6 +59,7 @@ fn render_lower_panels(
             let rows = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([Constraint::Percentage(58), Constraint::Percentage(42)])
+                .spacing(crate::ui::layout::PANE_GUTTER)
                 .split(area);
             render_description(frame, rows[0], state, icons, theme);
             render_up_next(frame, rows[1], state, icons, theme);
@@ -67,6 +68,7 @@ fn render_lower_panels(
             let columns = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+                .spacing(crate::ui::layout::PANE_GUTTER)
                 .split(area);
             render_description(frame, columns[0], state, icons, theme);
             render_up_next(frame, columns[1], state, icons, theme);
@@ -79,6 +81,7 @@ fn render_lower_panels(
                     Constraint::Percentage(23),
                     Constraint::Percentage(27),
                 ])
+                .spacing(crate::ui::layout::PANE_GUTTER)
                 .split(area);
             render_description(frame, columns[0], state, icons, theme);
             render_up_next(frame, columns[1], state, icons, theme);

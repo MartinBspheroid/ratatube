@@ -87,6 +87,7 @@ fn render_narrow(frame: &mut Frame, area: Rect, state: &mut AppState, data: &Das
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints(constraints)
+        .spacing(crate::ui::layout::PANE_GUTTER)
         .split(area);
     let mut row = 0;
     if data.show_resume {
@@ -125,6 +126,7 @@ fn render_medium(frame: &mut Frame, area: Rect, state: &mut AppState, data: &Das
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(58), Constraint::Percentage(42)])
+        .spacing(crate::ui::layout::PANE_GUTTER)
         .split(area);
     let top = halves(rows[0]);
     render_resume(frame, top[0], state, data.history, data.icons, data.theme);
@@ -148,10 +150,12 @@ fn render_wide(frame: &mut Frame, area: Rect, state: &mut AppState, data: &Dashb
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+        .spacing(crate::ui::layout::PANE_GUTTER)
         .split(area);
     let top = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(42), Constraint::Percentage(58)])
+        .spacing(crate::ui::layout::PANE_GUTTER)
         .split(rows[0]);
     render_resume(frame, top[0], state, data.history, data.icons, data.theme);
     render_recent(
@@ -175,6 +179,7 @@ fn render_without_resume(
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+        .spacing(crate::ui::layout::PANE_GUTTER)
         .split(area);
     render_recent(
         frame,
@@ -205,5 +210,6 @@ fn halves(area: Rect) -> std::rc::Rc<[Rect]> {
     Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .spacing(crate::ui::layout::PANE_GUTTER)
         .split(area)
 }
