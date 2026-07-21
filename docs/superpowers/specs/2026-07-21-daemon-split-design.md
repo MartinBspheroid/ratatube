@@ -1,7 +1,9 @@
 # ytm Daemon Split — Design
 
-Date: 2026-07-21. Status: approved; phase 1 implemented on
-`daemon-phase1-state-split` (see the phase 1 plan's completion notes).
+Date: 2026-07-21. Status: implemented (phases 1 and 2 merged to main
+2026-07-22; see both plans' completion notes). Remaining phase 3 polish:
+error-event propagation to clients, a separate `ytm-ui.log`, and retiring
+the daemon's inert `UiState`.
 
 ## Context
 
