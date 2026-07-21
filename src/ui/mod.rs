@@ -107,11 +107,15 @@ where
                 } else {
                     theme.accent
                 };
+                // Fixed chrome slot: right-aligned and bounded to half the
+                // header so the logo and tabs stay visible underneath.
+                let budget = usize::from((regions.header.width / 2).max(24));
+                let message = widgets::truncate_end(
+                    &icons::sanitize_terminal_text(&notification.message),
+                    budget,
+                );
                 frame.render_widget(
-                    Paragraph::new(Span::styled(
-                        icons::sanitize_terminal_text(&notification.message),
-                        style,
-                    )),
+                    Paragraph::new(Line::from(Span::styled(message, style)).right_aligned()),
                     regions.header,
                 );
             }

@@ -20,7 +20,11 @@ pub(super) fn render_channel(
     theme: &Theme,
 ) {
     let Some(channel) = state.channel.clone() else {
-        frame.render_widget(Paragraph::new("Channel is unavailable"), area);
+        let inner = section_panel(frame, area, "Channel", true, theme, icons);
+        frame.render_widget(
+            Paragraph::new(Span::styled("Channel is unavailable", theme.dim)),
+            inner,
+        );
         return;
     };
     let wide = Breakpoint::from_width(area.width) != Breakpoint::Narrow;

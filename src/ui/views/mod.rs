@@ -19,7 +19,7 @@ mod search_detail;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Cell, List, ListItem, Paragraph, Row, Table};
+use ratatui::widgets::{Cell, List, ListItem, Paragraph, Row, Table};
 use unicode_width::UnicodeWidthStr;
 
 use crate::app::state::{AppState, Focus, View};

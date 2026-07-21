@@ -9,7 +9,7 @@ fn empty_search_state_shows_prompt() {
         out.contains("Type a query and press Enter"),
         "search hint:\n{out}"
     );
-    assert!(out.contains("[SEARCH] Search"), "header tabs:\n{out}");
+    assert!(out.contains("SEARCH"), "search input pane title:\n{out}");
     assert!(out.contains("mpv down"), "status:\n{out}");
 }
 

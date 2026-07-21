@@ -14,7 +14,7 @@ pub(super) fn render_search(
 ) {
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(1)])
+        .constraints([Constraint::Length(2), Constraint::Min(1)])
         .split(area);
     render_input(frame, rows[0], state, icons, theme);
 
@@ -54,19 +54,7 @@ pub(super) fn render_search(
 
 fn render_input(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icons, theme: &Theme) {
     let focused = state.focus == Focus::SearchInput;
-    let block = Block::bordered()
-        .border_type(BorderType::Rounded)
-        .border_style(if focused {
-            theme.border_active
-        } else {
-            theme.border
-        })
-        .title(Span::styled(
-            format!(" {} Search ", icons.search),
-            if focused { theme.accent } else { theme.dim },
-        ));
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
+    let inner = section_panel(frame, area, "Search", focused, theme, icons);
     let line = if state.search_input.is_empty() && !focused {
         Line::from(Span::styled(
             "Press / to search, or paste a YouTube URL...",

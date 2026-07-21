@@ -2,7 +2,8 @@
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::widgets::{Block, BorderType};
+use ratatui::text::Span;
+use ratatui::widgets::Paragraph;
 
 use crate::app::state::AppState;
 use crate::ui::components::playback_summary;
@@ -17,7 +18,8 @@ pub fn spinner(frame: usize) -> &'static str {
     SPINNER_FRAMES[frame % SPINNER_FRAMES.len()]
 }
 
-/// Render the three-row mini player.
+/// Render the mini player as a chrome strip: a top rule, then the shared
+/// three-row playback summary (borders are reserved for overlays).
 pub fn render_now_playing(
     frame: &mut Frame,
     area: Rect,
@@ -28,11 +30,18 @@ pub fn render_now_playing(
     if area.height == 0 {
         return;
     }
-    let block = Block::bordered()
-        .border_type(BorderType::Rounded)
-        .border_style(theme.border);
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
+    frame.render_widget(
+        Paragraph::new(Span::styled(
+            icons.panel_rule.repeat(area.width as usize),
+            theme.border,
+        )),
+        Rect { height: 1, ..area },
+    );
+    let inner = Rect {
+        y: area.y + 1,
+        height: area.height.saturating_sub(1),
+        ..area
+    };
     playback_summary(frame, inner, state, icons, theme);
 }
 

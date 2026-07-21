@@ -66,8 +66,8 @@ impl AppLayout {
     /// degradation instead of failure).
     pub fn new(area: Rect, has_now_playing: bool, show_footer: bool) -> Self {
         let now_playing_height = if has_now_playing && area.height >= 16 {
-            // Border + name + full-width timeline + status row + border.
-            5
+            // Top rule + name + full-width timeline + status row.
+            4
         } else {
             0
         };
@@ -118,15 +118,15 @@ mod tests {
     #[test]
     fn mini_player_reserves_three_content_rows() {
         let layout = AppLayout::new(Rect::new(0, 0, 120, 30), true, true);
-        assert_eq!(layout.now_playing.height, 5);
+        assert_eq!(layout.now_playing.height, 4);
         assert_eq!(layout.footer.height, 1);
-        assert_eq!(layout.main.height, 23);
+        assert_eq!(layout.main.height, 24);
     }
 
     #[test]
     fn mini_player_keeps_all_three_rows_below_thirty() {
         let layout = AppLayout::new(Rect::new(0, 0, 80, 29), true, true);
-        assert_eq!(layout.now_playing.height, 5);
+        assert_eq!(layout.now_playing.height, 4);
         assert_eq!(layout.footer.height, 1);
     }
 
@@ -142,7 +142,7 @@ mod tests {
             AppLayout::new(Rect::new(0, 0, 80, 16), true, true)
                 .now_playing
                 .height,
-            5
+            4
         );
         assert_eq!(
             AppLayout::new(Rect::new(0, 0, 80, 17), true, true)

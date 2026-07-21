@@ -204,12 +204,17 @@ pub(super) fn render_playlist_detail(
         section_panel(frame, area, "Playlist", true, theme, icons);
         return;
     };
-    let rows = Layout::vertical([Constraint::Length(2), Constraint::Min(5)]).split(area);
-    let inner = section_panel(frame, rows[1], "Playlist editor", true, theme, icons);
+    let panel = section_panel(
+        frame,
+        area,
+        &format!("Playlist editor ({})", playlist.tracks.len()),
+        true,
+        theme,
+        icons,
+    );
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(sanitize_terminal_text(&playlist.name), theme.header),
-            Span::styled(format!("  {} tracks", playlist.tracks.len()), theme.dim),
             Span::styled("  ·  ", theme.dim),
             Span::styled(
                 if playlist.description.is_empty() {
@@ -220,8 +225,13 @@ pub(super) fn render_playlist_detail(
                 theme.dim,
             ),
         ])),
-        rows[0],
+        Rect { height: 1, ..panel },
     );
+    let inner = Rect {
+        y: panel.y + 2,
+        height: panel.height.saturating_sub(2),
+        ..panel
+    };
     let panes = if inner.width >= crate::ui::layout::INSPECTOR_MIN_WIDTH {
         Layout::horizontal([Constraint::Percentage(68), Constraint::Percentage(32)])
             .spacing(crate::ui::layout::PANE_GUTTER)
