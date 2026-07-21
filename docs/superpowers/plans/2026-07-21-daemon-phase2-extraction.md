@@ -69,3 +69,29 @@
 ### Task 6: Final verification
 
 - Full merge gate; manual smoke: `ytm daemon` in one terminal, `ytm status`/`ytm play <url>` in another; kill daemon under a live TUI and observe reconnect; note deviations in this file.
+
+## Progress notes (2026-07-21)
+
+Tasks 1–3 are implemented and gated; Tasks 4–6 (TUI attach, round-out,
+final verification) remain. Real-process smoke verified: `play` auto-spawns
+the daemon, the daemon survives the CLI exiting, `status` attaches, `quit`
+shuts down and removes socket + pidfile.
+
+Deviations so far:
+
+- **Single instance is socket-as-lock**, not `flock` (no libc-level
+  dependency): binding fails while a live daemon owns the socket; a stale
+  socket is detected by a failed probe connect and removed. `daemon.pid` is
+  a best-effort record for `doctor`.
+- **`ytm play` reports the resolved title by polling `Status`** (≤5 s)
+  after the acknowledged `PlayQuery`, rather than a dedicated deferred
+  reply. `Search` replies are deferred properly (generation-keyed).
+- **Auto-spawn is smoke-tested, not cargo-tested**: in `cargo test`,
+  `current_exe()` is the test harness, so the spawn path cannot run
+  in-process. Covered by the manual smoke above.
+- **Unix socket paths inherit the platform `SUN_LEN` (~104 byte) limit**;
+  very deep `--data-dir` paths fail with a clear error (same pre-existing
+  constraint as `mpv.sock`).
+- The daemon process keeps an inert `UiState` (the shared `App` core runs
+  headless); eliminating it is Phase 3 tightening, per the Phase 1 debt
+  notes.
