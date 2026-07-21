@@ -70,6 +70,64 @@
 
 - Full merge gate; manual smoke: `ytm daemon` in one terminal, `ytm status`/`ytm play <url>` in another; kill daemon under a live TUI and observe reconnect; note deviations in this file.
 
+## Task 4b blueprint — client TUI runtime (worked out 2026-07-21)
+
+`src/app/client_runtime.rs`: `App::run_client(&mut self, terminal, connection)`.
+The client App is built like the TUI App (picker present) but never starts
+mpv or the persistence writer; the daemon owns both.
+
+**Connection split:** add `Connection::into_stream()` returning a command
+sender (writes `ClientFrame::Command` with fresh ids) plus an
+`mpsc::Receiver<DaemonFrame>` fed by a spawned reader task. The UI loop must
+never await a round trip.
+
+**Loop arms:** terminal events (existing handlers → `action_rx`), daemon
+frames, tick (spinner/notification expiry only — no sleep timer, the daemon
+owns it). Frames: `Event` → `client::mirror::apply_event` + selection clamp;
+`Reply(Tracks)` → `mirror.search = Results` + selection reset;
+`Reply(Error)` → notification. Reader-channel close → disconnect banner +
+three respawn/reattach attempts (connect_or_spawn), then manual retry key;
+on reattach `apply_snapshot` and continue.
+
+**Action routing** (`fn route(action, state) -> Route { Local, Send(Command), Deferred(&str) }`,
+with a test asserting every variant is classified):
+- Local: all UI-reducer variants (navigation, help, selection, modals,
+  filters, panes, notifications), thumbnail completions
+  (`on_thumbnail_loaded` path), `Quit` (running=false; effects dropped —
+  client never persists).
+- Send, existing commands: PlayPause, Stop, Next/Previous, Seek±5/±30 →
+  `Seek`, VolumeUp/Down → `Volume`, ToggleShuffle, CycleRepeat, queue ops
+  (selected-context resolved locally against the mirror:
+  RemoveSelected → `QueueRemove{order_index, expected_revision}`,
+  MoveSelected → `QueueMove`, Clear confirmed → `QueueClear`, Undo →
+  `QueueUndo`, AddSelected* → `QueueAdd`), `PlaySelected` in track views →
+  `PlayTrack`, playlist load/append/delete/create/save-queue →
+  `PlaylistLoad`/`PlaylistDelete`/`PlaylistCreate`/`SaveQueueAsPlaylist`,
+  playlist track removal → `PlaylistRemoveTrack`, history clear →
+  `HistoryClear`, chapter jumps → compute target locally from mirror
+  chapters → `SeekAbsolute`, SeekToFraction → duration × fraction →
+  `SeekAbsolute`.
+- Send, commands still to add (trivial passthroughs):
+  `ToggleMute`, `SpeedUp`/`SpeedDown`/`SpeedReset`, `CycleSleepTimer`,
+  `ToggleRadio`, `PlayQueuePosition{position}` (new
+  `PlaybackAction::PlayQueuePosition` reduced domain-only),
+  `Resume{track, position_seconds}` (→ `ResumeTrack`),
+  `SearchExact{url}` (→ `SubmitExactVideo`). Search: client sets
+  `mirror.search = Searching` locally and sends `Search{query}`.
+- Deferred v1 (notify "not available while attached", client stays behind
+  `ytm --attach` until these close): playlist rename/edit-details/reorder
+  (need concrete-id daemon actions), URL/JSON import flows (review modal
+  needs import state on the wire), channel browsing (per-client channel
+  replies), history delete-entry (index race design).
+
+**History view:** client loads `HistoryService` read-only from the shared
+file and reloads it on `HistoryChanged` events (daemon writes may lag by
+the writer's coalescing window). `get_history_view` over the wire is the
+Phase 3 replacement.
+
+**Flip to default:** only after the deferred list above is empty; until
+then `ytm` stays single-process and `ytm --attach` opts in.
+
 ## Progress notes (2026-07-21)
 
 Tasks 1–3 are implemented and gated; Tasks 4–6 (TUI attach, round-out,
