@@ -56,6 +56,10 @@ pub enum PlaybackAction {
     SeekBackward,
     SeekForwardLarge,
     SeekBackwardLarge,
+    /// Relative seek by an arbitrary amount (daemon clients).
+    SeekBy(i64),
+    /// Relative volume change by an arbitrary delta (daemon clients).
+    VolumeBy(i8),
     /// Seek to a fraction (0.0-1.0) of the duration, such as a timeline click.
     SeekToFraction(f64),
     VolumeUp,

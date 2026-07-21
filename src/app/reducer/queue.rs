@@ -100,6 +100,13 @@ pub(super) fn reduce(state: &mut AppState, action: QueueAction) -> Vec<Effect> {
             }
             Vec::new()
         }
+        QueueAction::MoveTrack { from, to } => {
+            let len = state.domain.queue.order.len();
+            if from < len && to < len && move_track(&mut state.domain, from, to) {
+                return vec![Effect::PersistQueue];
+            }
+            Vec::new()
+        }
         QueueAction::ClearQueue => {
             state.ui.confirm = Some(crate::app::state::ConfirmState {
                 message: "Clear the entire queue? (y/n)".to_string(),

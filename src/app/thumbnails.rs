@@ -115,7 +115,12 @@ impl App {
             return;
         }
         match crate::media::decode_thumbnail(&bytes) {
-            Ok(image) => self.state.ui.thumbnail = Some(self.picker.new_resize_protocol(image)),
+            Ok(image) => {
+                self.state.ui.thumbnail = self
+                    .picker
+                    .as_mut()
+                    .map(|picker| picker.new_resize_protocol(image));
+            }
             Err(err) => tracing::warn!(?err, "thumbnail decode failed"),
         }
     }
@@ -152,7 +157,10 @@ impl App {
         }
         match crate::media::decode_thumbnail(&bytes) {
             Ok(image) => {
-                self.state.ui.search_thumbnail = Some(self.picker.new_resize_protocol(image));
+                self.state.ui.search_thumbnail = self
+                    .picker
+                    .as_mut()
+                    .map(|picker| picker.new_resize_protocol(image));
             }
             Err(err) => tracing::warn!(?err, "search thumbnail decode failed"),
         }

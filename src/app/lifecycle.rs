@@ -18,7 +18,7 @@ impl App {
         config: Config,
         paths: AppPaths,
         mut state: crate::app::state::AppState,
-        picker: ratatui_image::picker::Picker,
+        picker: Option<ratatui_image::picker::Picker>,
     ) -> Self {
         state.ui.icon_mode = crate::ui::icons::resolve_icon_mode(config.ui.icons);
         let yt_dlp = crate::media::yt_dlp::YtDlp::new(config.paths.yt_dlp.clone());

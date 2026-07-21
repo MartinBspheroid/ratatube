@@ -78,7 +78,7 @@ pub struct App {
     /// Last selectable click; double-clicks require the same target.
     last_click: Option<(Instant, View, usize)>,
     /// Terminal graphics picker (Kitty on Ghostty, halfblocks fallback).
-    picker: ratatui_image::picker::Picker,
+    picker: Option<ratatui_image::picker::Picker>,
     /// Throttle for session snapshot writes during playback.
     last_session_save: Option<Instant>,
     /// CLI-provided startup behavior (`--resume` / `play <query>`).

@@ -18,6 +18,7 @@ pub enum DomainEvent {
     SearchChanged,
     ChannelChanged,
     ImportChanged,
+    Health,
 }
 
 /// Cheap pre-reduce facts used to derive change events afterwards.
@@ -27,6 +28,8 @@ pub(crate) struct DomainWatermark {
     playlists_revision: u64,
     current_track_id: Option<String>,
     playback_occurrence: u64,
+    mpv_ready: bool,
+    yt_dlp_ready: bool,
 }
 
 impl DomainWatermark {
@@ -38,6 +41,8 @@ impl DomainWatermark {
             playlists_revision: domain.playlists_revision,
             current_track_id: domain.current_track.as_ref().map(|t| t.id.clone()),
             playback_occurrence: domain.playback_occurrence,
+            mpv_ready: domain.mpv_ready,
+            yt_dlp_ready: domain.yt_dlp_ready,
         }
     }
 
@@ -57,6 +62,9 @@ impl DomainWatermark {
             || domain.playback_occurrence != self.playback_occurrence
         {
             events.push(DomainEvent::TrackChanged);
+        }
+        if domain.mpv_ready != self.mpv_ready || domain.yt_dlp_ready != self.yt_dlp_ready {
+            events.push(DomainEvent::Health);
         }
         if let Some(event) = counterless_event(action) {
             events.push(event);

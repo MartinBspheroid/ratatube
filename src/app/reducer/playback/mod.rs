@@ -19,6 +19,8 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
         | PlaybackAction::SeekBackward
         | PlaybackAction::SeekForwardLarge
         | PlaybackAction::SeekBackwardLarge
+        | PlaybackAction::SeekBy(_)
+        | PlaybackAction::VolumeBy(_)
         | PlaybackAction::SeekToFraction(_)
         | PlaybackAction::VolumeUp
         | PlaybackAction::VolumeDown

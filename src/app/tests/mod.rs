@@ -28,7 +28,7 @@ pub(super) fn test_app() -> (tempfile::TempDir, App) {
         Config::default(),
         paths,
         AppState::new(),
-        ratatui_image::picker::Picker::halfblocks(),
+        Some(ratatui_image::picker::Picker::halfblocks()),
     );
     (temp, app)
 }

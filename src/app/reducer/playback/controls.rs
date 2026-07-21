@@ -16,6 +16,8 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
         PlaybackAction::SeekBackward => vec![Effect::SeekBy(-5)],
         PlaybackAction::SeekForwardLarge => vec![Effect::SeekBy(30)],
         PlaybackAction::SeekBackwardLarge => vec![Effect::SeekBy(-30)],
+        PlaybackAction::SeekBy(seconds) => vec![Effect::SeekBy(seconds)],
+        PlaybackAction::VolumeBy(delta) => vec![Effect::AdjustVolume(delta)],
         PlaybackAction::SeekToFraction(fraction) => {
             if let Some(duration) = state.domain.playback.duration_seconds {
                 let target = duration * fraction.clamp(0.0, 1.0);

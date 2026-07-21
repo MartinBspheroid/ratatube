@@ -18,6 +18,11 @@ pub enum QueueAction {
     UndoQueueRemoval,
     /// Move the selected queue item up (-1) or down (+1) in play order.
     MoveSelectedInQueue(i32),
+    /// Reorder an explicit order position (daemon clients).
+    MoveTrack {
+        from: usize,
+        to: usize,
+    },
     ClearQueue,
     /// Clear the queue after explicit confirmation.
     ClearQueueConfirmed,

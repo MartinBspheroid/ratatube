@@ -12,7 +12,13 @@ use crate::history::model::PlaybackOutcome;
 
 impl App {
     /// Reduce an action and execute resulting effects plus service work.
-    pub(super) async fn handle_action(&mut self, action: Action, action_tx: &mpsc::Sender<Action>) {
+    /// Returns the domain events the action produced; the daemon runtime
+    /// broadcasts them, the single-process runtime ignores them.
+    pub(super) async fn handle_action(
+        &mut self,
+        action: Action,
+        action_tx: &mpsc::Sender<Action>,
+    ) -> Vec<crate::app::domain_event::DomainEvent> {
         if action_changes_filterable_data(&action) {
             self.list_revision = self.list_revision.wrapping_add(1);
             self.filter_sync_key = None;
@@ -24,7 +30,7 @@ impl App {
                     .operations
                     .complete(OperationKind::Playback, *operation_id)
                 {
-                    return;
+                    return Vec::new();
                 }
             }
             Action::Playlists(PlaylistAction::ImportCompleted { operation_id, .. })
@@ -33,7 +39,7 @@ impl App {
                     .operations
                     .complete(OperationKind::Import, *operation_id)
                 {
-                    return;
+                    return Vec::new();
                 }
             }
             Action::Playlists(PlaylistAction::CancelImport) => {
@@ -44,7 +50,7 @@ impl App {
                     .operations
                     .complete(OperationKind::Radio, *operation_id)
                 {
-                    return;
+                    return Vec::new();
                 }
             }
             Action::Playback(PlaybackAction::DetailsLoaded { operation_id, .. })
@@ -53,7 +59,7 @@ impl App {
                     .operations
                     .complete(OperationKind::Details, *operation_id)
                 {
-                    return;
+                    return Vec::new();
                 }
             }
             Action::Playback(PlaybackAction::PrefetchResolved { operation_id, .. }) => {
@@ -61,7 +67,7 @@ impl App {
                     .operations
                     .complete(OperationKind::Prefetch, *operation_id)
                 {
-                    return;
+                    return Vec::new();
                 }
             }
             Action::Playback(PlaybackAction::ThumbnailLoaded { operation_id, .. }) => {
@@ -69,7 +75,7 @@ impl App {
                     .operations
                     .complete(OperationKind::Thumbnail, *operation_id)
                 {
-                    return;
+                    return Vec::new();
                 }
             }
             Action::Playback(PlaybackAction::SearchThumbnailLoaded { operation_id, .. }) => {
@@ -77,7 +83,7 @@ impl App {
                     .operations
                     .complete(OperationKind::SearchThumbnail, *operation_id)
                 {
-                    return;
+                    return Vec::new();
                 }
             }
             Action::Playback(PlaybackAction::SessionStreamResolved { operation_id, .. })
@@ -86,12 +92,12 @@ impl App {
                     .operations
                     .complete(OperationKind::Session, *operation_id)
                 {
-                    return;
+                    return Vec::new();
                 }
             }
             Action::Playback(PlaybackAction::MixLoaded { operation_id, .. }) => {
                 if !self.operations.complete(OperationKind::Mix, *operation_id) {
-                    return;
+                    return Vec::new();
                 }
             }
             Action::Navigation(NavigationAction::ExternalCommandCompleted {
@@ -101,7 +107,7 @@ impl App {
                     .operations
                     .complete(OperationKind::ExternalCommand, *operation_id)
                 {
-                    return;
+                    return Vec::new();
                 }
             }
             Action::Navigation(NavigationAction::ChannelResolved { operation_id, .. }) => {
@@ -109,7 +115,7 @@ impl App {
                     .operations
                     .complete(OperationKind::ChannelResolve, *operation_id)
                 {
-                    return;
+                    return Vec::new();
                 }
             }
             Action::Navigation(NavigationAction::ChannelPageLoaded { operation_id, .. }) => {
@@ -117,7 +123,7 @@ impl App {
                     .operations
                     .complete(OperationKind::ChannelPage, *operation_id)
                 {
-                    return;
+                    return Vec::new();
                 }
             }
             Action::Playback(PlaybackAction::ToggleRadio) if self.state.domain.radio => {
@@ -163,6 +169,7 @@ impl App {
         self.sync_search_thumbnail(action_tx);
         let events = watermark.events_since(&self.state.domain, &action);
         crate::app::ui_sync::apply_domain_events(&self.state.domain, &mut self.state.ui, &events);
+        events
     }
 }
 
