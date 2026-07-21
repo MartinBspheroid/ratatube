@@ -13,7 +13,8 @@ pub const SEEK_LARGE: Duration = Duration::from_secs(30);
 pub const PREVIOUS_RESTART_THRESHOLD: Duration = Duration::from_secs(5);
 
 /// Observable playback state snapshot for the UI.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PlaybackSnapshot {
     pub status: PlaybackStatus,
     pub position_seconds: f64,

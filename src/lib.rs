@@ -16,5 +16,6 @@ pub mod platform;
 pub mod playback;
 pub mod playlists;
 pub mod process;
+pub mod protocol;
 pub mod queue;
 pub mod ui;

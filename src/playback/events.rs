@@ -30,7 +30,8 @@ pub enum PlaybackEvent {
 }
 
 /// Playback status snapshot derived from events.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum PlaybackStatus {
     #[default]
     Idle,
