@@ -134,12 +134,15 @@ Tasks 1–4 are implemented and gated. Task 4 shipped as designed in the
 blueprint: `ytm --attach` runs the TUI as a daemon client (mirror hydration,
 exhaustive wildcard-free routing table in `src/app/client_route.rs`,
 client-owned search over deferred replies, read-only history reload on
-`HistoryChanged`, bounded respawn-reattach). The deferred-while-attached
-list (channel browsing, imports, playlist rename/edit/reorder,
-add-to-playlist picker, history entry deletion, activity clear) surfaces as
-notifications; `ytm` stays single-process by default until that list closes
-(Task 5). Interactive smoke of `--attach` still pending (needs a real
-terminal). Real-process smoke verified: `play` auto-spawns
+`HistoryChanged`, bounded respawn-reattach). Task 5a closed most of the deferred list with concrete-id actions shared by
+both modes (`AddTrackToPlaylist`, `AddTrackToNewPlaylist`, `RenamePlaylist`,
+`EditPlaylist`, `MoveTrackInPlaylist`, `DeleteHistoryEntry`) and their wire
+commands: the picker, rename/edit/reorder, history deletion, and activity
+clear all work while attached. Still deferred: playlist imports (5b, needs
+import state on the wire) and channel browsing (5c, needs per-client
+paginated replies). `ytm` stays single-process by default until those close
+(5d also adds doctor integration, multi-client tests, docs, and the flip).
+Interactive smoke of `--attach` confirmed working by the user. Real-process smoke verified: `play` auto-spawns
 the daemon, the daemon survives the CLI exiting, `status` attaches, `quit`
 shuts down and removes socket + pidfile.
 
