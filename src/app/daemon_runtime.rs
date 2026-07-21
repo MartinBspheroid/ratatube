@@ -7,7 +7,9 @@ use tokio::net::UnixListener;
 use tokio::sync::mpsc;
 
 use crate::app::App;
-use crate::app::action::{Action, NavigationAction, PlaybackAction, QueueAction};
+use crate::app::action::{
+    Action, HistoryAction, NavigationAction, PlaybackAction, PlaylistAction, QueueAction,
+};
 use crate::app::domain_event::DomainEvent;
 use crate::app::operations::OperationKind;
 use crate::app::state::DomainState;
@@ -222,6 +224,54 @@ impl App {
                 })
             }
             Command::QueueMove { from, to } => Action::Queue(QueueAction::MoveTrack { from, to }),
+            Command::SeekAbsolute { seconds } => {
+                Action::Playback(PlaybackAction::SeekToSeconds(seconds))
+            }
+            Command::PlaylistLoad { id, append } => {
+                if append {
+                    Action::Playlists(PlaylistAction::AppendPlaylistToQueue(id))
+                } else {
+                    Action::Playlists(PlaylistAction::LoadPlaylistIntoQueue(id))
+                }
+            }
+            Command::PlaylistDelete { id } => {
+                Action::Playlists(PlaylistAction::DeletePlaylistConfirmed(id))
+            }
+            Command::PlaylistCreate { name } => {
+                Action::Playlists(PlaylistAction::CreatePlaylist(name))
+            }
+            Command::SaveQueueAsPlaylist { name } => {
+                Action::Playlists(PlaylistAction::SaveQueueAsPlaylist(name))
+            }
+            Command::PlaylistRemoveTrack {
+                playlist_id,
+                track_index,
+                expected_revision,
+            } => {
+                let Some(expected_track) = self
+                    .state
+                    .domain
+                    .playlists
+                    .iter()
+                    .find(|playlist| playlist.id == playlist_id)
+                    .and_then(|playlist| playlist.tracks.get(track_index))
+                    .map(crate::media::Track::from)
+                else {
+                    return (
+                        Some(ReplyResult::Error(format!(
+                            "no track {track_index} in playlist {playlist_id}"
+                        ))),
+                        Vec::new(),
+                    );
+                };
+                Action::Playlists(PlaylistAction::RemoveTrackOccurrence {
+                    playlist_id,
+                    track_index,
+                    expected_track,
+                    expected_revision,
+                })
+            }
+            Command::HistoryClear => Action::History(HistoryAction::ClearHistoryConfirmed),
             Command::QueueClear => Action::Queue(QueueAction::ClearQueueConfirmed),
             Command::QueueUndo => Action::Queue(QueueAction::UndoQueueRemoval),
             Command::Search { query } => {

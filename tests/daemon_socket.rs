@@ -174,8 +174,16 @@ async fn client_connection_requests_against_a_live_daemon() {
         .expect("queue add reply");
     assert!(matches!(body, ReplyBody::Ack));
 
-    // The queue_changed broadcast sits between the two replies; request()
-    // must skip it and still correlate the status reply.
+    let body = connection
+        .request(Command::PlaylistCreate {
+            name: "Wire playlist".into(),
+        })
+        .await
+        .expect("playlist create reply");
+    assert!(matches!(body, ReplyBody::Ack));
+
+    // Broadcasts (queue_changed, playlists_changed) sit between the
+    // replies; request() must skip them and still correlate.
     let ReplyBody::Status { snapshot } = connection
         .request(Command::Status)
         .await
@@ -184,6 +192,8 @@ async fn client_connection_requests_against_a_live_daemon() {
         panic!("expected status body");
     };
     assert_eq!(snapshot.queue.tracks.len(), 1);
+    assert_eq!(snapshot.playlists.len(), 1);
+    assert_eq!(snapshot.playlists[0].name, "Wire playlist");
 
     connection
         .request(Command::Shutdown)

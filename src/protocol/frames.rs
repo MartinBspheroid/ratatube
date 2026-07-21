@@ -85,6 +85,35 @@ pub enum Command {
     Search {
         query: String,
     },
+    /// Absolute seek to a position in seconds (chapter jumps).
+    SeekAbsolute {
+        seconds: f64,
+    },
+    /// Replace or extend the queue with a stored playlist's tracks.
+    PlaylistLoad {
+        id: String,
+        append: bool,
+    },
+    /// Delete a stored playlist (the client confirms before sending).
+    PlaylistDelete {
+        id: String,
+    },
+    /// Create a new empty playlist.
+    PlaylistCreate {
+        name: String,
+    },
+    /// Save the current queue as a playlist.
+    SaveQueueAsPlaylist {
+        name: String,
+    },
+    /// Remove one exact track occurrence from a stored playlist.
+    PlaylistRemoveTrack {
+        playlist_id: String,
+        track_index: usize,
+        expected_revision: u64,
+    },
+    /// Clear playback history (the client confirms before sending).
+    HistoryClear,
     Status,
     Shutdown,
 }

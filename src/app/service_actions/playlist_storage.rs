@@ -56,6 +56,8 @@ impl App {
                     self.execute(vec![Effect::PersistQueue], action_tx).await;
                 }
             }
+            PlaylistAction::CreatePlaylist(name) => self.create_playlist(&name),
+            PlaylistAction::SaveQueueAsPlaylist(name) => self.save_queue_as_playlist(&name),
             PlaylistAction::DeletePlaylistConfirmed(id) => match self.playlists.delete(&id) {
                 Ok(()) => {
                     let previous_len = self.state.domain.playlists.len();

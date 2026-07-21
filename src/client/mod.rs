@@ -1,5 +1,7 @@
 //! Daemon client: connect, handshake, correlated requests, auto-spawn.
 
+pub mod mirror;
+
 use std::path::Path;
 use std::time::Duration;
 
