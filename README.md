@@ -1,6 +1,29 @@
 # ratatube
 
-`ratatube` is a keyboard-first terminal application that searches YouTube, manages a local queue and playlists, and sends audio streams to a persistent `mpv` process. It is an unofficial client: it does not use a YouTube account, synchronize a library, remove ads, or guarantee that every video is playable.
+`ratatube` is a keyboard-first terminal application that searches YouTube, manages a local queue and playlists, and sends audio streams to a persistent `mpv` process. Playback lives in a background daemon, so the music keeps playing when the TUI closes. It is an unofficial client: it does not use a YouTube account, synchronize a library, remove ads, or guarantee that every video is playable.
+
+![Now Playing view with chapters, up-next queue, and metadata](docs/screenshots/now-playing.png)
+
+<details>
+<summary>More screenshots</summary>
+
+**Home** — quick resume, recent tracks, and playlists survive daemon restarts:
+
+![Home dashboard](docs/screenshots/home.png)
+
+**Queue** — the playing marker and cross-tab playlist markers:
+
+![Queue view](docs/screenshots/queue.png)
+
+**Search** — results with queued/playlist markers and a selected-track panel:
+
+![Search results](docs/screenshots/search.png)
+
+**Playlists** — master/detail with import support (URL or pasted JSON):
+
+![Playlists view](docs/screenshots/playlists.png)
+
+</details>
 
 ## Requirements
 

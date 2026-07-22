@@ -145,8 +145,14 @@ Multi-client broadcast and slow-client disconnect are integration-tested
 (the latter needs >1024 broadcasts to trip the bound). README,
 ARCHITECTURE, and PRD (§27) document the service. Remaining phase 3 items:
 `OperationFailed` error propagation to clients (client notifications are
-optimistic today), a separate `ytm-ui.log`, and retiring the daemon's inert
-`UiState`.
+optimistic today), a separate UI log file, retiring the daemon's inert
+`UiState`, current-track thumbnails in attached mode (the fetch hook only
+runs on the local action path, so `TrackChanged` mirror updates never spawn
+one — found while taking the README screenshots, as was the missing
+`HistoryChanged` broadcast on skips, which is fixed), and emitting
+`HistoryChanged` only after the coalesced history write lands (today the
+event can beat the file write, so an attached client's reload may briefly
+see stale data).
 
 Task 5a closed most of the deferred list with concrete-id actions shared by
 both modes (`AddTrackToPlaylist`, `AddTrackToNewPlaylist`, `RenamePlaylist`,

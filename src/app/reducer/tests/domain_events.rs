@@ -38,6 +38,16 @@ fn selection_movement_emits_no_domain_events() {
 }
 
 #[test]
+fn skips_emit_history_changed_for_client_refresh() {
+    let mut state = AppState::new();
+    state.domain.queue.push(track("a"));
+    state.domain.queue.push(track("b"));
+    state.domain.queue.position = Some(0);
+    let events = events_for(&mut state, Action::Playback(PlaybackAction::NextTrack));
+    assert!(events.contains(&DomainEvent::HistoryChanged), "{events:?}");
+}
+
+#[test]
 fn shuffle_toggle_emits_queue_changed() {
     let mut state = AppState::new();
     let events = events_for(&mut state, Action::Playback(PlaybackAction::ToggleShuffle));

@@ -69,8 +69,32 @@ impl DomainWatermark {
         if let Some(event) = counterless_event(action) {
             events.push(event);
         }
+        if records_history(action) {
+            events.push(DomainEvent::HistoryChanged);
+        }
         events
     }
+}
+
+/// Actions whose service hooks record playback history (skips, stops, and
+/// natural track endings); the store lives outside `DomainState`, so no
+/// counter can observe it.
+fn records_history(action: &Action) -> bool {
+    matches!(
+        action,
+        Action::Playback(
+            PlaybackAction::NextTrack
+                | PlaybackAction::PreviousTrack
+                | PlaybackAction::Stop
+                | PlaybackAction::PlayTrack(_)
+                | PlaybackAction::PlaySelected
+        )
+    ) || matches!(
+        action,
+        Action::Playback(PlaybackAction::PlaybackEvent(
+            crate::playback::PlaybackEvent::EndFile { .. }
+        ))
+    )
 }
 
 /// Action families that mutate domain state without a revision counter.
