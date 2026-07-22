@@ -1,4 +1,4 @@
-use ytm_tui::media::yt_dlp::YtDlp;
+use ratatube::media::yt_dlp::YtDlp;
 
 use super::support::{captured_args, capturing_yt_dlp, mock_yt_dlp};
 
@@ -110,7 +110,7 @@ async fn missing_binary_is_structured_error() {
     let error = client.search("q", 1).await.expect_err("missing binary");
     assert!(matches!(
         error,
-        ytm_tui::error::AppError::MissingDependency(binary) if binary == "/nonexistent/yt-dlp"
+        ratatube::error::AppError::MissingDependency(binary) if binary == "/nonexistent/yt-dlp"
     ));
 }
 
@@ -181,7 +181,7 @@ async fn subprocess_stdout_limit_accepts_exact_size_and_rejects_one_byte_over() 
         .expect_err("stdout over limit");
     assert!(matches!(
         error,
-        ytm_tui::error::AppError::ResourceLimit { ref resource, limit: 4 }
+        ratatube::error::AppError::ResourceLimit { ref resource, limit: 4 }
             if resource == "yt-dlp stdout"
     ));
 }
@@ -194,7 +194,7 @@ async fn subprocess_stderr_limit_accepts_exact_size_and_rejects_one_byte_over() 
         .search("q", 1)
         .await
         .expect_err("nonzero exit");
-    assert!(matches!(exact_error, ytm_tui::error::AppError::YtDlp(_)));
+    assert!(matches!(exact_error, ratatube::error::AppError::YtDlp(_)));
 
     let (_directory, oversized) = mock_yt_dlp("printf '12345' >&2\nexit 1");
     let error = oversized
@@ -204,7 +204,7 @@ async fn subprocess_stderr_limit_accepts_exact_size_and_rejects_one_byte_over() 
         .expect_err("stderr over limit");
     assert!(matches!(
         error,
-        ytm_tui::error::AppError::ResourceLimit { ref resource, limit: 4 }
+        ratatube::error::AppError::ResourceLimit { ref resource, limit: 4 }
             if resource == "yt-dlp stderr"
     ));
 }

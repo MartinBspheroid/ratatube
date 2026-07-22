@@ -1,4 +1,4 @@
-use ytm_tui::media::channel::{CHANNEL_PAGE_SIZE, ChannelPageRequest};
+use ratatube::media::channel::{CHANNEL_PAGE_SIZE, ChannelPageRequest};
 
 use super::support::{captured_args, capturing_yt_dlp_with_output, mock_yt_dlp};
 
@@ -126,7 +126,7 @@ async fn rejected_rows_do_not_false_signal_exhaustion() {
 
 #[tokio::test]
 async fn unsafe_channel_url_is_rejected_before_process_spawn() {
-    let client = ytm_tui::media::yt_dlp::YtDlp::new("/nonexistent/yt-dlp");
+    let client = ratatube::media::yt_dlp::YtDlp::new("/nonexistent/yt-dlp");
     let error = client
         .fetch_channel_page(&ChannelPageRequest {
             channel_url: "https://youtube.com.evil.example/channel/UC1".into(),
@@ -134,5 +134,5 @@ async fn unsafe_channel_url_is_rejected_before_process_spawn() {
         })
         .await
         .expect_err("unsafe URL");
-    assert!(matches!(error, ytm_tui::error::AppError::InvalidUrl(_)));
+    assert!(matches!(error, ratatube::error::AppError::InvalidUrl(_)));
 }

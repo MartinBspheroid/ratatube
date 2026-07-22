@@ -60,7 +60,7 @@ pub fn tab_hit_zones(icons: &Icons, active: View, narrow: bool) -> Vec<(View, u1
 }
 
 fn header_logo() -> String {
-    format!("ytm v{}", env!("CARGO_PKG_VERSION"))
+    format!("ratatube v{}", env!("CARGO_PKG_VERSION"))
 }
 
 /// Render view tabs and dependency status when a dependency is unavailable.
@@ -95,7 +95,7 @@ pub fn render_header(
         .split(area);
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled("ytm", theme.header),
+            Span::styled("ratatube", theme.header),
             Span::styled(format!(" v{}", env!("CARGO_PKG_VERSION")), theme.dim),
         ])),
         chunks[0],

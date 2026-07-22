@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn history_view_lists_entries() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::History;
+    state.ui.view = ratatube::app::state::View::History;
     let dir = tempfile::tempdir().expect("tempdir");
     let mut history = HistoryService::load(&dir.path().join("h.json"), 500).expect("load");
     history.record(HistoryEntry::from_track(
@@ -40,7 +40,7 @@ fn history_view_lists_entries() {
 #[test]
 fn visual_dump_full_screen() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::Search;
+    state.ui.view = ratatube::app::state::View::Search;
     state.domain.mpv_ready = true;
     state.domain.yt_dlp_ready = true;
     state.domain.search = SearchState::Results {
@@ -59,7 +59,7 @@ fn visual_dump_full_screen() {
     };
     state.ui.selected_index = 4;
     state.domain.current_track = Some(Track::new("u7K72X4eo_s", "Teardrop", "Massive Attack"));
-    state.domain.playback.status = ytm_tui::playback::PlaybackStatus::Playing;
+    state.domain.playback.status = ratatube::playback::PlaybackStatus::Playing;
     state.domain.playback.position_seconds = 161.0;
     state.domain.playback.duration_seconds = Some(330.0);
     state.domain.playback.volume = 72;
@@ -81,7 +81,7 @@ fn visual_dump_full_screen() {
 #[test]
 fn visual_dump_queue_and_playlists() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::Queue;
+    state.ui.view = ratatube::app::state::View::Queue;
     state.domain.queue.shuffle = true;
     for i in 0..8 {
         state.domain.queue.push(Track::new(
@@ -97,19 +97,19 @@ fn visual_dump_queue_and_playlists() {
     assert!(out.contains("QUEUE (8)"));
 
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::Playlists;
-    let mut p1 = ytm_tui::playlists::Playlist::new("Late Night Coding");
+    state.ui.view = ratatube::app::state::View::Playlists;
+    let mut p1 = ratatube::playlists::Playlist::new("Late Night Coding");
     p1.description = "Focus music for long sessions".to_string();
     p1.tracks = (0..20)
         .map(|i| {
-            ytm_tui::playlists::model::PlaylistTrack::from(&Track::new(
+            ratatube::playlists::model::PlaylistTrack::from(&Track::new(
                 format!("t{i}"),
                 format!("Song {i}"),
                 "Artist",
             ))
         })
         .collect();
-    let p2 = ytm_tui::playlists::Playlist::new("Workout");
+    let p2 = ratatube::playlists::Playlist::new("Workout");
     state.domain.playlists = vec![p1, p2];
     let out = render_to_string(&mut state, None, 100, 24);
     println!("\n{out}");

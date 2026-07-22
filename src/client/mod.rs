@@ -196,7 +196,7 @@ pub async fn connect_or_spawn(paths: &AppPaths, resume: bool) -> Result<Connecti
     Err(AppError::Config(format!(
         "daemon did not start within {:.1}s; check {} for details",
         (SPAWN_RETRIES * SPAWN_RETRY_DELAY.as_millis() as u32) as f64 / 1000.0,
-        paths.data_dir.join("ytm-tui.log").display()
+        paths.data_dir.join("ratatube.log").display()
     )))
 }
 

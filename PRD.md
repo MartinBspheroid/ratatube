@@ -43,16 +43,16 @@ Malformed current data is preserved with recoverable evidence; unsupported futur
 ## 27. Background service
 
 Playback runs in a background daemon owning `mpv`, `yt-dlp`, and all
-persisted documents. `ytm` attaches the TUI as a control layer by default
+persisted documents. `ratatube` attaches the TUI as a control layer by default
 (`--standalone` runs the historic single process) and transparently starts
 the daemon when it is not running; playback continues after every client
-detaches until `ytm quit` or SIGTERM. The control protocol is versioned
+detaches until `ratatube quit` or SIGTERM. The control protocol is versioned
 newline-delimited JSON over a mode-0600 Unix socket in the data directory,
 bounded to the persistence frame limit. The bound socket is the
 single-instance lock; a stale socket is probe-detected and removed. Any
 number of clients may attach; broadcasts must never block the daemon, and a
 client that cannot keep up is disconnected rather than buffered without
 bound. Daemon loss under a live TUI triggers bounded respawn-and-reattach
-with an explicit disconnected state. `ytm play`, `pause`, `stop`, `status`,
+with an explicit disconnected state. `ratatube play`, `pause`, `stop`, `status`,
 and `quit` are short-lived clients; `doctor` reports daemon liveness
 read-only.

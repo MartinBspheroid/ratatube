@@ -3,7 +3,7 @@
 use std::process::Command;
 
 fn doctor(data_dir: &std::path::Path) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_ytm-tui"))
+    Command::new(env!("CARGO_BIN_EXE_ratatube"))
         .args([
             "--data-dir",
             data_dir.to_str().expect("utf8 path"),
@@ -15,7 +15,7 @@ fn doctor(data_dir: &std::path::Path) -> std::process::Output {
 
 #[test]
 fn play_cli_declares_and_enforces_a_required_query() {
-    let output = Command::new(env!("CARGO_BIN_EXE_ytm-tui"))
+    let output = Command::new(env!("CARGO_BIN_EXE_ratatube"))
         .arg("play")
         .output()
         .expect("run play without query");
@@ -40,7 +40,7 @@ fn doctor_does_not_create_an_absent_data_root_or_log() {
 #[test]
 fn doctor_preserves_a_seeded_log_byte_for_byte() {
     let temp = tempfile::tempdir().expect("temp dir");
-    let log = temp.path().join("ytm-tui.log");
+    let log = temp.path().join("ratatube.log");
     std::fs::write(&log, b"evidence from the prior crash\n").expect("seed log");
 
     let _ = doctor(temp.path());
@@ -49,7 +49,7 @@ fn doctor_preserves_a_seeded_log_byte_for_byte() {
         std::fs::read(&log).expect("read log"),
         b"evidence from the prior crash\n"
     );
-    assert!(!temp.path().join("ytm-tui.log.1").exists());
+    assert!(!temp.path().join("ratatube.log.1").exists());
 }
 
 #[test]

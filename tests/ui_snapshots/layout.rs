@@ -4,7 +4,7 @@ use super::*;
 fn now_playing_bar_renders_when_track_loaded() {
     let mut state = AppState::new();
     state.domain.current_track = Some(Track::new("abc", "Teardrop", "Massive Attack"));
-    state.domain.playback.status = ytm_tui::playback::PlaybackStatus::Playing;
+    state.domain.playback.status = ratatube::playback::PlaybackStatus::Playing;
     state.domain.playback.position_seconds = 161.0;
     state.domain.playback.duration_seconds = Some(330.0);
     state.domain.playback.volume = 72;
@@ -29,7 +29,7 @@ fn header_clusters_follow_collapse_boundaries() {
 
     let collapsed = render_to_string(&mut state, None, 99, 24);
     assert!(
-        collapsed.contains("ytm v0.1.0"),
+        collapsed.contains("ratatube v0.1.0"),
         "real version:\n{collapsed}"
     );
     assert!(
@@ -75,7 +75,7 @@ fn header_clusters_follow_collapse_boundaries() {
 fn layouts_render_width_safe_content_at_every_breakpoint_edge() {
     for width in [99, 100, 139, 140, 169, 170] {
         let mut state = AppState::new();
-        state.ui.view = ytm_tui::app::state::View::Search;
+        state.ui.view = ratatube::app::state::View::Search;
         state.domain.search = SearchState::Results {
             query: "boundary".to_string(),
             tracks: vec![Track::new("edge", "Boundary stem", "Edge artist")],
@@ -91,7 +91,7 @@ fn layouts_render_width_safe_content_at_every_breakpoint_edge() {
 #[test]
 fn narrow_header_keeps_active_tab_label() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::Search;
+    state.ui.view = ratatube::app::state::View::Search;
     let out = render_to_string(&mut state, None, 80, 24);
     assert!(
         out.lines()
@@ -104,7 +104,7 @@ fn narrow_header_keeps_active_tab_label() {
 
 #[test]
 fn footers_never_advertise_rejected_unbound_features() {
-    for view in ytm_tui::app::state::View::TABS {
+    for view in ratatube::app::state::View::TABS {
         let mut state = AppState::new();
         state.ui.view = view;
         let out = render_to_string(&mut state, None, 100, 24);

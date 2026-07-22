@@ -25,11 +25,11 @@ See `docs/superpowers/specs/2026-07-21-daemon-split-design.md`.
 
 ## Daemon and client (daemon phase 2)
 
-`ytm daemon` runs the domain core headless: the same action loop with a
+`ratatube daemon` runs the domain core headless: the same action loop with a
 Unix-socket server front-end (`src/daemon`, `src/app/daemon_runtime.rs`).
 Protocol frames (`src/protocol`) are versioned NDJSON: hello/welcome with a
 full domain snapshot, correlated commands/replies, and broadcast events
-carrying fresh payloads per `DomainEvent`. The default `ytm` invocation
+carrying fresh payloads per `DomainEvent`. The default `ratatube` invocation
 attaches as a client (`src/client`, `src/app/client_runtime.rs`): a
 `DomainMirror` (an actual `DomainState`) hydrates from the snapshot and
 events so Phase 1 rendering runs unchanged, while `src/app/client_route.rs`

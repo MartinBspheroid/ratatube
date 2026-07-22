@@ -4,11 +4,11 @@
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
-use ytm_tui::app::state::AppState;
-use ytm_tui::history::HistoryService;
-use ytm_tui::history::model::{HistoryEntry, PlaybackOutcome};
-use ytm_tui::media::Track;
-use ytm_tui::media::search::SearchState;
+use ratatube::app::state::AppState;
+use ratatube::history::HistoryService;
+use ratatube::history::model::{HistoryEntry, PlaybackOutcome};
+use ratatube::media::Track;
+use ratatube::media::search::SearchState;
 
 #[path = "ui_snapshots/channel.rs"]
 mod channel;
@@ -38,7 +38,7 @@ fn render_to_string(
 ) -> String {
     let backend = TestBackend::new(w, h);
     let mut terminal = Terminal::new(backend).expect("terminal");
-    ytm_tui::ui::render_with(&mut terminal, state, history).expect("render");
+    ratatube::ui::render_with(&mut terminal, state, history).expect("render");
     buffer_to_string(terminal.backend().buffer())
 }
 

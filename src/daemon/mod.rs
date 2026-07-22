@@ -13,7 +13,7 @@ use crate::error::{AppError, Result};
 use crate::persistence::AppPaths;
 
 /// Control socket name inside the data directory.
-pub const SOCKET_NAME: &str = "ytm.sock";
+pub const SOCKET_NAME: &str = "ratatube.sock";
 /// Best-effort pid record for `doctor`; the socket itself is the lock.
 pub const PID_FILE_NAME: &str = "daemon.pid";
 

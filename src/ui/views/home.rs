@@ -65,7 +65,7 @@ fn render_first_run(frame: &mut Frame, area: Rect, theme: &Theme) {
         .split(area);
     frame.render_widget(
         Paragraph::new(vec![
-            Line::from(Span::styled("Welcome to ytm", theme.header)).centered(),
+            Line::from(Span::styled("Welcome to ratatube", theme.header)).centered(),
             Line::from("").centered(),
             Line::from(Span::styled(
                 "Press / to search · 4 for playlists · ? for help",

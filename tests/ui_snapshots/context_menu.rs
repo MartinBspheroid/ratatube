@@ -1,10 +1,10 @@
 use ratatui::style::Color;
 
 use super::*;
-use ytm_tui::app::state::{TrackContextMenuState, TrackDetailsModalState, View};
-use ytm_tui::app::track_context::resolve_track_context;
-use ytm_tui::playlists::Playlist;
-use ytm_tui::playlists::model::PlaylistTrack;
+use ratatube::app::state::{TrackContextMenuState, TrackDetailsModalState, View};
+use ratatube::app::track_context::resolve_track_context;
+use ratatube::playlists::Playlist;
+use ratatube::playlists::model::PlaylistTrack;
 
 fn render_menu(state: &mut AppState) -> (ratatui::buffer::Buffer, String) {
     let context = resolve_track_context(state, None).expect("track context");
@@ -14,7 +14,7 @@ fn render_menu(state: &mut AppState) -> (ratatui::buffer::Buffer, String) {
     });
     let backend = TestBackend::new(100, 30);
     let mut terminal = Terminal::new(backend).expect("terminal");
-    ytm_tui::ui::render_with(&mut terminal, state, None).expect("render");
+    ratatube::ui::render_with(&mut terminal, state, None).expect("render");
     let buffer = terminal.backend().buffer().clone();
     let text = buffer_to_string(&buffer);
     (buffer, text)
@@ -99,7 +99,7 @@ fn track_context_details_modal_renders_selected_track_without_changing_playback(
     let mut selected = Track::new("details", "Selected details", "Selected artist");
     selected.duration_seconds = Some(125);
     state.domain.current_track = Some(Track::new("playing", "Still playing", "Playback artist"));
-    state.domain.playback.status = ytm_tui::playback::PlaybackStatus::Playing;
+    state.domain.playback.status = ratatube::playback::PlaybackStatus::Playing;
     state.ui.track_details_modal = Some(TrackDetailsModalState {
         track: selected,
         details: None,
@@ -113,6 +113,6 @@ fn track_context_details_modal_renders_selected_track_without_changing_playback(
     assert!(text.contains("youtube.com/watch?v=details"), "URL:\n{text}");
     assert_eq!(
         state.domain.playback.status,
-        ytm_tui::playback::PlaybackStatus::Playing
+        ratatube::playback::PlaybackStatus::Playing
     );
 }

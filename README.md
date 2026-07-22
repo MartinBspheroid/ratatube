@@ -1,6 +1,6 @@
-# ytm-tui
+# ratatube
 
-`ytm-tui` is a keyboard-first terminal application that searches YouTube, manages a local queue and playlists, and sends audio streams to a persistent `mpv` process. It is an unofficial client: it does not use a YouTube account, synchronize a library, remove ads, or guarantee that every video is playable.
+`ratatube` is a keyboard-first terminal application that searches YouTube, manages a local queue and playlists, and sends audio streams to a persistent `mpv` process. It is an unofficial client: it does not use a YouTube account, synchronize a library, remove ads, or guarantee that every video is playable.
 
 ## Requirements
 
@@ -14,8 +14,8 @@ Install platform packages first, then build:
 
 ```sh
 cargo build --locked --release
-./target/release/ytm-tui doctor
-./target/release/ytm-tui
+./target/release/ratatube doctor
+./target/release/ratatube
 ```
 
 Use `/` to enter a search, type a query or supported YouTube URL, and press Enter. Select a result with `j`/`k` and press Enter to play. Press `?` for the complete scrollable command list. Immediate repeated `+`/`-` presses adjust volume cumulatively.
@@ -27,21 +27,21 @@ Channel browsing lists videos newest first in bounded pages of 30. Select the fi
 ## Background service
 
 Playback runs in a background daemon; the TUI is a control layer that
-attaches to it. Plain `ytm-tui` starts the daemon transparently when it is
+attaches to it. Plain `ratatube` starts the daemon transparently when it is
 not running and reattaches to the live session otherwise — quitting the TUI
 leaves the music playing. `--standalone` runs the historic single process.
 
 ```sh
-ytm-tui daemon     # run the service in the foreground (auto-spawn runs this)
-ytm-tui play massive attack teardrop
-ytm-tui status     # what is playing, from any terminal
-ytm-tui pause
-ytm-tui stop
-ytm-tui quit       # stop the service (flushes persistence, stops mpv)
-ytm-tui --resume
+ratatube daemon     # run the service in the foreground (auto-spawn runs this)
+ratatube play massive attack teardrop
+ratatube status     # what is playing, from any terminal
+ratatube pause
+ratatube stop
+ratatube quit       # stop the service (flushes persistence, stops mpv)
+ratatube --resume
 ```
 
-The control socket is `ytm.sock` (mode 0600) in the data directory and
+The control socket is `ratatube.sock` (mode 0600) in the data directory and
 doubles as the single-instance lock; `doctor` reports daemon liveness. Any
 number of TUIs and one-shot commands may attach at once. Very deep
 `--data-dir` paths can exceed the platform Unix-socket path limit; the
@@ -49,19 +49,19 @@ error names the limit when that happens.
 
 ## Data and configuration
 
-Platform-native directories are selected by the `directories` crate. Run `ytm-tui doctor` to print the exact paths without creating or changing them. For isolated runs, `--data-dir PATH` stores both config and application data under `PATH`.
+Platform-native directories are selected by the `directories` crate. Run `ratatube doctor` to print the exact paths without creating or changing them. For isolated runs, `--data-dir PATH` stores both config and application data under `PATH`.
 
 Copy `config.example.json` to the reported `config.json` path and edit only documented fields. Unknown fields, future schema versions, unsafe limits, and malformed JSON are rejected. `resumeOnLaunch` accepts `off`, `paused`, or `playing`; `icons` accepts `auto`, `nerd-font`, or `ascii`.
 
-Runtime files include `queue.json`, `history.json`, `session.json`, `playlists/*.json`, `ytm-tui.log`, and at most one rotated `ytm-tui.log.1`. Documents are bounded to 16 MiB. Malformed migrated documents may receive a `.bak` copy; future-schema documents are left unchanged.
+Runtime files include `queue.json`, `history.json`, `session.json`, `playlists/*.json`, `ratatube.log`, and at most one rotated `ratatube.log.1`. Documents are bounded to 16 MiB. Malformed migrated documents may receive a `.bak` copy; future-schema documents are left unchanged.
 
 ## Recovery and diagnostics
 
 Start with:
 
 ```sh
-ytm-tui doctor
-RUST_LOG=debug ytm-tui
+ratatube doctor
+RUST_LOG=debug ratatube
 ```
 
 `doctor` is read-only. It reports missing dependencies, malformed config, and path problems but does not create directories, logs, or backups. If config is malformed, move it aside or repair the reported JSON; the interactive app otherwise starts with defaults and preserves the original. If queue/history/session persistence fails, the UI explicitly warns that recent changes are not durable.

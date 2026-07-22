@@ -3,20 +3,20 @@ use super::*;
 fn activate_transition(state: &mut AppState) {
     let now = std::time::Instant::now();
     state.domain.track_transition.update(
-        ytm_tui::playback::TransitionInput {
+        ratatube::playback::TransitionInput {
             occurrence: Some(1),
             remaining_seconds: Some(15.0),
             playing: true,
             has_next: true,
         },
-        now - ytm_tui::playback::TRANSITION_DURATION,
+        now - ratatube::playback::TRANSITION_DURATION,
     );
 }
 
 #[test]
 fn playback_transition_replaces_title_in_shared_player() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::NowPlaying;
+    state.ui.view = ratatube::app::state::View::NowPlaying;
     let current = Track::new("current", "Current title", "Current channel");
     state.domain.current_track = Some(current.clone());
     state.domain.queue.push(current);
@@ -69,7 +69,7 @@ fn playback_transition_is_width_safe_and_sanitized() {
 fn playback_transition_requires_a_real_next_track() {
     for repeat_track in [false, true] {
         let mut state = AppState::new();
-        state.ui.view = ytm_tui::app::state::View::NowPlaying;
+        state.ui.view = ratatube::app::state::View::NowPlaying;
         let current = Track::new("current", "Regular title", "Channel");
         state.domain.current_track = Some(current.clone());
         state.domain.queue.push(current);
@@ -78,7 +78,7 @@ fn playback_transition_requires_a_real_next_track() {
                 .domain
                 .queue
                 .push(Track::new("next", "Suppressed next", "Channel"));
-            state.domain.queue.repeat = ytm_tui::queue::RepeatMode::Track;
+            state.domain.queue.repeat = ratatube::queue::RepeatMode::Track;
         }
         state.domain.queue.position = Some(0);
         activate_transition(&mut state);
@@ -95,7 +95,7 @@ fn playback_transition_requires_a_real_next_track() {
 #[test]
 fn playing_view_shows_chapters_and_up_next() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::NowPlaying;
+    state.ui.view = ratatube::app::state::View::NowPlaying;
     let mut track = Track::new("mix1", "Essential Mix", "Skee Mask");
     track.duration_seconds = Some(7115);
     state.domain.current_track = Some(track.clone());
@@ -105,12 +105,12 @@ fn playing_view_shows_chapters_and_up_next() {
         .queue
         .push(Track::new("next1", "Next Song", "Other Artist"));
     state.domain.queue.position = Some(0);
-    state.domain.playback.status = ytm_tui::playback::PlaybackStatus::Playing;
+    state.domain.playback.status = ratatube::playback::PlaybackStatus::Playing;
     state.domain.playback.position_seconds = 240.0;
     state.domain.playback.duration_seconds = Some(7115.0);
-    state.domain.current_details = Some(ytm_tui::media::TrackDetails {
+    state.domain.current_details = Some(ratatube::media::TrackDetails {
         description: Some("Tracklist:\n0:00 Intro\n3:45 Second Tune\n10:00 Third Tune".to_string()),
-        chapters: ytm_tui::media::parse_chapters_from_description(
+        chapters: ratatube::media::parse_chapters_from_description(
             "0:00 Intro\n3:45 Second Tune\n10:00 Third Tune",
         ),
         ..Default::default()
@@ -135,7 +135,7 @@ fn playing_view_shows_chapters_and_up_next() {
 fn playing_layout_exercises_all_four_breakpoints() {
     let render = |width: u16, height: u16| {
         let mut state = AppState::new();
-        state.ui.view = ytm_tui::app::state::View::NowPlaying;
+        state.ui.view = ratatube::app::state::View::NowPlaying;
         let mut track = Track::new("mix", "Width-safe title", "Artist");
         track.duration_seconds = Some(600);
         state.domain.current_track = Some(track.clone());
@@ -146,7 +146,7 @@ fn playing_layout_exercises_all_four_breakpoints() {
             .push(Track::new("next", "Next width-safe", "Other"));
         state.domain.queue.position = Some(0);
         state.domain.playback.duration_seconds = Some(600.0);
-        state.domain.current_details = Some(ytm_tui::media::TrackDetails {
+        state.domain.current_details = Some(ratatube::media::TrackDetails {
             description: Some("A useful description".to_string()),
             uploader: Some("Verified channel".to_string()),
             upload_date: Some("20210515".to_string()),
@@ -201,10 +201,10 @@ fn playing_layout_exercises_all_four_breakpoints() {
 
 #[test]
 fn playing_ultra_wide_does_not_render_persisted_activity() {
-    use ytm_tui::history::activity::{ActivityEvent, ActivityKind};
+    use ratatube::history::activity::{ActivityEvent, ActivityKind};
 
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::NowPlaying;
+    state.ui.view = ratatube::app::state::View::NowPlaying;
     state.domain.current_track = Some(Track::new("playing", "Playing", "Artist"));
     state.domain.activity.push(ActivityEvent::new(
         ActivityKind::PlaylistImported,
@@ -223,9 +223,9 @@ fn playing_ultra_wide_does_not_render_persisted_activity() {
 #[test]
 fn playing_layout_omits_unknown_format_chips() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::NowPlaying;
+    state.ui.view = ratatube::app::state::View::NowPlaying;
     state.domain.current_track = Some(Track::new("id", "No details", "Artist"));
-    state.domain.current_details = Some(ytm_tui::media::TrackDetails::default());
+    state.domain.current_details = Some(ratatube::media::TrackDetails::default());
     let out = render_to_string(&mut state, None, 150, 40);
     for unsupported in ["kbps", "Hz", "Stereo"] {
         assert!(

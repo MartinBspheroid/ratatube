@@ -5,10 +5,10 @@
 use tokio::io::BufReader;
 use tokio::net::UnixStream;
 
-use ytm_tui::config::Config;
-use ytm_tui::media::Track;
-use ytm_tui::persistence::AppPaths;
-use ytm_tui::protocol::{
+use ratatube::config::Config;
+use ratatube::media::Track;
+use ratatube::persistence::AppPaths;
+use ratatube::protocol::{
     self, ClientFrame, Command, DaemonFrame, ReplyBody, ReplyResult, WireEvent,
 };
 
@@ -29,8 +29,8 @@ async fn daemon_serves_handshake_commands_events_and_shutdown() {
     let mut config = Config::default();
     config.paths.mpv = "false".to_string();
     config.paths.yt_dlp = "/nonexistent/yt-dlp".to_string();
-    let socket = ytm_tui::daemon::socket_path(&paths);
-    let daemon = tokio::spawn(ytm_tui::daemon::run(paths, config, None));
+    let socket = ratatube::daemon::socket_path(&paths);
+    let daemon = tokio::spawn(ratatube::daemon::run(paths, config, None));
 
     let stream = connect_with_retry(&socket).await;
     let (read_half, mut write) = stream.into_split();
@@ -149,12 +149,12 @@ async fn client_connection_requests_against_a_live_daemon() {
     let mut config = Config::default();
     config.paths.mpv = "false".to_string();
     config.paths.yt_dlp = "/nonexistent/yt-dlp".to_string();
-    let socket = ytm_tui::daemon::socket_path(&paths);
-    let daemon = tokio::spawn(ytm_tui::daemon::run(paths, config, None));
+    let socket = ratatube::daemon::socket_path(&paths);
+    let daemon = tokio::spawn(ratatube::daemon::run(paths, config, None));
 
     let mut connection = None;
     for _ in 0..200 {
-        match ytm_tui::client::Connection::connect(&socket).await {
+        match ratatube::client::Connection::connect(&socket).await {
             Ok(conn) => {
                 connection = Some(conn);
                 break;
@@ -209,8 +209,8 @@ async fn broadcasts_reach_every_connected_client() {
     let mut config = Config::default();
     config.paths.mpv = "false".to_string();
     config.paths.yt_dlp = "/nonexistent/yt-dlp".to_string();
-    let socket = ytm_tui::daemon::socket_path(&paths);
-    let daemon = tokio::spawn(ytm_tui::daemon::run(paths, config, None));
+    let socket = ratatube::daemon::socket_path(&paths);
+    let daemon = tokio::spawn(ratatube::daemon::run(paths, config, None));
 
     // Client A drives commands; client B only observes broadcasts.
     let stream_b = connect_with_retry(&socket).await;
@@ -229,7 +229,7 @@ async fn broadcasts_reach_every_connected_client() {
         .expect("b read")
         .expect("b welcome");
 
-    let mut a = ytm_tui::client::Connection::connect(&socket)
+    let mut a = ratatube::client::Connection::connect(&socket)
         .await
         .expect("a connects");
     a.request(Command::QueueAdd {
@@ -266,8 +266,8 @@ async fn slow_clients_are_disconnected_instead_of_blocking() {
     let mut config = Config::default();
     config.paths.mpv = "false".to_string();
     config.paths.yt_dlp = "/nonexistent/yt-dlp".to_string();
-    let socket = ytm_tui::daemon::socket_path(&paths);
-    let daemon = tokio::spawn(ytm_tui::daemon::run(paths, config, None));
+    let socket = ratatube::daemon::socket_path(&paths);
+    let daemon = tokio::spawn(ratatube::daemon::run(paths, config, None));
 
     // The slow client completes its handshake and then never reads.
     let stream_slow = connect_with_retry(&socket).await;
@@ -286,7 +286,7 @@ async fn slow_clients_are_disconnected_instead_of_blocking() {
         .expect("slow read")
         .expect("slow welcome");
 
-    let mut fast = ytm_tui::client::Connection::connect(&socket)
+    let mut fast = ratatube::client::Connection::connect(&socket)
         .await
         .expect("fast connects");
     for id in ["one", "two"] {
@@ -332,11 +332,11 @@ async fn second_daemon_refuses_while_first_owns_the_socket() {
     let mut config = Config::default();
     config.paths.mpv = "false".to_string();
     config.paths.yt_dlp = "/nonexistent/yt-dlp".to_string();
-    let socket = ytm_tui::daemon::socket_path(&paths);
-    let first = tokio::spawn(ytm_tui::daemon::run(paths.clone(), config.clone(), None));
+    let socket = ratatube::daemon::socket_path(&paths);
+    let first = tokio::spawn(ratatube::daemon::run(paths.clone(), config.clone(), None));
     let stream = connect_with_retry(&socket).await;
 
-    let second = ytm_tui::daemon::run(paths, config, None).await;
+    let second = ratatube::daemon::run(paths, config, None).await;
     assert!(second.is_err(), "second daemon must refuse");
 
     // Shut the first daemon down cleanly.

@@ -6,21 +6,38 @@ use directories::ProjectDirs;
 
 use crate::error::{AppError, Result};
 
+/// Application identifier used for platform directories and runtime files.
+pub const APP_NAME: &str = "ratatube";
+/// Pre-rename identifier; existing installations keep their directories.
+const LEGACY_APP_NAME: &str = "ytm-tui";
+
 /// Resolved filesystem layout for the application.
 #[derive(Debug, Clone)]
 pub struct AppPaths {
-    /// Data directory, e.g. `~/.local/share/ytm-tui`.
+    /// Data directory, e.g. `~/.local/share/ratatube`.
     pub data_dir: PathBuf,
-    /// Config directory, e.g. `~/.config/ytm-tui`.
+    /// Config directory, e.g. `~/.config/ratatube`.
     pub config_dir: PathBuf,
 }
 
 impl AppPaths {
-    /// Resolve paths using platform conventions.
+    /// Resolve paths using platform conventions. Installations created
+    /// under the pre-rename `ytm-tui` name are grandfathered: when the new
+    /// data directory does not exist but the legacy one does, the legacy
+    /// directories stay authoritative so no user data moves.
     pub fn resolve() -> Result<Self> {
-        let dirs = ProjectDirs::from("", "", "ytm-tui").ok_or_else(|| {
+        let dirs = ProjectDirs::from("", "", APP_NAME).ok_or_else(|| {
             AppError::Config("could not resolve platform data directories".to_string())
         })?;
+        if !dirs.data_dir().exists()
+            && let Some(legacy) = ProjectDirs::from("", "", LEGACY_APP_NAME)
+            && legacy.data_dir().exists()
+        {
+            return Ok(Self {
+                data_dir: legacy.data_dir().to_path_buf(),
+                config_dir: legacy.config_dir().to_path_buf(),
+            });
+        }
         Ok(Self {
             data_dir: dirs.data_dir().to_path_buf(),
             config_dir: dirs.config_dir().to_path_buf(),
@@ -67,7 +84,7 @@ impl AppPaths {
     }
 
     pub fn log_file(&self) -> PathBuf {
-        self.data_dir.join("ytm-tui.log")
+        self.data_dir.join("ratatube.log")
     }
 
     /// Create all required directories.

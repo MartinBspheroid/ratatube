@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn help_is_scrollable_at_minimum_supported_viewport() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::Help;
+    state.ui.view = ratatube::app::state::View::Help;
     let first = render_to_string(&mut state, None, 80, 24);
     assert!(first.contains("HELP"), "help title:\n{first}");
     assert!(
@@ -19,7 +19,7 @@ fn help_is_scrollable_at_minimum_supported_viewport() {
 #[test]
 fn renderer_exposes_exact_search_result_hit_rows() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::Search;
+    state.ui.view = ratatube::app::state::View::Search;
     state.domain.search = SearchState::Results {
         query: "query".to_string(),
         tracks: vec![Track::new("id", "title", "artist")],
@@ -32,8 +32,8 @@ fn renderer_exposes_exact_search_result_hit_rows() {
 #[test]
 fn queue_and_history_footers_document_uppercase_clear_shortcut() {
     for view in [
-        ytm_tui::app::state::View::Queue,
-        ytm_tui::app::state::View::History,
+        ratatube::app::state::View::Queue,
+        ratatube::app::state::View::History,
     ] {
         let mut state = AppState::new();
         state.ui.view = view;

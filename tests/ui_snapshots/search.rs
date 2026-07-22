@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn empty_search_state_shows_prompt() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::Search;
+    state.ui.view = ratatube::app::state::View::Search;
     let out = render_to_string(&mut state, None, 100, 30);
     assert!(
         out.contains("Type a query and press Enter"),
@@ -16,7 +16,7 @@ fn empty_search_state_shows_prompt() {
 #[test]
 fn empty_queue_state() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::Queue;
+    state.ui.view = ratatube::app::state::View::Queue;
     let out = render_to_string(&mut state, None, 100, 30);
     assert!(out.contains("Queue is empty"), "empty queue:\n{out}");
 }
@@ -24,7 +24,7 @@ fn empty_queue_state() {
 #[test]
 fn search_results_render_sanitized() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::Search;
+    state.ui.view = ratatube::app::state::View::Search;
     let mut track = Track::new("abc123", "Nice Song", "Good Artist");
     track.title = "Bad\u{1b}[2JTitle".to_string();
     state.domain.search = SearchState::Results {
@@ -39,7 +39,7 @@ fn search_results_render_sanitized() {
 #[test]
 fn search_table_has_membership_icons_and_minimal_selected_metadata() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::Search;
+    state.ui.view = ratatube::app::state::View::Search;
     let mut track = Track::new("selected-id", "Selected width-safe", "Selected channel");
     track.duration_seconds = Some(213);
     state.domain.search = SearchState::Results {
@@ -85,13 +85,13 @@ fn search_table_has_membership_icons_and_minimal_selected_metadata() {
         query: "selected".to_string(),
         tracks: vec![track.clone(), playlist_only.clone()],
     };
-    let mut playlist = ytm_tui::playlists::Playlist::new("Membership");
+    let mut playlist = ratatube::playlists::Playlist::new("Membership");
     playlist
         .tracks
-        .push(ytm_tui::playlists::model::PlaylistTrack::from(&track));
+        .push(ratatube::playlists::model::PlaylistTrack::from(&track));
     playlist
         .tracks
-        .push(ytm_tui::playlists::model::PlaylistTrack::from(
+        .push(ratatube::playlists::model::PlaylistTrack::from(
             &playlist_only,
         ));
     state.domain.playlists.push(playlist);
@@ -114,7 +114,7 @@ fn search_table_has_membership_icons_and_minimal_selected_metadata() {
 #[test]
 fn narrow_search_detail_is_a_local_modal() {
     let mut state = AppState::new();
-    state.ui.view = ytm_tui::app::state::View::Search;
+    state.ui.view = ratatube::app::state::View::Search;
     state.domain.search = SearchState::Results {
         query: "narrow".to_string(),
         tracks: vec![Track::new("narrow-id", "Narrow selected", "Channel")],

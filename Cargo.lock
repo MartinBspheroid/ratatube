@@ -1939,6 +1939,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "ratatube"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "crossterm",
+ "directories",
+ "futures-util",
+ "image",
+ "rand 0.10.2",
+ "ratatui",
+ "ratatui-image",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+ "ulid",
+ "unicode-width",
+ "which",
+]
+
+[[package]]
 name = "ratatui"
 version = "0.30.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3297,32 +3323,6 @@ name = "y4m"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a5a4b21e1a62b67a2970e6831bc091d7b87e119e7f9791aef9702e3bef04448"
-
-[[package]]
-name = "ytm-tui"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "clap",
- "crossterm",
- "directories",
- "futures-util",
- "image",
- "rand 0.10.2",
- "ratatui",
- "ratatui-image",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
- "tokio-util",
- "tracing",
- "tracing-subscriber",
- "ulid",
- "unicode-width",
- "which",
-]
 
 [[package]]
 name = "zerocopy"

@@ -36,7 +36,7 @@ mod tests {
     #[test]
     fn opening_log_appends_without_truncating_prior_evidence() {
         let temp = tempfile::tempdir().expect("temp dir");
-        let path = temp.path().join("ytm-tui.log");
+        let path = temp.path().join("ratatube.log");
         std::fs::write(&path, b"prior crash\n").expect("seed log");
 
         let mut file = open_log(&path).expect("open append log");
@@ -52,7 +52,7 @@ mod tests {
     #[test]
     fn oversized_log_rotates_one_generation() {
         let temp = tempfile::tempdir().expect("temp dir");
-        let path = temp.path().join("ytm-tui.log");
+        let path = temp.path().join("ratatube.log");
         let seed = File::create(&path).expect("create large log");
         seed.set_len(MAX_LOG_BYTES).expect("size log");
         drop(seed);
@@ -74,7 +74,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
 
         let temp = tempfile::tempdir().expect("temp dir");
-        let path = temp.path().join("ytm-tui.log");
+        let path = temp.path().join("ratatube.log");
         let _file = open_log(&path).expect("open log");
         let mode = std::fs::metadata(path)
             .expect("metadata")

@@ -1,6 +1,6 @@
 use super::*;
-use ytm_tui::app::channel::{ChannelNavigationSnapshot, ChannelState};
-use ytm_tui::app::state::{Focus, View};
+use ratatube::app::channel::{ChannelNavigationSnapshot, ChannelState};
+use ratatube::app::state::{Focus, View};
 
 fn channel_state(tracks: Vec<Track>) -> AppState {
     let mut state = AppState::new();

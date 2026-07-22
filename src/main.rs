@@ -1,13 +1,13 @@
-//! ytm-tui binary: CLI entry point.
+//! ratatube binary: CLI entry point.
 
 use clap::{Parser, Subcommand};
+use ratatube::error::Result;
+use ratatube::{app, config, persistence, process, queue};
 use std::path::{Path, PathBuf};
-use ytm_tui::error::Result;
-use ytm_tui::{app, config, persistence, process, queue};
 
 /// Terminal YouTube Music player.
 #[derive(Debug, Parser)]
-#[command(name = "ytm-tui", version, about)]
+#[command(name = "ratatube", version, about)]
 struct Cli {
     /// Override all application data/config paths (useful for isolation).
     #[arg(long, global = true, value_name = "PATH")]
@@ -57,8 +57,8 @@ async fn main() -> Result<()> {
         Some(Command::Doctor) => run_doctor(&paths),
         Some(Command::Play { query }) => run_play(paths, query.join(" ")).await,
         Some(Command::Daemon) => run_daemon_mode(paths, cli.resume).await,
-        Some(Command::Pause) => run_control(paths, ytm_tui::protocol::Command::PlayPause).await,
-        Some(Command::Stop) => run_control(paths, ytm_tui::protocol::Command::Stop).await,
+        Some(Command::Pause) => run_control(paths, ratatube::protocol::Command::PlayPause).await,
+        Some(Command::Stop) => run_control(paths, ratatube::protocol::Command::Stop).await,
         Some(Command::Status) => run_status(paths).await,
         Some(Command::Quit) => run_quit(paths).await,
         None if cli.standalone => {
@@ -161,9 +161,9 @@ fn run_doctor(paths: &persistence::AppPaths) -> Result<()> {
         paths.data_dir.display()
     );
 
-    let socket = ytm_tui::daemon::socket_path(paths);
+    let socket = ratatube::daemon::socket_path(paths);
     if std::os::unix::net::UnixStream::connect(&socket).is_ok() {
-        let pid = std::fs::read_to_string(paths.data_dir.join(ytm_tui::daemon::PID_FILE_NAME))
+        let pid = std::fs::read_to_string(paths.data_dir.join(ratatube::daemon::PID_FILE_NAME))
             .map(|raw| raw.trim().to_string())
             .unwrap_or_else(|_| "unknown pid".to_string());
         println!(
@@ -183,7 +183,7 @@ fn run_doctor(paths: &persistence::AppPaths) -> Result<()> {
         Ok(())
     } else {
         println!("\nSome checks failed; see hints above.");
-        Err(ytm_tui::error::AppError::Config(
+        Err(ratatube::error::AppError::Config(
             "doctor checks failed".to_string(),
         ))
     }
@@ -192,16 +192,16 @@ fn run_doctor(paths: &persistence::AppPaths) -> Result<()> {
 /// Send a play request to the daemon (starting it if needed) and report the
 /// resolved track once playback resolution lands.
 async fn run_play(paths: persistence::AppPaths, query: String) -> Result<()> {
-    let mut connection = ytm_tui::client::connect_or_spawn(&paths, false).await?;
+    let mut connection = ratatube::client::connect_or_spawn(&paths, false).await?;
     connection
-        .request(ytm_tui::protocol::Command::PlayQuery {
+        .request(ratatube::protocol::Command::PlayQuery {
             query: query.clone(),
         })
         .await?;
     for _ in 0..10 {
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-        if let ytm_tui::protocol::ReplyBody::Status { snapshot } = connection
-            .request(ytm_tui::protocol::Command::Status)
+        if let ratatube::protocol::ReplyBody::Status { snapshot } = connection
+            .request(ratatube::protocol::Command::Status)
             .await?
             && let Some(track) = snapshot.current_track
         {
@@ -209,30 +209,30 @@ async fn run_play(paths: persistence::AppPaths, query: String) -> Result<()> {
             return Ok(());
         }
     }
-    println!("Requested: {query} (still resolving; `ytm status` to check)");
+    println!("Requested: {query} (still resolving; `ratatube status` to check)");
     Ok(())
 }
 
 /// Send one control command to a running daemon (no auto-spawn).
 async fn run_control(
     paths: persistence::AppPaths,
-    command: ytm_tui::protocol::Command,
+    command: ratatube::protocol::Command,
 ) -> Result<()> {
-    let socket = ytm_tui::daemon::socket_path(&paths);
-    let mut connection = ytm_tui::client::Connection::connect(&socket).await?;
+    let socket = ratatube::daemon::socket_path(&paths);
+    let mut connection = ratatube::client::Connection::connect(&socket).await?;
     connection.request(command).await?;
     Ok(())
 }
 
 /// Print a human-readable report of the daemon's current state.
 async fn run_status(paths: persistence::AppPaths) -> Result<()> {
-    let socket = ytm_tui::daemon::socket_path(&paths);
-    let mut connection = ytm_tui::client::Connection::connect(&socket).await?;
-    let ytm_tui::protocol::ReplyBody::Status { snapshot } = connection
-        .request(ytm_tui::protocol::Command::Status)
+    let socket = ratatube::daemon::socket_path(&paths);
+    let mut connection = ratatube::client::Connection::connect(&socket).await?;
+    let ratatube::protocol::ReplyBody::Status { snapshot } = connection
+        .request(ratatube::protocol::Command::Status)
         .await?
     else {
-        return Err(ytm_tui::error::AppError::Config(
+        return Err(ratatube::error::AppError::Config(
             "daemon returned an unexpected status body".to_string(),
         ));
     };
@@ -265,10 +265,10 @@ async fn run_status(paths: persistence::AppPaths) -> Result<()> {
 
 /// Ask the daemon to shut down cleanly.
 async fn run_quit(paths: persistence::AppPaths) -> Result<()> {
-    let socket = ytm_tui::daemon::socket_path(&paths);
-    let mut connection = ytm_tui::client::Connection::connect(&socket).await?;
+    let socket = ratatube::daemon::socket_path(&paths);
+    let mut connection = ratatube::client::Connection::connect(&socket).await?;
     connection
-        .request(ytm_tui::protocol::Command::Shutdown)
+        .request(ratatube::protocol::Command::Shutdown)
         .await?;
     println!("Daemon stopped.");
     Ok(())
@@ -277,18 +277,18 @@ async fn run_quit(paths: persistence::AppPaths) -> Result<()> {
 /// Attach the TUI to the background service, auto-spawning it if needed.
 /// The client keeps no local playback or persistence; the mirror hydrates
 /// from the daemon's snapshot. Client-side tracing is skipped for now: the
-/// daemon owns `ytm-tui.log` (a separate `ytm-ui.log` lands in phase 3).
+/// daemon owns `ratatube.log` (a separate UI log lands in phase 3).
 async fn run_attached(paths: persistence::AppPaths, resume: bool) -> Result<()> {
     paths.ensure_dirs()?;
     let config = match config::load(&paths.config_file()) {
         Ok(config) => config,
-        Err(err @ ytm_tui::error::AppError::MalformedData(_)) => {
+        Err(err @ ratatube::error::AppError::MalformedData(_)) => {
             eprintln!("warning: {err}; continuing with default configuration");
             config::Config::default()
         }
         Err(err) => return Err(err),
     };
-    let connection = ytm_tui::client::connect_or_spawn(&paths, resume).await?;
+    let connection = ratatube::client::connect_or_spawn(&paths, resume).await?;
     let state = app::state::AppState::new();
     let mut app = app::App::new(config, paths, state, Some(create_picker()));
 
@@ -315,14 +315,14 @@ async fn run_daemon_mode(paths: persistence::AppPaths, resume: bool) -> Result<(
     }
     let config = match config::load(&paths.config_file()) {
         Ok(config) => config,
-        Err(err @ ytm_tui::error::AppError::MalformedData(_)) => {
+        Err(err @ ratatube::error::AppError::MalformedData(_)) => {
             eprintln!("warning: {err}; continuing with default configuration");
             config::Config::default()
         }
         Err(err) => return Err(err),
     };
     let intent = resume.then_some(app::StartupIntent::Resume);
-    ytm_tui::daemon::run(paths, config, intent).await
+    ratatube::daemon::run(paths, config, intent).await
 }
 
 /// Launch the terminal UI.
@@ -335,7 +335,7 @@ async fn run_tui(paths: persistence::AppPaths, intent: Option<app::StartupIntent
     // with defaults (PRD 11.4); the original file is preserved with a .bak.
     let config = match config::load(&paths.config_file()) {
         Ok(config) => config,
-        Err(err @ ytm_tui::error::AppError::MalformedData(_)) => {
+        Err(err @ ratatube::error::AppError::MalformedData(_)) => {
             eprintln!("warning: {err}; continuing with default configuration");
             config::Config::default()
         }
@@ -437,7 +437,7 @@ fn picker_from_window_size() -> ratatui_image::picker::Picker {
 
 /// Route logs to a local file; never to the terminal UI (PRD 16).
 fn init_tracing(paths: &persistence::AppPaths) -> Result<()> {
-    let file = ytm_tui::diagnostics::open_log(&paths.log_file())?;
+    let file = ratatube::diagnostics::open_log(&paths.log_file())?;
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
     tracing_subscriber::fmt()
@@ -445,7 +445,7 @@ fn init_tracing(paths: &persistence::AppPaths) -> Result<()> {
         .with_writer(std::sync::Mutex::new(file))
         .with_ansi(false)
         .try_init()
-        .map_err(|err| ytm_tui::error::AppError::Config(format!("tracing init failed: {err}")))?;
+        .map_err(|err| ratatube::error::AppError::Config(format!("tracing init failed: {err}")))?;
     Ok(())
 }
 

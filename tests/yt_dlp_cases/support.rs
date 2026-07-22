@@ -2,7 +2,7 @@ use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use ytm_tui::media::yt_dlp::YtDlp;
+use ratatube::media::yt_dlp::YtDlp;
 
 /// Write a fake yt-dlp executable that emits canned output.
 pub(super) fn mock_yt_dlp(script_body: &str) -> (tempfile::TempDir, YtDlp) {

@@ -76,3 +76,21 @@ Use one filter per invocation or run the whole target (`cargo test --lib`, `carg
 - **Fix:** Keep `/videos` as the primary newest-first surface, but retry the validated channel root only when yt-dlp explicitly reports that the videos tab is absent.
 - **Prevention check:** Test both a normal channel and a Topic channel against real yt-dlp, and keep a deterministic fake-process regression that proves unrelated yt-dlp failures do not trigger fallback.
 - **Tags:** youtube, yt-dlp, channel, fallback, integration-testing
+
+## Learning: Separate sandbox capability failures from test failures
+
+- **Context:** A full Rust architecture baseline included Unix-socket and child-process tests inside a restricted execution sandbox.
+- **Symptom:** `cargo test --all-targets` reported 14 failures with `Operation not permitted`, while 279 tests passed; two unrestricted reruns were blocked by permission-review timeouts before the command started.
+- **Root cause:** Tests that bind sockets or inspect child processes depend on host capabilities, so a restricted runner can fail before exercising the code under test.
+- **Fix:** Run `cargo test --all-targets` in an environment that permits local Unix sockets and child-process inspection; if escalation is unavailable, report the passing assertion count and capability-blocked cases separately instead of treating them as product regressions.
+- **Prevention check:** Before interpreting process or IPC failures, inspect the first error for `PermissionDenied` or `Operation not permitted`, then verify whether the test reached an application assertion.
+- **Tags:** rust, testing, sandbox, ipc, process-management
+
+## Learning: Verify CLI credentials at the execution boundary
+
+- **Context:** GitHub CLI was authenticated in the host shell, but repository creation ran first inside a restricted sandbox.
+- **Symptom:** The host reported a valid keyring token while the sandboxed `gh auth status` continued to report the previous token as invalid.
+- **Root cause:** Credential helpers and OS keyrings are execution-environment capabilities; authentication state visible to the host may be unavailable or stale inside a sandbox.
+- **Fix:** Confirm `gh auth status` in the same execution context as the intended GitHub write, then run the scoped `gh` command with keyring access when the sandbox cannot see the current credential.
+- **Prevention check:** Before GitHub writes, compare the active account and token validity in the actual command environment; treat a host/sandbox mismatch as a credential-access issue rather than re-running device authentication immediately.
+- **Tags:** github, authentication, keyring, sandbox, cli

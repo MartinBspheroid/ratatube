@@ -1,4 +1,4 @@
-//! ytm-tui: terminal YouTube Music player library.
+//! ratatube: terminal YouTube Music player library.
 //!
 //! The binary in `main.rs` is a thin shell over these modules: audio
 //! playback via persistent mpv, media discovery via yt-dlp, local JSON

@@ -4,9 +4,9 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use ytm_tui::playback::controller::PlaybackController;
-use ytm_tui::playback::ipc::MpvIpc;
-use ytm_tui::playback::{MpvProcess, PlaybackEvent};
+use ratatube::playback::controller::PlaybackController;
+use ratatube::playback::ipc::MpvIpc;
+use ratatube::playback::{MpvProcess, PlaybackEvent};
 
 fn binary_available(name: &str) -> bool {
     which::which(name).is_ok()

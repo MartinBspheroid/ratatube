@@ -1,4 +1,4 @@
-use ytm_tui::media::yt_dlp::YtDlp;
+use ratatube::media::yt_dlp::YtDlp;
 
 #[tokio::test]
 #[ignore = "requires network and real yt-dlp"]
