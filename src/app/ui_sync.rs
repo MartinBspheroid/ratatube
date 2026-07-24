@@ -23,4 +23,15 @@ pub(crate) fn apply_domain_events(domain: &DomainState, ui: &mut UiState, events
     if clamps {
         ui.clamp_selection(domain);
     }
+    if events.contains(&DomainEvent::PlaybackChanged) {
+        // The level meter shows real audio only: shape the incoming window,
+        // or release to silence when playback is not audible.
+        let target = match (domain.playback.status, domain.playback.audio_levels) {
+            (crate::playback::PlaybackStatus::Playing, Some(levels)) => {
+                crate::ui::components::bands_for(levels)
+            }
+            _ => [0.0; crate::ui::components::BAND_COUNT],
+        };
+        crate::ui::components::smooth_meter(&mut ui.viz_bands, &target);
+    }
 }

@@ -56,6 +56,35 @@ fn parses_position_change() {
 }
 
 #[test]
+fn parses_astats_metadata_into_audio_levels() {
+    let line = r#"{"event":"property-change","id":7,"name":"af-metadata/vis","data":{
+        "lavfi.astats.1.RMS_level":"-21.0","lavfi.astats.1.Peak_level":"-18.0",
+        "lavfi.astats.1.Zero_crossings_rate":"0.020",
+        "lavfi.astats.2.RMS_level":"-23.0","lavfi.astats.2.Peak_level":"-16.0",
+        "lavfi.astats.2.Zero_crossings_rate":"0.040",
+        "lavfi.astats.Overall.RMS_level":"-22.0"}}"#;
+    let Some(PlaybackEvent::AudioLevels(levels)) = parse_frame(line) else {
+        panic!("expected audio levels");
+    };
+    assert_eq!(levels.rms_db, -22.0);
+    assert_eq!(levels.peak_db, -16.0);
+    assert!((levels.zcr - 0.030).abs() < 1e-6);
+}
+
+#[test]
+fn silence_metadata_clamps_negative_infinity_to_the_floor() {
+    let line = r#"{"event":"property-change","name":"af-metadata/vis","data":{
+        "lavfi.astats.1.RMS_level":"-inf","lavfi.astats.1.Peak_level":"-inf",
+        "lavfi.astats.1.Zero_crossings_rate":"0.000",
+        "lavfi.astats.Overall.RMS_level":"-inf"}}"#;
+    let Some(PlaybackEvent::AudioLevels(levels)) = parse_frame(line) else {
+        panic!("expected audio levels");
+    };
+    assert_eq!(levels.rms_db, -90.0);
+    assert_eq!(levels.peak_db, -90.0);
+}
+
+#[test]
 fn parses_file_loaded_as_media_boundary() {
     assert_eq!(
         parse_frame(r#"{"event":"file-loaded"}"#),

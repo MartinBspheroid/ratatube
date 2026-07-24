@@ -2,7 +2,7 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Margin, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState};
 use unicode_width::UnicodeWidthStr;
@@ -12,12 +12,14 @@ use crate::ui::theme::Theme;
 
 mod playback;
 mod track_table;
+mod visualizer;
 
 pub use playback::playback_summary;
 pub use track_table::{
     TrackFlags, TrackRow, TrackTableLayout, header_row, marker_legend, message_row, track_flags,
     track_row,
 };
+pub use visualizer::{BAND_COUNT, bands_for, smooth as smooth_meter};
 
 /// Draw a dedicated title line and return the content rectangle below it.
 pub fn section_panel(
@@ -211,31 +213,6 @@ pub fn numbered_row(
         Span::raw(" ".repeat(padding)),
         Span::styled(right, theme.dim),
     ])
-}
-
-/// Build a deterministic animated spectrum from semantic icon ramp slots.
-pub fn spectrum(
-    width: usize,
-    animation_frame: usize,
-    theme: &Theme,
-    icons: &Icons,
-) -> Line<'static> {
-    let spans = (0..width)
-        .map(|column| {
-            let index = (column.wrapping_mul(7) + animation_frame) % icons.spectrum_ramp.len();
-            let style = if theme.truecolor {
-                let ratio = column as f32 / width.max(1) as f32;
-                let red = (34.0 + (217.0 - 34.0) * ratio) as u8;
-                let green = (211.0 + (70.0 - 211.0) * ratio) as u8;
-                let blue = (238.0 + (239.0 - 238.0) * ratio) as u8;
-                Style::default().fg(Color::Rgb(red, green, blue))
-            } else {
-                theme.accent
-            };
-            Span::styled(icons.spectrum_ramp[index].to_string(), style)
-        })
-        .collect::<Vec<_>>();
-    Line::from(spans)
 }
 
 /// Draw a standardized scrollbar only when content overflows its viewport.

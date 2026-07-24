@@ -23,6 +23,9 @@ pub struct PlaybackSnapshot {
     pub muted: bool,
     /// Playback speed multiplier (1.0 = normal).
     pub speed: f64,
+    /// Latest real audio levels while playing; `None` when idle or paused.
+    #[serde(default)]
+    pub audio_levels: Option<crate::playback::events::AudioLevels>,
 }
 
 impl Default for PlaybackSnapshot {
@@ -34,6 +37,7 @@ impl Default for PlaybackSnapshot {
             volume: 0,
             muted: false,
             speed: 1.0,
+            audio_levels: None,
         }
     }
 }
@@ -85,15 +89,23 @@ impl PlaybackController {
                 } else {
                     PlaybackStatus::Playing
                 };
+                if *paused {
+                    self.snapshot.audio_levels = None;
+                }
             }
             PlaybackEvent::VolumeChanged(v) => {
                 self.snapshot.volume = (*v).clamp(0.0, 100.0) as u8;
             }
             PlaybackEvent::MuteChanged(m) => self.snapshot.muted = *m,
             PlaybackEvent::SpeedChanged(s) => self.snapshot.speed = *s,
-            PlaybackEvent::EndFile { .. } => self.snapshot.status = PlaybackStatus::Stopped,
+            PlaybackEvent::AudioLevels(levels) => self.snapshot.audio_levels = Some(*levels),
+            PlaybackEvent::EndFile { .. } => {
+                self.snapshot.status = PlaybackStatus::Stopped;
+                self.snapshot.audio_levels = None;
+            }
             PlaybackEvent::PlaybackError(_) | PlaybackEvent::Shutdown => {
                 self.snapshot.status = PlaybackStatus::Idle;
+                self.snapshot.audio_levels = None;
             }
             PlaybackEvent::Connected => {}
         }

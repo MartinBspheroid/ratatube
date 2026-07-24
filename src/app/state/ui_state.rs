@@ -97,6 +97,9 @@ pub struct UiState {
     /// selection movement works without giving state access to the service.
     pub history_len: usize,
 
+    /// Displayed level-meter band heights, smoothed between level updates.
+    pub viz_bands: [f32; crate::ui::components::BAND_COUNT],
+
     /// Resolved icon mode from configuration (PRD 10.12).
     pub icon_mode: crate::config::IconMode,
     /// Active color theme, mirrored from configuration and switched live by

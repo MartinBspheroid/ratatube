@@ -3,7 +3,7 @@
 use std::time::Instant;
 
 use ratatui::Frame;
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Alignment, Rect};
 use ratatui::symbols;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
@@ -160,14 +160,11 @@ fn render_status(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icons,
     if area.height < 3 {
         return;
     }
-    let columns = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(42), Constraint::Percentage(58)])
-        .split(Rect {
-            y: area.y + 2,
-            height: 1,
-            ..area
-        });
+    let row = Rect {
+        y: area.y + 2,
+        height: 1,
+        ..area
+    };
     let position = state.domain.playback.position_seconds;
     // Elapsed / total, matching the Quick Resume gauge; a right-hand value
     // after "/" always means the full track length.
@@ -181,7 +178,8 @@ fn render_status(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icons,
             .map(crate::ui::widgets::format_time)
             .unwrap_or_else(|| "--:--".into())
     );
-    frame.render_widget(Paragraph::new(Span::styled(time, theme.dim)), columns[0]);
+    let time_width = time.width();
+    frame.render_widget(Paragraph::new(Span::styled(time, theme.dim)), row);
     let shuffle = if state.domain.queue.shuffle {
         theme.accent
     } else {
@@ -199,16 +197,53 @@ fn render_status(frame: &mut Frame, area: Rect, state: &AppState, icons: &Icons,
         icons.spectrum_ramp[3].repeat(filled),
         icons.spectrum_ramp[0].repeat(gauge_width - filled)
     );
+    let controls = Line::from(vec![
+        Span::styled(format!("{}  ", icons.shuffle), shuffle),
+        Span::styled(format!("{}  ", icons.repeat), repeat),
+        Span::styled(format!("{} ", icons.volume), theme.dim),
+        Span::styled(gauge, theme.gauge_filled),
+        Span::styled(format!(" {}%", state.domain.playback.volume), theme.dim),
+    ]);
+    let controls_width = controls.width();
+    frame.render_widget(Paragraph::new(controls).alignment(Alignment::Right), row);
+    render_level_meter(frame, row, time_width, controls_width, state, icons, theme);
+}
+
+/// Center the real-audio level meter in the gap between the time and the
+/// controls; it appears only while sound is actually playing (bands decay
+/// to nothing on pause, stop, and silence).
+fn render_level_meter(
+    frame: &mut Frame,
+    row: Rect,
+    time_width: usize,
+    controls_width: usize,
+    state: &AppState,
+    icons: &Icons,
+    theme: &Theme,
+) {
+    let playing = state.domain.playback.status == crate::playback::PlaybackStatus::Playing;
+    let audible = state.ui.viz_bands.iter().any(|band| *band > 0.0);
+    if !playing || !audible {
+        return;
+    }
+    let meter_width = usize::from(super::visualizer::METER_WIDTH);
+    let gap_start = time_width + 2;
+    let gap_end = (row.width as usize).saturating_sub(controls_width + 2);
+    if gap_end.saturating_sub(gap_start) < meter_width {
+        return;
+    }
+    let meter_area = Rect {
+        x: row.x + (gap_start + (gap_end - gap_start - meter_width) / 2) as u16,
+        width: meter_width as u16,
+        ..row
+    };
     frame.render_widget(
-        Paragraph::new(Line::from(vec![
-            Span::styled(format!("{}  ", icons.shuffle), shuffle),
-            Span::styled(format!("{}  ", icons.repeat), repeat),
-            Span::styled(format!("{} ", icons.volume), theme.dim),
-            Span::styled(gauge, theme.gauge_filled),
-            Span::styled(format!(" {}%", state.domain.playback.volume), theme.dim),
-        ]))
-        .alignment(Alignment::Right),
-        columns[1],
+        Paragraph::new(super::visualizer::meter_line(
+            &state.ui.viz_bands,
+            theme,
+            icons,
+        )),
+        meter_area,
     );
 }
 

@@ -45,15 +45,23 @@ impl DomainState {
                 } else {
                     PlaybackStatus::Playing
                 };
+                if *paused {
+                    self.playback.audio_levels = None;
+                }
             }
             PlaybackEvent::VolumeChanged(v) => {
                 self.playback.volume = (*v).clamp(0.0, 100.0) as u8;
             }
             PlaybackEvent::MuteChanged(m) => self.playback.muted = *m,
             PlaybackEvent::SpeedChanged(s) => self.playback.speed = *s,
-            PlaybackEvent::EndFile { .. } => self.playback.status = PlaybackStatus::Stopped,
+            PlaybackEvent::AudioLevels(levels) => self.playback.audio_levels = Some(*levels),
+            PlaybackEvent::EndFile { .. } => {
+                self.playback.status = PlaybackStatus::Stopped;
+                self.playback.audio_levels = None;
+            }
             PlaybackEvent::PlaybackError(_) | PlaybackEvent::Shutdown => {
                 self.playback.status = PlaybackStatus::Idle;
+                self.playback.audio_levels = None;
             }
             PlaybackEvent::Connected => self.mpv_ready = true,
         }

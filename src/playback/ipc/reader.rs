@@ -31,6 +31,10 @@ impl PendingRequests {
     }
 }
 
+/// Minimum interval between forwarded audio-level events. astats reports
+/// per audio frame (tens of hertz); the meter needs far less.
+const LEVELS_INTERVAL: std::time::Duration = std::time::Duration::from_millis(80);
+
 /// Own the read half and route newline-delimited mpv frames.
 pub(super) async fn read_events(
     reader: OwnedReadHalf,
@@ -38,10 +42,11 @@ pub(super) async fn read_events(
     pending: PendingRequests,
 ) {
     let mut lines = BufReader::new(reader).lines();
+    let mut levels_forwarded_at: Option<std::time::Instant> = None;
     loop {
         match lines.next_line().await {
             Ok(Some(line)) => {
-                if !route_line(&line, &event_tx, &pending).await {
+                if !route_line(&line, &event_tx, &pending, &mut levels_forwarded_at).await {
                     break;
                 }
             }
@@ -66,6 +71,7 @@ async fn route_line(
     line: &str,
     event_tx: &mpsc::Sender<PlaybackEvent>,
     pending: &PendingRequests,
+    levels_forwarded_at: &mut Option<std::time::Instant>,
 ) -> bool {
     let frame = match serde_json::from_str::<MpvFrame>(line) {
         Ok(frame) => frame,
@@ -92,6 +98,13 @@ async fn route_line(
         return true;
     }
     if let Some(event) = event_from_frame(frame) {
+        if matches!(event, PlaybackEvent::AudioLevels(_)) {
+            let now = std::time::Instant::now();
+            if levels_forwarded_at.is_some_and(|last| now.duration_since(last) < LEVELS_INTERVAL) {
+                return true;
+            }
+            *levels_forwarded_at = Some(now);
+        }
         return event_tx.send(event).await.is_ok();
     }
     true

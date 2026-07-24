@@ -3,6 +3,12 @@ use serde_json::json;
 use super::{PlaybackController, commands::load_command};
 use crate::error::Result;
 
+/// Labeled astats audio filter powering the level meter: per-window RMS,
+/// peak, and zero-crossings rate exposed as `af-metadata/vis`.
+const LEVEL_METER_FILTER: &str = "@vis:lavfi=[astats=metadata=1:reset=1:\
+measure_perchannel=RMS_level+Peak_level+Zero_crossings_rate:\
+measure_overall=RMS_level]";
+
 impl PlaybackController {
     /// Subscribe to the properties the UI needs.
     pub async fn observe_defaults(&mut self) -> Result<()> {
@@ -12,7 +18,25 @@ impl PlaybackController {
         self.ipc.observe_property(4, "volume").await?;
         self.ipc.observe_property(5, "mute").await?;
         self.ipc.observe_property(6, "speed").await?;
+        self.enable_level_metering().await;
         Ok(())
+    }
+
+    /// Best-effort level metering: inject the astats filter and observe its
+    /// metadata. An mpv/ffmpeg without the filter leaves the meter idle
+    /// without affecting playback.
+    async fn enable_level_metering(&mut self) {
+        if let Err(error) = self
+            .ipc
+            .command(vec![json!("af"), json!("add"), json!(LEVEL_METER_FILTER)])
+            .await
+        {
+            tracing::warn!(?error, "level metering unavailable");
+            return;
+        }
+        if let Err(error) = self.ipc.observe_property(7, "af-metadata/vis").await {
+            tracing::warn!(?error, "level metadata observation failed");
+        }
     }
 
     /// Set the playback speed multiplier.

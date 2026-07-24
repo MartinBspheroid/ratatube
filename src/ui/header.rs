@@ -7,7 +7,6 @@ use ratatui::widgets::{Paragraph, Tabs};
 use unicode_width::UnicodeWidthStr;
 
 use crate::app::state::{AppState, View};
-use crate::ui::components::spectrum;
 use crate::ui::icons::Icons;
 use crate::ui::layout::Breakpoint;
 use crate::ui::theme::Theme;
@@ -132,9 +131,6 @@ pub fn render_header(
             format!("{} yt-dlp down", icons.error),
             theme.error,
         ));
-    }
-    if !dependency_problem && show_volume {
-        problems.extend(spectrum(4, state.ui.spinner_frame, theme, icons).spans);
     }
     if !dependency_problem && show_queue {
         problems.push(Span::styled(

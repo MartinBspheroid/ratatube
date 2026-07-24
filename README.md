@@ -45,6 +45,8 @@ Use `/` to enter a search, type a query or supported YouTube URL, and press Ente
 
 Press `c` on a track in Home, Search, Queue, a playlist, History, Channel, or Now Playing to open its non-blocking action menu. Playback continues while the menu is open; use `j`/`k`, Enter, and Esc. Available actions depend on the source and can include play now/next, queue or playlist insertion, channel browsing, details, browser opening, URL copying, and removal from the current queue or playlist occurrence.
 
+While audio is playing, the playback bar shows a six-band level meter driven by real measurements from mpv's `astats` filter (RMS energy, peak, and spectral brightness); it disappears on pause and stop. Metering needs an mpv built with lavfi (any recent build); without it the meter stays hidden and playback is unaffected.
+
 Channel browsing lists videos newest first in bounded pages of 30. Select the final `Load more` row and press Enter for the next page; a failed page becomes a `Retry` row. Backspace or Esc returns to the exact previous view. During the final 15 seconds of a track, the shared player rolls in the effective next title once; repeat-track and an empty next position suppress it.
 
 ## Background service

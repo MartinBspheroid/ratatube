@@ -27,7 +27,7 @@ fn render_component(width: u16, icons: Icons) -> String {
                         &theme,
                         &icons,
                     ),
-                    spectrum(inner.width.min(20) as usize, 3, &theme, &icons),
+                    visualizer::meter_line(&[0.5; BAND_COUNT], &theme, &icons),
                 ]),
                 inner,
             );
