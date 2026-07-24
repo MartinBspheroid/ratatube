@@ -47,7 +47,7 @@ where
     B::Error: std::fmt::Display,
 {
     let icons = icons::icons_for(state.ui.icon_mode);
-    let theme = theme::Theme::default();
+    let theme = theme::Theme::resolve(state.ui.theme);
     terminal
         .draw(|frame| {
             let area = frame.area();

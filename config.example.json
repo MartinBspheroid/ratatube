@@ -14,7 +14,8 @@
   },
   "ui": {
     "icons": "auto",
-    "progressRefreshMs": 500
+    "progressRefreshMs": 500,
+    "theme": "neon"
   },
   "paths": {
     "mpv": "mpv",

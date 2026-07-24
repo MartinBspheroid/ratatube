@@ -21,6 +21,7 @@ impl App {
         picker: Option<ratatui_image::picker::Picker>,
     ) -> Self {
         state.ui.icon_mode = crate::ui::icons::resolve_icon_mode(config.ui.icons);
+        state.ui.theme = config.ui.theme;
         let yt_dlp = crate::media::yt_dlp::YtDlp::new(config.paths.yt_dlp.clone());
         let playlists = PlaylistService::new(paths.playlists_dir());
         let history = if config.history.enabled {

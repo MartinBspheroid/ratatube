@@ -18,6 +18,53 @@ pub enum IconMode {
     Ascii,
 }
 
+/// Built-in color theme selected in `ui.theme` and the ctrl+p settings menu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ThemeName {
+    /// The original ratatube palette: cyan and magenta on deep navy.
+    #[default]
+    Neon,
+    /// Catppuccin Mocha (catppuccin.com).
+    CatppuccinMocha,
+    /// Solarized Dark (ethanschoonover.com/solarized).
+    SolarizedDark,
+    /// Tokyo Night (github.com/enkia/tokyo-night-vscode-theme).
+    TokyoNight,
+    /// Gruvbox dark mode (github.com/morhetz/gruvbox).
+    GruvboxDark,
+    /// Nord (nordtheme.com).
+    Nord,
+    /// Dracula (draculatheme.com).
+    Dracula,
+}
+
+impl ThemeName {
+    /// Every selectable theme, in settings-menu order.
+    pub const ALL: [ThemeName; 7] = [
+        ThemeName::Neon,
+        ThemeName::CatppuccinMocha,
+        ThemeName::SolarizedDark,
+        ThemeName::TokyoNight,
+        ThemeName::GruvboxDark,
+        ThemeName::Nord,
+        ThemeName::Dracula,
+    ];
+
+    /// Human-readable name shown in the settings menu.
+    pub fn label(self) -> &'static str {
+        match self {
+            ThemeName::Neon => "Neon",
+            ThemeName::CatppuccinMocha => "Catppuccin Mocha",
+            ThemeName::SolarizedDark => "Solarized Dark",
+            ThemeName::TokyoNight => "Tokyo Night",
+            ThemeName::GruvboxDark => "Gruvbox Dark",
+            ThemeName::Nord => "Nord",
+            ThemeName::Dracula => "Dracula",
+        }
+    }
+}
+
 /// What to do with the previous session's track on launch (PRD-next:
 /// instant play). `Paused` preloads the last track at its saved position so
 /// a single Space resumes it; `Playing` starts audio immediately.
@@ -74,6 +121,8 @@ pub struct UiConfig {
     pub icons: IconMode,
     /// Progress refresh interval in milliseconds (PRD 10.3).
     pub progress_refresh_ms: u64,
+    /// Selected color theme; also switchable at runtime with ctrl+p.
+    pub theme: ThemeName,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,6 +177,7 @@ impl Default for UiConfig {
         Self {
             icons: IconMode::Auto,
             progress_refresh_ms: 500,
+            theme: ThemeName::default(),
         }
     }
 }
@@ -176,6 +226,15 @@ mod tests {
                 "json: {json}"
             );
         }
+    }
+
+    #[test]
+    fn theme_names_serialize_as_kebab_case() {
+        let parsed: Config = serde_json::from_str(r#"{"ui": {"theme": "catppuccin-mocha"}}"#)
+            .expect("deserialize theme");
+        assert_eq!(parsed.ui.theme, ThemeName::CatppuccinMocha);
+        let json = serde_json::to_string(&Config::default()).expect("serialize");
+        assert!(json.contains(r#""theme":"neon""#), "{json}");
     }
 
     #[test]

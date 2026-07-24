@@ -4,4 +4,4 @@ pub mod loader;
 pub mod model;
 
 pub use loader::{inspect, load};
-pub use model::{Config, IconMode, ResumeMode};
+pub use model::{Config, IconMode, ResumeMode, ThemeName};

@@ -96,4 +96,7 @@ pub struct UiState {
 
     /// Resolved icon mode from configuration (PRD 10.12).
     pub icon_mode: crate::config::IconMode,
+    /// Active color theme, mirrored from configuration and switched live by
+    /// the ctrl+p settings menu.
+    pub theme: crate::config::ThemeName,
 }
