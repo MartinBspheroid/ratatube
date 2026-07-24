@@ -1,10 +1,11 @@
 //! The ctrl+p settings menu: tab movement, live theme preview, and the
-//! save/cancel transitions.
+//! save/cancel transitions. On the Appearance tab the selection walks theme
+//! families while h/l flips the dark/light mode of the whole preview.
 
 use crate::app::action::NavigationAction;
 use crate::app::reducer::Effect;
 use crate::app::state::{SETTINGS_GENERAL_ROWS, SettingsTab, UiState};
-use crate::config::{IconMode, ResumeMode, ThemeName};
+use crate::config::{IconMode, ResumeMode, ThemeFamily};
 
 /// Reduce settings-menu transitions. `OpenSettings` is service-owned (it
 /// seeds drafts from configuration) and is a no-op here.
@@ -19,14 +20,16 @@ pub(in crate::app::reducer) fn reduce(ui: &mut UiState, action: NavigationAction
             if let Some(settings) = &mut ui.settings {
                 (settings.tab, settings.selected) = match settings.tab {
                     SettingsTab::Appearance => (SettingsTab::General, 0),
-                    SettingsTab::General => (SettingsTab::Appearance, theme_index(ui.theme)),
+                    SettingsTab::General => {
+                        (SettingsTab::Appearance, family_index(ui.theme.family()))
+                    }
                 };
             }
         }
         NavigationAction::SettingsMove(delta) => {
             if let Some(settings) = &mut ui.settings {
                 let rows = match settings.tab {
-                    SettingsTab::Appearance => ThemeName::ALL.len(),
+                    SettingsTab::Appearance => ThemeFamily::ALL.len(),
                     SettingsTab::General => SETTINGS_GENERAL_ROWS,
                 };
                 settings.selected = settings
@@ -34,17 +37,21 @@ pub(in crate::app::reducer) fn reduce(ui: &mut UiState, action: NavigationAction
                     .saturating_add_signed(delta as isize)
                     .min(rows - 1);
                 if settings.tab == SettingsTab::Appearance {
-                    ui.theme = ThemeName::ALL[settings.selected];
+                    ui.theme = ThemeFamily::ALL[settings.selected].variant(ui.theme.mode());
                 }
             }
         }
         NavigationAction::SettingsAdjust(delta) => {
-            if let Some(settings) = &mut ui.settings
-                && settings.tab == SettingsTab::General
-            {
-                match settings.selected {
-                    0 => settings.icons = cycled(&IconMode::ALL, settings.icons, delta),
-                    _ => settings.resume = cycled(&ResumeMode::ALL, settings.resume, delta),
+            if let Some(settings) = &mut ui.settings {
+                match settings.tab {
+                    // Both directions flip between the two modes.
+                    SettingsTab::Appearance => {
+                        ui.theme = ui.theme.family().variant(ui.theme.mode().toggled());
+                    }
+                    SettingsTab::General => match settings.selected {
+                        0 => settings.icons = cycled(&IconMode::ALL, settings.icons, delta),
+                        _ => settings.resume = cycled(&ResumeMode::ALL, settings.resume, delta),
+                    },
                 }
             }
         }
@@ -63,11 +70,11 @@ pub(in crate::app::reducer) fn reduce(ui: &mut UiState, action: NavigationAction
     Vec::new()
 }
 
-/// Position of `theme` in the settings-menu order.
-pub(crate) fn theme_index(theme: ThemeName) -> usize {
-    ThemeName::ALL
+/// Position of `family` in the settings-menu order.
+pub(crate) fn family_index(family: ThemeFamily) -> usize {
+    ThemeFamily::ALL
         .iter()
-        .position(|&candidate| candidate == theme)
+        .position(|&candidate| candidate == family)
         .unwrap_or(0)
 }
 

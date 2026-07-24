@@ -4,6 +4,9 @@
 //! `config.json` or live from the ctrl+p settings menu. Palette values match
 //! each scheme's published specification (see the enum's doc links).
 
+mod palettes;
+
+use palettes::Palette;
 use ratatui::style::{Color, Modifier, Style};
 
 use crate::config::ThemeName;
@@ -44,129 +47,6 @@ impl Default for Theme {
     }
 }
 
-/// Truecolor swatch of one published color scheme, mapped onto the style
-/// roles the UI consumes. All values are the scheme's official hex colors.
-struct Palette {
-    bg: Color,
-    panel_bg: Color,
-    /// Emphasized foreground: headers, values, selected rows.
-    text: Color,
-    /// Secondary foreground: chips and de-emphasized copy.
-    subtext: Color,
-    /// Lowest-emphasis foreground: labels, rules, hints.
-    dim: Color,
-    accent: Color,
-    accent_alt: Color,
-    red: Color,
-    yellow: Color,
-    orange: Color,
-    green: Color,
-    selected_bg: Color,
-    border: Color,
-}
-
-/// Catppuccin Mocha: mantle canvas, base panels, mauve/pink accents.
-const CATPPUCCIN_MOCHA: Palette = Palette {
-    bg: Color::Rgb(24, 24, 37),
-    panel_bg: Color::Rgb(30, 30, 46),
-    text: Color::Rgb(205, 214, 244),
-    subtext: Color::Rgb(166, 173, 200),
-    dim: Color::Rgb(108, 112, 134),
-    accent: Color::Rgb(203, 166, 247),
-    accent_alt: Color::Rgb(245, 194, 231),
-    red: Color::Rgb(243, 139, 168),
-    yellow: Color::Rgb(249, 226, 175),
-    orange: Color::Rgb(250, 179, 135),
-    green: Color::Rgb(166, 227, 161),
-    selected_bg: Color::Rgb(69, 71, 90),
-    border: Color::Rgb(88, 91, 112),
-};
-
-/// Solarized Dark: base03 canvas, base02 panels, blue/cyan accents.
-const SOLARIZED_DARK: Palette = Palette {
-    bg: Color::Rgb(0, 43, 54),
-    panel_bg: Color::Rgb(7, 54, 66),
-    text: Color::Rgb(147, 161, 161),
-    subtext: Color::Rgb(131, 148, 150),
-    dim: Color::Rgb(88, 110, 117),
-    accent: Color::Rgb(38, 139, 210),
-    accent_alt: Color::Rgb(42, 161, 152),
-    red: Color::Rgb(220, 50, 47),
-    yellow: Color::Rgb(181, 137, 0),
-    orange: Color::Rgb(203, 75, 22),
-    green: Color::Rgb(133, 153, 0),
-    selected_bg: Color::Rgb(88, 110, 117),
-    border: Color::Rgb(88, 110, 117),
-};
-
-/// Tokyo Night: night canvas, storm panels, blue/purple accents.
-const TOKYO_NIGHT: Palette = Palette {
-    bg: Color::Rgb(26, 27, 38),
-    panel_bg: Color::Rgb(36, 40, 59),
-    text: Color::Rgb(192, 202, 245),
-    subtext: Color::Rgb(169, 177, 214),
-    dim: Color::Rgb(86, 95, 137),
-    accent: Color::Rgb(122, 162, 247),
-    accent_alt: Color::Rgb(187, 154, 247),
-    red: Color::Rgb(247, 118, 142),
-    yellow: Color::Rgb(224, 175, 104),
-    orange: Color::Rgb(255, 158, 100),
-    green: Color::Rgb(158, 206, 106),
-    selected_bg: Color::Rgb(40, 52, 87),
-    border: Color::Rgb(59, 66, 97),
-};
-
-/// Gruvbox dark mode: warm grays with the signature bright orange.
-const GRUVBOX_DARK: Palette = Palette {
-    bg: Color::Rgb(40, 40, 40),
-    panel_bg: Color::Rgb(60, 56, 54),
-    text: Color::Rgb(235, 219, 178),
-    subtext: Color::Rgb(168, 153, 132),
-    dim: Color::Rgb(146, 131, 116),
-    accent: Color::Rgb(254, 128, 25),
-    accent_alt: Color::Rgb(142, 192, 124),
-    red: Color::Rgb(251, 73, 52),
-    yellow: Color::Rgb(250, 189, 47),
-    orange: Color::Rgb(254, 128, 25),
-    green: Color::Rgb(184, 187, 38),
-    selected_bg: Color::Rgb(80, 73, 69),
-    border: Color::Rgb(102, 92, 84),
-};
-
-/// Nord: polar-night surfaces, frost accents, aurora status colors.
-const NORD: Palette = Palette {
-    bg: Color::Rgb(46, 52, 64),
-    panel_bg: Color::Rgb(59, 66, 82),
-    text: Color::Rgb(236, 239, 244),
-    subtext: Color::Rgb(216, 222, 233),
-    dim: Color::Rgb(76, 86, 106),
-    accent: Color::Rgb(136, 192, 208),
-    accent_alt: Color::Rgb(180, 142, 173),
-    red: Color::Rgb(191, 97, 106),
-    yellow: Color::Rgb(235, 203, 139),
-    orange: Color::Rgb(208, 135, 112),
-    green: Color::Rgb(163, 190, 140),
-    selected_bg: Color::Rgb(67, 76, 94),
-    border: Color::Rgb(76, 86, 106),
-};
-
-/// Dracula: the official spec palette with purple/pink accents.
-const DRACULA: Palette = Palette {
-    bg: Color::Rgb(33, 34, 44),
-    panel_bg: Color::Rgb(40, 42, 54),
-    text: Color::Rgb(248, 248, 242),
-    subtext: Color::Rgb(98, 114, 164),
-    dim: Color::Rgb(98, 114, 164),
-    accent: Color::Rgb(189, 147, 249),
-    accent_alt: Color::Rgb(255, 121, 198),
-    red: Color::Rgb(255, 85, 85),
-    yellow: Color::Rgb(241, 250, 140),
-    orange: Color::Rgb(255, 184, 108),
-    green: Color::Rgb(80, 250, 123),
-    selected_bg: Color::Rgb(68, 71, 90),
-    border: Color::Rgb(98, 114, 164),
-};
-
 impl Theme {
     /// Build `name`'s palette after sniffing terminal color capability from
     /// the environment (`COLORTERM`, `NO_COLOR`).
@@ -183,14 +63,9 @@ impl Theme {
         if !truecolor {
             return Self::from_truecolor(false);
         }
-        match name {
-            ThemeName::Neon => Self::from_truecolor(true),
-            ThemeName::CatppuccinMocha => Self::from_palette(&CATPPUCCIN_MOCHA),
-            ThemeName::SolarizedDark => Self::from_palette(&SOLARIZED_DARK),
-            ThemeName::TokyoNight => Self::from_palette(&TOKYO_NIGHT),
-            ThemeName::GruvboxDark => Self::from_palette(&GRUVBOX_DARK),
-            ThemeName::Nord => Self::from_palette(&NORD),
-            ThemeName::Dracula => Self::from_palette(&DRACULA),
+        match palettes::palette_for(name) {
+            Some(palette) => Self::from_palette(palette),
+            None => Self::from_truecolor(true),
         }
     }
 
@@ -384,6 +259,26 @@ mod tests {
                 Color::Rgb(33, 34, 44),
                 Color::Rgb(189, 147, 249),
             ),
+            (
+                ThemeName::CatppuccinLatte,
+                Color::Rgb(230, 233, 239),
+                Color::Rgb(136, 57, 239),
+            ),
+            (
+                ThemeName::SolarizedLight,
+                Color::Rgb(253, 246, 227),
+                Color::Rgb(38, 139, 210),
+            ),
+            (
+                ThemeName::Alucard,
+                Color::Rgb(255, 251, 235),
+                Color::Rgb(100, 74, 201),
+            ),
+            (
+                ThemeName::FlexokiLight,
+                Color::Rgb(255, 252, 240),
+                Color::Rgb(32, 94, 166),
+            ),
         ];
         for (name, bg, accent) in cases {
             let theme = Theme::from_preset(name, true);
@@ -391,6 +286,28 @@ mod tests {
             assert_eq!(theme.accent.fg, Some(accent), "{name:?}");
             assert_eq!(theme.tab_active.bg, Some(accent), "{name:?}");
             assert!(theme.truecolor, "{name:?}");
+        }
+    }
+
+    #[test]
+    fn every_variant_resolves_to_a_distinct_truecolor_palette() {
+        use crate::config::ThemeMode;
+        let mut backgrounds = std::collections::HashSet::new();
+        for name in ThemeName::ALL {
+            let theme = Theme::from_preset(name, true);
+            let bg = theme.bg.bg.expect("truecolor themes set a background");
+            assert!(
+                backgrounds.insert(format!("{bg:?}")),
+                "duplicate bg {name:?}"
+            );
+            // Light variants sit on light backgrounds, dark on dark.
+            if let Color::Rgb(r, g, b) = bg {
+                let luma = u16::from(r) + u16::from(g) + u16::from(b);
+                match name.mode() {
+                    ThemeMode::Dark => assert!(luma < 384, "{name:?} bg too light"),
+                    ThemeMode::Light => assert!(luma > 384, "{name:?} bg too dark"),
+                }
+            }
         }
     }
 }

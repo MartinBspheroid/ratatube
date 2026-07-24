@@ -20,7 +20,7 @@ pub(super) fn render(
         return;
     }
     if let Some(settings) = &state.ui.settings {
-        overlay_settings::render(frame, area, settings, theme);
+        overlay_settings::render(frame, area, settings, theme, state.ui.theme);
         return;
     }
     if overlay_status::render(frame, area, state, theme) {

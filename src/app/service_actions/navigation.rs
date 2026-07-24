@@ -84,7 +84,7 @@ impl App {
         let theme = self.state.ui.theme;
         self.state.ui.settings = Some(crate::app::state::SettingsState {
             tab: crate::app::state::SettingsTab::Appearance,
-            selected: crate::app::reducer::theme_index(theme),
+            selected: crate::app::reducer::family_index(theme.family()),
             original_theme: theme,
             icons: self.config.ui.icons,
             resume: self.config.playback.resume_on_launch,

@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::config::theme::ThemeName;
+
 /// Current configuration schema version.
 pub const CONFIG_SCHEMA_VERSION: u32 = 1;
 
@@ -28,53 +30,6 @@ impl IconMode {
             IconMode::Auto => "auto",
             IconMode::NerdFont => "nerd-font",
             IconMode::Ascii => "ascii",
-        }
-    }
-}
-
-/// Built-in color theme selected in `ui.theme` and the ctrl+p settings menu.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum ThemeName {
-    /// The original ratatube palette: cyan and magenta on deep navy.
-    #[default]
-    Neon,
-    /// Catppuccin Mocha (catppuccin.com).
-    CatppuccinMocha,
-    /// Solarized Dark (ethanschoonover.com/solarized).
-    SolarizedDark,
-    /// Tokyo Night (github.com/enkia/tokyo-night-vscode-theme).
-    TokyoNight,
-    /// Gruvbox dark mode (github.com/morhetz/gruvbox).
-    GruvboxDark,
-    /// Nord (nordtheme.com).
-    Nord,
-    /// Dracula (draculatheme.com).
-    Dracula,
-}
-
-impl ThemeName {
-    /// Every selectable theme, in settings-menu order.
-    pub const ALL: [ThemeName; 7] = [
-        ThemeName::Neon,
-        ThemeName::CatppuccinMocha,
-        ThemeName::SolarizedDark,
-        ThemeName::TokyoNight,
-        ThemeName::GruvboxDark,
-        ThemeName::Nord,
-        ThemeName::Dracula,
-    ];
-
-    /// Human-readable name shown in the settings menu.
-    pub fn label(self) -> &'static str {
-        match self {
-            ThemeName::Neon => "Neon",
-            ThemeName::CatppuccinMocha => "Catppuccin Mocha",
-            ThemeName::SolarizedDark => "Solarized Dark",
-            ThemeName::TokyoNight => "Tokyo Night",
-            ThemeName::GruvboxDark => "Gruvbox Dark",
-            ThemeName::Nord => "Nord",
-            ThemeName::Dracula => "Dracula",
         }
     }
 }

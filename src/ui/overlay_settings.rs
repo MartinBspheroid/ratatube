@@ -1,16 +1,21 @@
 //! The ctrl+p settings menu overlay: an Appearance tab listing every theme
-//! with live-preview swatches, and a General tab for icon and resume modes.
+//! family with live-preview swatches and a dark/light switch, and a General
+//! tab for icon and resume modes.
 
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, Paragraph};
 
 use crate::app::state::{SettingsState, SettingsTab};
-use crate::config::{IconMode, ResumeMode, ThemeName};
+use crate::config::{IconMode, ResumeMode, ThemeFamily, ThemeMode, ThemeName};
 use crate::ui::{centered_rect, theme};
 
-const MODAL_WIDTH: u16 = 52;
-/// Widest row label ("Catppuccin Mocha"), plus marker spacing.
-const LABEL_WIDTH: usize = 18;
+const MODAL_WIDTH: u16 = 58;
+/// Widest family label ("Tokyo Night"), plus marker spacing.
+const LABEL_WIDTH: usize = 13;
+/// Widest variant label ("Dracula").
+const VARIANT_WIDTH: usize = 8;
+/// Lines outside the row list: tabs, blank, blank, hints.
+const CHROME_ROWS: u16 = 4;
 
 /// Render the settings menu when it is open.
 pub(super) fn render(
@@ -18,12 +23,24 @@ pub(super) fn render(
     area: ratatui::layout::Rect,
     settings: &SettingsState,
     theme: &theme::Theme,
+    active_theme: ThemeName,
 ) {
-    let mut lines = vec![tabs_line(settings.tab, theme), Line::from("")];
+    let mode = active_theme.mode();
+    let mut lines = vec![tabs_line(settings.tab, mode, theme), Line::from("")];
     match settings.tab {
         SettingsTab::Appearance => {
-            for (index, name) in ThemeName::ALL.into_iter().enumerate() {
-                lines.push(theme_row(name, index == settings.selected, theme));
+            let families = ThemeFamily::ALL;
+            // Window the list around the selection on short terminals.
+            let capacity = area
+                .height
+                .saturating_sub(2 + CHROME_ROWS)
+                .clamp(3, families.len() as u16) as usize;
+            let start = settings
+                .selected
+                .saturating_sub(capacity - 1)
+                .min(families.len() - capacity);
+            for (index, family) in families.iter().enumerate().skip(start).take(capacity) {
+                lines.push(family_row(*family, mode, index == settings.selected, theme));
             }
         }
         SettingsTab::General => {
@@ -58,8 +75,8 @@ pub(super) fn render(
     );
 }
 
-/// Tab strip; the active tab uses the accent chip style.
-fn tabs_line(active: SettingsTab, theme: &theme::Theme) -> Line<'static> {
+/// Tab strip; the Appearance tab also shows the active dark/light mode.
+fn tabs_line(active: SettingsTab, mode: ThemeMode, theme: &theme::Theme) -> Line<'static> {
     let tab = |label: &'static str, is_active: bool| {
         Span::styled(
             format!(" {label} "),
@@ -70,26 +87,44 @@ fn tabs_line(active: SettingsTab, theme: &theme::Theme) -> Line<'static> {
             },
         )
     };
-    Line::from(vec![
+    let mut spans = vec![
         Span::raw(" "),
         tab("Appearance", active == SettingsTab::Appearance),
         Span::raw(" "),
         tab("General", active == SettingsTab::General),
-    ])
+    ];
+    if active == SettingsTab::Appearance {
+        spans.push(Span::raw("   "));
+        spans.push(Span::styled("‹ ", theme.dim));
+        spans.push(Span::styled(mode.label().to_string(), theme.accent));
+        spans.push(Span::styled(" ›", theme.dim));
+    }
+    Line::from(spans)
 }
 
-/// One selectable theme with swatches drawn in that theme's own colors.
-fn theme_row(name: ThemeName, is_selected: bool, theme: &theme::Theme) -> Line<'static> {
+/// One selectable family in the active mode, with swatches drawn in that
+/// variant's own colors.
+fn family_row(
+    family: ThemeFamily,
+    mode: ThemeMode,
+    is_selected: bool,
+    theme: &theme::Theme,
+) -> Line<'static> {
+    let variant = family.variant(mode);
     let label_style = if is_selected {
         theme.selected
     } else {
         theme.value
     };
     let marker = if is_selected { " ❯ " } else { "   " };
-    let preview = theme::Theme::from_preset(name, theme.truecolor);
+    let preview = theme::Theme::from_preset(variant, theme.truecolor);
     let mut spans = vec![
         Span::styled(marker.to_string(), theme.accent),
-        Span::styled(format!("{:LABEL_WIDTH$}", name.label()), label_style),
+        Span::styled(format!("{:LABEL_WIDTH$}", family.label()), label_style),
+        Span::styled(
+            format!("{:VARIANT_WIDTH$}", variant.variant_label()),
+            theme.chip,
+        ),
         Span::raw("  "),
     ];
     for style in [
@@ -129,19 +164,20 @@ fn value_row(
 
 /// Key hints matching the active tab's available actions.
 fn hints_line(tab: SettingsTab, theme: &theme::Theme) -> Line<'static> {
-    let mut spans = vec![
+    let change = match tab {
+        SettingsTab::Appearance => "mode ",
+        SettingsTab::General => "change ",
+    };
+    Line::from(vec![
         Span::styled(" Tab ", theme.key_chip),
-        Span::styled("tabs  ", theme.dim),
+        Span::styled("tabs ", theme.dim),
         Span::styled(" j/k ", theme.key_chip),
-        Span::styled("select  ", theme.dim),
-    ];
-    if tab == SettingsTab::General {
-        spans.push(Span::styled(" h/l ", theme.key_chip));
-        spans.push(Span::styled("change  ", theme.dim));
-    }
-    spans.push(Span::styled(" Enter ", theme.key_chip));
-    spans.push(Span::styled("save  ", theme.dim));
-    spans.push(Span::styled(" Esc ", theme.key_chip));
-    spans.push(Span::styled("cancel", theme.dim));
-    Line::from(spans)
+        Span::styled("select ", theme.dim),
+        Span::styled(" h/l ", theme.key_chip),
+        Span::styled(change, theme.dim),
+        Span::styled(" Enter ", theme.key_chip),
+        Span::styled("save ", theme.dim),
+        Span::styled(" Esc ", theme.key_chip),
+        Span::styled("cancel", theme.dim),
+    ])
 }

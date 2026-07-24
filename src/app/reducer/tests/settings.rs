@@ -1,6 +1,6 @@
 use super::*;
 use crate::app::state::{SETTINGS_GENERAL_ROWS, SettingsState, SettingsTab};
-use crate::config::{IconMode, ResumeMode, ThemeName};
+use crate::config::{IconMode, ResumeMode, ThemeFamily, ThemeName};
 
 fn open_settings(state: &mut AppState) {
     state.ui.settings = Some(SettingsState {
@@ -17,7 +17,7 @@ fn settings(state: &AppState) -> &SettingsState {
 }
 
 #[test]
-fn moving_the_appearance_selection_previews_the_theme_live() {
+fn moving_the_appearance_selection_previews_the_family_live() {
     let mut state = AppState::new();
     open_settings(&mut state);
     let _ = reduce(
@@ -25,7 +25,38 @@ fn moving_the_appearance_selection_previews_the_theme_live() {
         Action::Navigation(NavigationAction::SettingsMove(1)),
     );
     assert_eq!(settings(&state).selected, 1);
-    assert_eq!(state.ui.theme, ThemeName::ALL[1]);
+    assert_eq!(state.ui.theme, ThemeName::CatppuccinMocha);
+}
+
+#[test]
+fn adjust_toggles_between_dark_and_light_keeping_the_family() {
+    let mut state = AppState::new();
+    open_settings(&mut state);
+    let _ = reduce(
+        &mut state,
+        Action::Navigation(NavigationAction::SettingsAdjust(1)),
+    );
+    assert_eq!(state.ui.theme, ThemeName::NeonLight);
+    let _ = reduce(
+        &mut state,
+        Action::Navigation(NavigationAction::SettingsAdjust(-1)),
+    );
+    assert_eq!(state.ui.theme, ThemeName::Neon);
+}
+
+#[test]
+fn moving_in_light_mode_previews_the_light_variant() {
+    let mut state = AppState::new();
+    open_settings(&mut state);
+    let _ = reduce(
+        &mut state,
+        Action::Navigation(NavigationAction::SettingsAdjust(1)),
+    );
+    let _ = reduce(
+        &mut state,
+        Action::Navigation(NavigationAction::SettingsMove(1)),
+    );
+    assert_eq!(state.ui.theme, ThemeName::CatppuccinLatte);
 }
 
 #[test]
@@ -37,12 +68,13 @@ fn appearance_selection_clamps_at_both_ends() {
         Action::Navigation(NavigationAction::SettingsMove(-1)),
     );
     assert_eq!(settings(&state).selected, 0);
-    let last = ThemeName::ALL.len() - 1;
+    let last = ThemeFamily::ALL.len() - 1;
     let _ = reduce(
         &mut state,
         Action::Navigation(NavigationAction::SettingsMove(last as i32 + 5)),
     );
     assert_eq!(settings(&state).selected, last);
+    assert_eq!(state.ui.theme, ThemeName::FlexokiDark);
 }
 
 #[test]
@@ -52,6 +84,10 @@ fn closing_the_menu_restores_the_opening_theme() {
     let _ = reduce(
         &mut state,
         Action::Navigation(NavigationAction::SettingsMove(2)),
+    );
+    let _ = reduce(
+        &mut state,
+        Action::Navigation(NavigationAction::SettingsAdjust(1)),
     );
     assert_ne!(state.ui.theme, ThemeName::Neon);
     let _ = reduce(
@@ -75,11 +111,11 @@ fn submit_persists_the_previewed_theme_and_closes() {
         Action::Navigation(NavigationAction::SettingsSubmit),
     );
     assert!(state.ui.settings.is_none());
-    assert_eq!(state.ui.theme, ThemeName::ALL[1]);
+    assert_eq!(state.ui.theme, ThemeName::CatppuccinMocha);
     assert_eq!(
         effects,
         vec![Effect::PersistUiSettings {
-            theme: ThemeName::ALL[1],
+            theme: ThemeName::CatppuccinMocha,
             icons: IconMode::Auto,
             resume: ResumeMode::Paused,
         }]
@@ -87,9 +123,9 @@ fn submit_persists_the_previewed_theme_and_closes() {
 }
 
 #[test]
-fn tab_cycling_lands_general_on_the_first_row_and_back_on_the_theme() {
+fn tab_cycling_lands_general_on_the_first_row_and_back_on_the_family() {
     let mut state = AppState::new();
-    state.ui.theme = ThemeName::Nord;
+    state.ui.theme = ThemeName::NordLight;
     open_settings(&mut state);
     let _ = reduce(
         &mut state,
@@ -104,8 +140,10 @@ fn tab_cycling_lands_general_on_the_first_row_and_back_on_the_theme() {
     assert_eq!(settings(&state).tab, SettingsTab::Appearance);
     assert_eq!(
         settings(&state).selected,
-        crate::app::reducer::theme_index(ThemeName::Nord)
+        crate::app::reducer::family_index(ThemeFamily::Nord)
     );
+    // Returning to Appearance never changes the previewed theme.
+    assert_eq!(state.ui.theme, ThemeName::NordLight);
 }
 
 #[test]
