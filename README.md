@@ -74,7 +74,9 @@ error names the limit when that happens.
 
 Platform-native directories are selected by the `directories` crate. Run `ratatube doctor` to print the exact paths without creating or changing them. For isolated runs, `--data-dir PATH` stores both config and application data under `PATH`.
 
-Copy `config.example.json` to the reported `config.json` path and edit only documented fields. Unknown fields, future schema versions, unsafe limits, and malformed JSON are rejected. `resumeOnLaunch` accepts `off`, `paused`, or `playing`; `icons` accepts `auto`, `nerd-font`, or `ascii`.
+Copy `config.example.json` to the reported `config.json` path and edit only documented fields. Unknown fields, future schema versions, unsafe limits, and malformed JSON are rejected. `resumeOnLaunch` accepts `off`, `paused`, or `playing`; `icons` accepts `auto`, `nerd-font`, or `ascii`; `theme` accepts `neon`, `catppuccin-mocha`, `solarized-dark`, `tokyo-night`, `gruvbox-dark`, `nord`, or `dracula`.
+
+Press `ctrl+p` in the app to open the settings menu: the Appearance tab switches themes with a live preview, and the General tab edits icon and resume modes. Enter saves everything back to `config.json`; Esc cancels. Themes need a truecolor terminal; without one, every theme falls back to the shared basic-color palette.
 
 Runtime files include `queue.json`, `history.json`, `session.json`, `playlists/*.json`, `ratatube.log`, and at most one rotated `ratatube.log.1`. Documents are bounded to 16 MiB. Malformed migrated documents may receive a `.bak` copy; future-schema documents are left unchanged.
 
