@@ -1,7 +1,7 @@
 //! Modal overlay ordering.
 
 use crate::app::state::AppState;
-use crate::ui::{context_menu, icons, overlay_playlists, overlay_status, theme};
+use crate::ui::{context_menu, icons, overlay_playlists, overlay_settings, overlay_status, theme};
 
 /// Render the highest-priority active overlay.
 pub(super) fn render(
@@ -17,6 +17,10 @@ pub(super) fn render(
     }
     if let Some(details) = &state.ui.track_details_modal {
         context_menu::render_details(frame, area, details, theme);
+        return;
+    }
+    if let Some(settings) = &state.ui.settings {
+        overlay_settings::render(frame, area, settings, theme);
         return;
     }
     if overlay_status::render(frame, area, state, theme) {

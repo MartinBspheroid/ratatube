@@ -77,6 +77,23 @@ impl App {
                 Effect::PersistSession => {
                     self.maybe_save_session(self.state.domain.playback.position_seconds, true);
                 }
+                Effect::PersistUiSettings {
+                    theme,
+                    icons,
+                    resume,
+                } => {
+                    self.config.ui.theme = theme;
+                    self.config.ui.icons = icons;
+                    self.config.playback.resume_on_launch = resume;
+                    self.state.ui.icon_mode = crate::ui::icons::resolve_icon_mode(icons);
+                    match crate::config::loader::save(&self.paths.config_file(), &self.config) {
+                        Ok(()) => self.state.notify("Settings saved", false),
+                        Err(err) => {
+                            tracing::warn!(?err, "settings save failed");
+                            self.state.notify("Settings could not be saved", true);
+                        }
+                    }
+                }
                 Effect::PersistPlaylists | Effect::Exit => {}
             }
         }

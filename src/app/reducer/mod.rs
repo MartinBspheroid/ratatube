@@ -12,6 +12,7 @@ mod queue;
 mod ui;
 
 pub use effect::Effect;
+pub(crate) use ui::settings::theme_index;
 
 use crate::app::action::Action;
 use crate::app::state::AppState;

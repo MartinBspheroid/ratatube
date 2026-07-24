@@ -18,6 +18,20 @@ pub enum IconMode {
     Ascii,
 }
 
+impl IconMode {
+    /// Every mode, in settings-menu cycling order.
+    pub const ALL: [IconMode; 3] = [IconMode::Auto, IconMode::NerdFont, IconMode::Ascii];
+
+    /// The configuration spelling, shown in the settings menu.
+    pub fn label(self) -> &'static str {
+        match self {
+            IconMode::Auto => "auto",
+            IconMode::NerdFont => "nerd-font",
+            IconMode::Ascii => "ascii",
+        }
+    }
+}
+
 /// Built-in color theme selected in `ui.theme` and the ctrl+p settings menu.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -78,6 +92,20 @@ pub enum ResumeMode {
     Paused,
     /// Restore and start playing immediately.
     Playing,
+}
+
+impl ResumeMode {
+    /// Every mode, in settings-menu cycling order.
+    pub const ALL: [ResumeMode; 3] = [ResumeMode::Off, ResumeMode::Paused, ResumeMode::Playing];
+
+    /// The configuration spelling, shown in the settings menu.
+    pub fn label(self) -> &'static str {
+        match self {
+            ResumeMode::Off => "off",
+            ResumeMode::Paused => "paused",
+            ResumeMode::Playing => "playing",
+        }
+    }
 }
 
 /// Root configuration document.

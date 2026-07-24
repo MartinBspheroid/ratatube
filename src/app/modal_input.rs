@@ -45,6 +45,40 @@ impl App {
                     self.state.ui.show_notification_log = false;
                 }
             }
+            ModalCapture::Settings => {
+                let ctrl_p = key.code == KeyCode::Char('p')
+                    && key
+                        .modifiers
+                        .contains(crossterm::event::KeyModifiers::CONTROL);
+                let action = if ctrl_p {
+                    // ctrl+p toggles the menu closed again.
+                    Some(Action::Navigation(NavigationAction::CloseSettings))
+                } else {
+                    match key.code {
+                        KeyCode::Esc => Some(Action::Navigation(NavigationAction::CloseSettings)),
+                        KeyCode::Tab | KeyCode::BackTab => {
+                            Some(Action::Navigation(NavigationAction::SettingsCycleTab))
+                        }
+                        KeyCode::Char('j') | KeyCode::Down => {
+                            Some(Action::Navigation(NavigationAction::SettingsMove(1)))
+                        }
+                        KeyCode::Char('k') | KeyCode::Up => {
+                            Some(Action::Navigation(NavigationAction::SettingsMove(-1)))
+                        }
+                        KeyCode::Char('l') | KeyCode::Right => {
+                            Some(Action::Navigation(NavigationAction::SettingsAdjust(1)))
+                        }
+                        KeyCode::Char('h') | KeyCode::Left => {
+                            Some(Action::Navigation(NavigationAction::SettingsAdjust(-1)))
+                        }
+                        KeyCode::Enter => {
+                            Some(Action::Navigation(NavigationAction::SettingsSubmit))
+                        }
+                        _ => None,
+                    }
+                };
+                send_if_some(action_tx, action).await;
+            }
             ModalCapture::SearchDetails => {
                 if matches!(key.code, KeyCode::Esc | KeyCode::Char('i')) {
                     let _ = action_tx

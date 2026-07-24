@@ -8,6 +8,7 @@ pub(crate) enum ModalCapture {
     TrackContext,
     TrackDetails,
     NotificationLog,
+    Settings,
     SearchDetails,
     Import,
     Confirm,
@@ -27,6 +28,10 @@ impl crate::app::state::UiState {
             Some(ModalCapture::TrackDetails)
         } else if self.show_notification_log {
             Some(ModalCapture::NotificationLog)
+        } else if self.settings.is_some() {
+            // Above the import overlay so another client's import cannot
+            // steal input from a locally opened settings menu.
+            Some(ModalCapture::Settings)
         } else if self.search_detail_open {
             Some(ModalCapture::SearchDetails)
         } else if import_active {
@@ -162,4 +167,32 @@ pub struct PlaylistEditorState {
 pub struct ConfirmState {
     pub message: String,
     pub action: Box<crate::app::action::Action>,
+}
+
+/// Tab within the ctrl+p settings menu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingsTab {
+    /// Theme selection with live preview.
+    Appearance,
+    /// Icon mode and resume-on-launch behavior.
+    General,
+}
+
+/// Number of value rows on the General settings tab (icons, resume).
+pub const SETTINGS_GENERAL_ROWS: usize = 2;
+
+/// State of the ctrl+p settings menu. Theme selection previews live on the
+/// running UI; Enter persists every draft, Esc restores the opening theme.
+#[derive(Debug, Clone)]
+pub struct SettingsState {
+    pub tab: SettingsTab,
+    /// Selected row within the active tab: a theme on Appearance, a value
+    /// row on General.
+    pub selected: usize,
+    /// Theme active when the menu opened; restored on cancel.
+    pub original_theme: crate::config::ThemeName,
+    /// Draft icon mode (the configured value, not the resolved mode).
+    pub icons: crate::config::IconMode,
+    /// Draft resume-on-launch behavior.
+    pub resume: crate::config::ResumeMode,
 }

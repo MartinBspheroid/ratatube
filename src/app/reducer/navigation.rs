@@ -26,6 +26,12 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
         | NavigationAction::CloseTrackDetails => {
             super::ui::modals::reduce_track_context(&mut state.ui, &state.domain, action)
         }
+        NavigationAction::OpenSettings
+        | NavigationAction::CloseSettings
+        | NavigationAction::SettingsCycleTab
+        | NavigationAction::SettingsMove(_)
+        | NavigationAction::SettingsAdjust(_)
+        | NavigationAction::SettingsSubmit => super::ui::settings::reduce(&mut state.ui, action),
         NavigationAction::ClearSearch => {
             state.ui.search_input.clear();
             state.domain.search = SearchState::Idle;

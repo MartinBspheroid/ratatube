@@ -70,6 +70,7 @@ pub const HELP_SECTIONS: &[(&str, &[(&str, &str)])] = &[
         "Other",
         &[
             ("/", "Search (outside lists)"),
+            ("ctrl+p", "Settings (themes and options)"),
             ("!", "Message log"),
             ("v", "Chapters / description pane"),
             ("o", "Open selected/current track in browser"),

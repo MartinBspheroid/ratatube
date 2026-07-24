@@ -12,6 +12,7 @@ pub mod views;
 pub mod widgets;
 
 mod overlay_playlists;
+mod overlay_settings;
 mod overlay_status;
 mod overlays;
 

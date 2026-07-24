@@ -15,7 +15,8 @@ pub use domain_state::DomainState;
 pub(crate) use modals::ModalCapture;
 pub use modals::{
     ConfirmState, PickerState, PlaylistEditorField, PlaylistEditorState, PromptPurpose,
-    PromptState, TrackContextMenuState, TrackDetailsModalState,
+    PromptState, SETTINGS_GENERAL_ROWS, SettingsState, SettingsTab, TrackContextMenuState,
+    TrackDetailsModalState,
 };
 pub use navigation::{Focus, HistoryViewMode, HomeSection, PlayingPane, View};
 pub use notifications::{Notification, SleepTimer};

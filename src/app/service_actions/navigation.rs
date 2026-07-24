@@ -17,6 +17,7 @@ impl App {
     ) {
         match action {
             NavigationAction::OpenTrackContext => self.open_track_context(),
+            NavigationAction::OpenSettings => self.open_settings(),
             NavigationAction::SubmitTrackContext => self.submit_track_context(action_tx).await,
             NavigationAction::OpenInBrowser => {
                 let track = match self.state.ui.view {
@@ -75,5 +76,18 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    /// Open the settings menu seeded with current configuration values;
+    /// only the service layer sees `Config`, so the reducer cannot do this.
+    fn open_settings(&mut self) {
+        let theme = self.state.ui.theme;
+        self.state.ui.settings = Some(crate::app::state::SettingsState {
+            tab: crate::app::state::SettingsTab::Appearance,
+            selected: crate::app::reducer::theme_index(theme),
+            original_theme: theme,
+            icons: self.config.ui.icons,
+            resume: self.config.playback.resume_on_launch,
+        });
     }
 }

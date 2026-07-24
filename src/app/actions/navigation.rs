@@ -91,6 +91,18 @@ pub enum NavigationAction {
     ShowTrackDetails(Track),
     /// Close the selected-track details modal.
     CloseTrackDetails,
+    /// Open the ctrl+p settings menu seeded from current configuration.
+    OpenSettings,
+    /// Close the settings menu, restoring the theme it opened with.
+    CloseSettings,
+    /// Move to the next settings tab.
+    SettingsCycleTab,
+    /// Move the settings selection by signed rows; previews themes live.
+    SettingsMove(i32),
+    /// Cycle the selected settings value by a signed step.
+    SettingsAdjust(i32),
+    /// Persist every settings draft and close the menu.
+    SettingsSubmit,
     SelectNext,
     SelectPrevious,
 }

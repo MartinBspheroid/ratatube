@@ -4,7 +4,8 @@
 
 use crate::app::state::{
     ConfirmState, Focus, HistoryViewMode, HomeSection, Notification, PickerState, PlayingPane,
-    PlaylistEditorState, PromptState, TrackContextMenuState, TrackDetailsModalState, View,
+    PlaylistEditorState, PromptState, SettingsState, TrackContextMenuState, TrackDetailsModalState,
+    View,
 };
 
 /// UI state: everything rendering and input own. Never read by the domain
@@ -57,6 +58,8 @@ pub struct UiState {
     pub(crate) track_context_generation: u64,
     /// Selected-track details that do not replace now-playing metadata.
     pub track_details_modal: Option<TrackDetailsModalState>,
+    /// The ctrl+p settings menu.
+    pub settings: Option<SettingsState>,
 
     // In-list filtering (`/` in list views)
     /// Active filter text; `None` when no filter is applied.

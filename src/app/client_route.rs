@@ -89,6 +89,12 @@ fn route_navigation(action: &NavigationAction) -> Route {
         | NavigationAction::SubmitTrackContext
         | NavigationAction::ShowTrackDetails(_)
         | NavigationAction::CloseTrackDetails
+        | NavigationAction::OpenSettings
+        | NavigationAction::CloseSettings
+        | NavigationAction::SettingsCycleTab
+        | NavigationAction::SettingsMove(_)
+        | NavigationAction::SettingsAdjust(_)
+        | NavigationAction::SettingsSubmit
         | NavigationAction::SelectNext
         | NavigationAction::SelectPrevious => Route::Local,
     }

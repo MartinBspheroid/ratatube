@@ -17,10 +17,11 @@ pub use views::view_action;
 /// Map a key event to a global action, independent of the active view.
 pub fn global_action(key: &KeyEvent) -> Option<Action> {
     if key.modifiers.contains(KeyModifiers::CONTROL) {
-        if let KeyCode::Char('c') = key.code {
-            return Some(Action::Navigation(NavigationAction::Quit));
-        }
-        return None;
+        return match key.code {
+            KeyCode::Char('c') => Some(Action::Navigation(NavigationAction::Quit)),
+            KeyCode::Char('p') => Some(Action::Navigation(NavigationAction::OpenSettings)),
+            _ => None,
+        };
     }
     let action = match key.code {
         KeyCode::Char('1') => Action::Navigation(NavigationAction::Navigate(View::Home)),
