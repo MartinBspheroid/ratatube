@@ -298,6 +298,7 @@ async fn run_attached(paths: persistence::AppPaths, resume: bool) -> Result<()> 
         original_hook(info);
     }));
     let mut terminal = ratatui::init();
+    let _ = crossterm::execute!(std::io::stdout(), crossterm::terminal::SetTitle("ratatube"));
     let _ = crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture);
     let _ = crossterm::execute!(std::io::stdout(), crossterm::event::EnableBracketedPaste);
     let result = app.run_client(&mut terminal, connection).await;
@@ -362,6 +363,7 @@ async fn run_tui(paths: persistence::AppPaths, intent: Option<app::StartupIntent
     }));
 
     let mut terminal = ratatui::init();
+    let _ = crossterm::execute!(std::io::stdout(), crossterm::terminal::SetTitle("ratatube"));
     // Enable mouse events (click to select, wheel to scroll).
     let _ = crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture);
     let _ = crossterm::execute!(std::io::stdout(), crossterm::event::EnableBracketedPaste);
