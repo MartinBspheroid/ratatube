@@ -101,17 +101,16 @@ impl App {
                     let layout =
                         crate::ui::layout::AppLayout::new(self.state.ui.screen_area, true, true);
                     let bar = layout.now_playing;
-                    // The five-row bar has three bordered content rows; the
-                    // progress gauge is the middle content row.
+                    // The four-row chrome strip: rule, title, full-width
+                    // timeline, status. The timeline is the third row.
                     let gauge_row = bar.y + 2;
-                    if bar.height >= 5
+                    if bar.height >= 4
                         && mouse.row == gauge_row
-                        && mouse.column > bar.x
-                        && mouse.column < bar.x + bar.width.saturating_sub(1)
+                        && mouse.column >= bar.x
+                        && mouse.column < bar.x + bar.width
                     {
-                        let inner_width = bar.width.saturating_sub(2);
                         let fraction =
-                            f64::from(mouse.column - bar.x - 1) / f64::from(inner_width.max(1));
+                            f64::from(mouse.column - bar.x) / f64::from(bar.width.max(1));
                         let _ = action_tx
                             .send(Action::Playback(PlaybackAction::SeekToFraction(fraction)))
                             .await;

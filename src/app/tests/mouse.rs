@@ -168,6 +168,26 @@ async fn scrolled_queue_clicks_map_rows_through_the_table_offset() {
 }
 
 #[tokio::test]
+async fn clicking_the_timeline_row_seeks_by_fraction() {
+    let (_temp, mut app) = test_app();
+    app.state.ui.view = View::Queue;
+    app.state.domain.current_track = Some(track("playing"));
+    app.state.ui.screen_area = Rect::new(0, 0, 100, 30);
+    let layout = crate::ui::layout::AppLayout::new(app.state.ui.screen_area, true, true);
+    let bar = layout.now_playing;
+    assert!(bar.height >= 4, "fixture terminal renders the bar");
+    let (action_tx, mut action_rx) = mpsc::channel(4);
+
+    app.handle_mouse(click(bar.x + bar.width / 2, bar.y + 2), &action_tx)
+        .await;
+    let Ok(Action::Playback(PlaybackAction::SeekToFraction(fraction))) = action_rx.try_recv()
+    else {
+        panic!("timeline click must seek");
+    };
+    assert!((fraction - 0.5).abs() < 0.02, "{fraction}");
+}
+
+#[tokio::test]
 async fn channel_double_click_on_the_load_more_row_loads_more() {
     let (_temp, mut app) = test_app();
     app.state.ui.view = View::Channel;
