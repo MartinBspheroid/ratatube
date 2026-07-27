@@ -1,6 +1,75 @@
 use super::*;
 
 #[tokio::test]
+async fn by_id_wire_actions_reach_the_editing_handler_and_persist() {
+    let (_temp, mut app) = test_app();
+    let (action_tx, _action_rx) = mpsc::channel(8);
+    app.handle_action(
+        Action::Playlists(PlaylistAction::CreatePlaylist("Neon Pressure".into())),
+        &action_tx,
+    )
+    .await;
+    let id = app.state.domain.playlists[0].id.clone();
+
+    // The rename, edit, add, and move commands arrive from clients as by-id
+    // actions; each must actually mutate and persist, never be dropped.
+    app.handle_action(
+        Action::Playlists(PlaylistAction::RenamePlaylist {
+            id: id.clone(),
+            name: "Pressure - dnb/bass".into(),
+        }),
+        &action_tx,
+    )
+    .await;
+    assert_eq!(app.state.domain.playlists[0].name, "Pressure - dnb/bass");
+
+    app.handle_action(
+        Action::Playlists(PlaylistAction::EditPlaylist {
+            id: id.clone(),
+            name: "Pressure".into(),
+            description: "rolling basslines".into(),
+        }),
+        &action_tx,
+    )
+    .await;
+    assert_eq!(app.state.domain.playlists[0].name, "Pressure");
+    assert_eq!(
+        app.state.domain.playlists[0].description,
+        "rolling basslines"
+    );
+
+    for track_id in ["a", "b"] {
+        app.handle_action(
+            Action::Playlists(PlaylistAction::AddTrackToPlaylist {
+                playlist_id: id.clone(),
+                track: Track::new(track_id, track_id, "artist"),
+            }),
+            &action_tx,
+        )
+        .await;
+    }
+    assert_eq!(app.state.domain.playlists[0].tracks.len(), 2);
+
+    app.handle_action(
+        Action::Playlists(PlaylistAction::MoveTrackInPlaylist {
+            id: id.clone(),
+            from: 0,
+            to: 1,
+        }),
+        &action_tx,
+    )
+    .await;
+    assert_eq!(app.state.domain.playlists[0].tracks[0].id, "b");
+
+    // Every mutation must be durable, not just in memory.
+    let stored = app.playlists.list().expect("stored playlists");
+    assert_eq!(stored[0].name, "Pressure");
+    assert_eq!(stored[0].description, "rolling basslines");
+    assert_eq!(stored[0].tracks.len(), 2);
+    assert_eq!(stored[0].tracks[0].id, "b");
+}
+
+#[tokio::test]
 async fn pasted_json_import_persists_every_playlist_after_full_validation() {
     let (_temp, mut app) = test_app();
     app.state.ui.prompt = Some(crate::app::state::PromptState {
