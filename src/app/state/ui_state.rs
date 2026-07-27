@@ -8,6 +8,15 @@ use crate::app::state::{
     View,
 };
 
+/// One clickable Home item: clicking it focuses its section and selects
+/// `index`; the Resume card registers a single zone with index 0.
+#[derive(Debug, Clone, Copy)]
+pub struct HomeHitZone {
+    pub section: HomeSection,
+    pub index: usize,
+    pub area: ratatui::layout::Rect,
+}
+
 /// UI state: everything rendering and input own. Never read by the domain
 /// half; domain changes reach it only through `apply_domain_events`.
 #[derive(Default)]
@@ -42,6 +51,12 @@ pub struct UiState {
     pub main_area: ratatui::layout::Rect,
     /// Renderer-provided rows that map one-to-one to selectable items.
     pub list_hit_area: ratatui::layout::Rect,
+    /// Index of the first visible item in `list_hit_area` for views that
+    /// window rows manually; `None` means the list/table state's offset.
+    pub list_hit_offset: Option<usize>,
+    /// Clickable Home items registered per render; the dashboard's sections
+    /// have no shared list geometry, so every item carries its own area.
+    pub home_hit_zones: Vec<HomeHitZone>,
     /// Last rendered full screen area, for mouse hit-testing.
     pub screen_area: ratatui::layout::Rect,
     pub selected_playlist: Option<usize>,

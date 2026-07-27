@@ -78,8 +78,9 @@ pub struct App {
     history: Option<HistoryService>,
     /// Media-position based listened-duration accumulator.
     listening: ListeningAccumulator,
-    /// Last selectable click; double-clicks require the same target.
-    last_click: Option<(Instant, View, usize)>,
+    /// Last selectable click; double-clicks require the same view, pane,
+    /// and item (see `mouse::ClickTarget`).
+    last_click: Option<(Instant, View, u8, usize)>,
     /// Terminal graphics picker (Kitty on Ghostty, halfblocks fallback).
     picker: Option<ratatui_image::picker::Picker>,
     /// Throttle for session snapshot writes during playback.

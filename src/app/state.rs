@@ -21,4 +21,4 @@ pub use modals::{
 pub use navigation::{Focus, HistoryViewMode, HomeSection, PlayingPane, View};
 pub use notifications::{Notification, SleepTimer};
 pub use operations::{DetailsStatus, ImportState, OperationStatus, PendingResume};
-pub use ui_state::UiState;
+pub use ui_state::{HomeHitZone, UiState};

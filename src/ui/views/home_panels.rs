@@ -26,7 +26,7 @@ pub(super) fn panel(
 pub(super) fn render_recent(
     frame: &mut Frame,
     area: Rect,
-    state: &AppState,
+    state: &mut AppState,
     recent: &[crate::media::Track],
     total: usize,
     icons: &Icons,
@@ -75,13 +75,28 @@ pub(super) fn render_recent(
             )
         })
         .collect::<Vec<_>>();
+    let shown = lines.len();
     frame.render_widget(Paragraph::new(lines), inner);
+    for index in 0..shown {
+        state
+            .ui
+            .home_hit_zones
+            .push(crate::app::state::HomeHitZone {
+                section: HomeSection::Recent,
+                index,
+                area: Rect {
+                    y: inner.y + index as u16,
+                    height: 1,
+                    ..inner
+                },
+            });
+    }
 }
 
 pub(super) fn render_playlists(
     frame: &mut Frame,
     area: Rect,
-    state: &AppState,
+    state: &mut AppState,
     icons: &Icons,
     theme: &Theme,
 ) {
@@ -152,6 +167,21 @@ pub(super) fn render_playlists(
                 *column,
             );
         }
+        let total = state.domain.playlists.len();
+        for (offset, column) in columns.iter().enumerate().take(4) {
+            let index = page * 4 + offset;
+            if index >= total {
+                break;
+            }
+            state
+                .ui
+                .home_hit_zones
+                .push(crate::app::state::HomeHitZone {
+                    section: HomeSection::Playlists,
+                    index,
+                    area: *column,
+                });
+        }
     } else {
         let lines = state
             .domain
@@ -175,6 +205,21 @@ pub(super) fn render_playlists(
                 )
             })
             .collect::<Vec<_>>();
+        let shown = lines.len();
         frame.render_widget(Paragraph::new(lines), inner);
+        for index in 0..shown {
+            state
+                .ui
+                .home_hit_zones
+                .push(crate::app::state::HomeHitZone {
+                    section: HomeSection::Playlists,
+                    index,
+                    area: Rect {
+                        y: inner.y + index as u16,
+                        height: 1,
+                        ..inner
+                    },
+                });
+        }
     }
 }

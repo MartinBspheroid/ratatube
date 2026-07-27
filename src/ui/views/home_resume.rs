@@ -28,6 +28,15 @@ pub(super) fn render_resume(
         );
         return;
     };
+    // The whole card is one clickable item.
+    state
+        .ui
+        .home_hit_zones
+        .push(crate::app::state::HomeHitZone {
+            section: HomeSection::Resume,
+            index: 0,
+            area: inner,
+        });
     let show_art = inner.width >= crate::ui::layout::RESUME_ART_MIN_WIDTH;
     let columns = Layout::default()
         .direction(Direction::Horizontal)

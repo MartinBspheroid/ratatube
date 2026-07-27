@@ -161,11 +161,14 @@ pub(super) fn render_queue(
 ) {
     let focused = state.ui.playing_pane == PlayingPane::Queue;
     let inner = section_panel(frame, area, "Queue", focused, theme, icons);
-    state.ui.list_hit_area = inner;
     let start = state
         .ui
         .selected_index
         .saturating_sub(inner.height as usize / 2);
+    state.ui.list_hit_area = inner;
+    // This pane windows rows manually; without the explicit offset mouse
+    // clicks would map rows through the unrelated list-state offset.
+    state.ui.list_hit_offset = Some(start);
     let lines = state
         .domain
         .queue

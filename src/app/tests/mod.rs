@@ -2,6 +2,7 @@
 
 mod browser;
 mod command_path;
+mod mouse;
 mod playlist_workflows;
 mod selection;
 mod session;

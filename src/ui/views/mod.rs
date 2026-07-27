@@ -40,6 +40,8 @@ pub fn render_main(
 ) {
     state.ui.main_area = area;
     state.ui.list_hit_area = Rect::default();
+    state.ui.list_hit_offset = None;
+    state.ui.home_hit_zones.clear();
     match state.ui.view {
         View::Home => home::render_home(frame, area, state, history, icons, theme),
         View::Search => search::render_search(frame, area, state, icons, theme),
