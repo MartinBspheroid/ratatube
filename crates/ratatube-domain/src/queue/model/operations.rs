@@ -16,27 +16,21 @@ impl Queue {
     pub fn push_next(&mut self, track: Track) {
         self.tracks.push(track);
         let track_index = self.tracks.len() - 1;
-        let insert_at = self.position.map_or(0, |position| position + 1);
-        self.order
-            .insert(insert_at.min(self.order.len()), track_index);
+        let insert_at = self
+            .position
+            .map_or(0, |position| position + 1)
+            .min(self.order.len());
+        self.order.insert(insert_at, track_index);
+        self.absorb_insertion(insert_at);
     }
 
     /// Insert a track at a play-order position.
     pub fn insert_at(&mut self, position: usize, track: Track) {
         let track_index = self.tracks.len();
         self.tracks.push(track);
-        self.order
-            .insert(position.min(self.order.len()), track_index);
-        if let Some(current) = &mut self.position
-            && *current >= position
-        {
-            *current += 1;
-        }
-        for history_position in &mut self.play_history {
-            if *history_position >= position {
-                *history_position += 1;
-            }
-        }
+        let insert_at = position.min(self.order.len());
+        self.order.insert(insert_at, track_index);
+        self.absorb_insertion(insert_at);
     }
 
     /// Remove the track at play-order position `position`.
@@ -73,17 +67,32 @@ impl Queue {
         }
         let item = self.order.remove(from);
         self.order.insert(to, item);
-        self.position = self.position.map(|position| {
-            if position == from {
-                to
-            } else if from < to && position > from && position <= to {
-                position - 1
-            } else if to < from && position >= to && position < from {
-                position + 1
-            } else {
-                position
+        self.absorb_move(from, to);
+    }
+
+    /// Shift every stored play-order position to absorb an insertion.
+    ///
+    /// `position` and `play_history` both index `order`, so any structural
+    /// change has to move them together or Previous lands on the wrong track.
+    fn absorb_insertion(&mut self, insert_at: usize) {
+        if let Some(current) = &mut self.position
+            && *current >= insert_at
+        {
+            *current += 1;
+        }
+        for history_position in &mut self.play_history {
+            if *history_position >= insert_at {
+                *history_position += 1;
             }
-        });
+        }
+    }
+
+    /// Shift every stored play-order position to follow a move.
+    fn absorb_move(&mut self, from: usize, to: usize) {
+        self.position = self.position.map(|position| moved(position, from, to));
+        for history_position in &mut self.play_history {
+            *history_position = moved(*history_position, from, to);
+        }
     }
 
     /// Remove all tracks.
@@ -170,5 +179,19 @@ impl Queue {
             }
             _ => PreviousOutcome::RestartCurrent,
         }
+    }
+}
+
+/// Where the play-order position `position` ends up once the item at `from`
+/// moves to `to`.
+fn moved(position: usize, from: usize, to: usize) -> usize {
+    if position == from {
+        to
+    } else if from < to && position > from && position <= to {
+        position - 1
+    } else if to < from && position >= to && position < from {
+        position + 1
+    } else {
+        position
     }
 }

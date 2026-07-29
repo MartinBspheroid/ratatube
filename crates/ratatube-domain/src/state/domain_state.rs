@@ -141,7 +141,14 @@ impl DomainState {
     }
 
     /// Record position only after the active load's `file-loaded` boundary.
+    ///
+    /// Non-finite and negative values are dropped: `position_seconds` is a bare
+    /// `f64`, so a NaN or infinity would serialize to JSON `null` and poison
+    /// every snapshot the daemon broadcasts.
     pub fn record_position(&mut self, position: f64) {
+        if !position.is_finite() || position < 0.0 {
+            return;
+        }
         if self.playback_loaded_occurrence == Some(self.playback_occurrence) {
             self.playback.position_seconds = position;
             self.position_occurrence = Some(self.playback_occurrence);
@@ -149,7 +156,13 @@ impl DomainState {
     }
 
     /// Record duration only after the active load's `file-loaded` boundary.
+    ///
+    /// Non-finite and negative values are dropped for the same reason as in
+    /// `record_position`.
     pub fn record_duration(&mut self, duration: f64) {
+        if !duration.is_finite() || duration < 0.0 {
+            return;
+        }
         if self.playback_loaded_occurrence == Some(self.playback_occurrence) {
             self.playback.duration_seconds = Some(duration);
             self.duration_occurrence = Some(self.playback_occurrence);
@@ -217,5 +230,47 @@ impl DomainState {
             }
             PlaybackEvent::Connected => self.mpv_ready = true,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DomainState;
+
+    fn loaded_state() -> DomainState {
+        let mut state = DomainState::default();
+        state.begin_playback_occurrence();
+        state.mark_file_loaded();
+        state
+    }
+
+    #[test]
+    fn record_position_rejects_non_finite_and_negative_values() {
+        let mut state = loaded_state();
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0] {
+            state.record_position(value);
+            assert_eq!(state.playback.position_seconds, 0.0);
+            assert_eq!(state.position_occurrence, None);
+        }
+        state.record_position(12.5);
+        assert_eq!(state.playback.position_seconds, 12.5);
+        assert_eq!(state.position_occurrence, Some(state.playback_occurrence));
+        state.record_position(f64::NAN);
+        assert_eq!(state.playback.position_seconds, 12.5);
+    }
+
+    #[test]
+    fn record_duration_rejects_non_finite_and_negative_values() {
+        let mut state = loaded_state();
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0] {
+            state.record_duration(value);
+            assert_eq!(state.playback.duration_seconds, None);
+            assert_eq!(state.duration_occurrence, None);
+        }
+        state.record_duration(200.0);
+        assert_eq!(state.playback.duration_seconds, Some(200.0));
+        assert_eq!(state.duration_occurrence, Some(state.playback_occurrence));
+        state.record_duration(f64::INFINITY);
+        assert_eq!(state.playback.duration_seconds, Some(200.0));
     }
 }
