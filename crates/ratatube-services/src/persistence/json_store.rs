@@ -87,6 +87,10 @@ pub fn atomic_write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
 
     let write_result = (|| -> Result<()> {
         fs::write(&tmp, &payload)?;
+        // Owner-only before it is published, so the document is never briefly
+        // world-readable and does not depend on the data directory's mode to
+        // stay private. These files hold listening history and playlists.
+        restrict_to_owner(&tmp)?;
         // Flush the data to disk before rename.
         let file = fs::File::open(&tmp)?;
         file.sync_all()?;
@@ -104,6 +108,22 @@ pub fn atomic_write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
         let _ = fs::remove_file(&tmp);
     }
     write_result
+}
+
+/// Restrict a file to its owner before it is published under its real name.
+#[cfg(unix)]
+fn restrict_to_owner(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+    Ok(())
+}
+
+/// Non-unix platforms have no equivalent mode to set here; the containing
+/// directory remains the access boundary.
+#[cfg(not(unix))]
+fn restrict_to_owner(_path: &Path) -> Result<()> {
+    Ok(())
 }
 
 /// Fsync a directory so a rename inside it becomes durable.
@@ -188,6 +208,28 @@ mod tests {
         );
         let value: serde_json::Value = read(&path).expect("read");
         assert_eq!(value["a"], 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn written_documents_are_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("doc.json");
+        atomic_write(&path, &serde_json::json!({"a": 1})).expect("write");
+
+        let mode = fs::metadata(&path).expect("metadata").permissions().mode();
+        assert_eq!(
+            mode & 0o777,
+            0o600,
+            "documents hold listening history; they must not be group/other readable"
+        );
+
+        // A rewrite must not widen the mode either.
+        atomic_write(&path, &serde_json::json!({"a": 2})).expect("rewrite");
+        let mode = fs::metadata(&path).expect("metadata").permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
     }
 
     #[test]
