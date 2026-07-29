@@ -3,7 +3,7 @@
 //! daemon never sees them.
 
 pub mod modals;
-pub mod navigation;
+mod navigation;
 pub mod presentation;
 pub mod settings;
 

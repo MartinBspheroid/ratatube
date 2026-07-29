@@ -13,7 +13,7 @@ use crate::state::{AppState, View};
 
 /// Tab titles, preserving a full active label on narrow terminals. Each
 /// label leads with its `1`–`6` jump key so the shortcut is discoverable.
-pub fn tab_titles(icons: &Icons, active: View, narrow: bool) -> Vec<(View, String)> {
+fn tab_titles(icons: &Icons, active: View, narrow: bool) -> Vec<(View, String)> {
     let ascii_mode = icons.playing == "[PLAY]";
     let views = [
         (View::Home, icons.home, "Home", "Hm"),
@@ -63,7 +63,7 @@ fn header_logo() -> String {
 }
 
 /// Render view tabs and dependency status when a dependency is unavailable.
-pub fn render_header(
+pub(super) fn render_header(
     frame: &mut Frame,
     area: Rect,
     state: &AppState,

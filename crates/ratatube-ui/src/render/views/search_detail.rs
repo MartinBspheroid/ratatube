@@ -3,7 +3,7 @@
 use super::*;
 use crate::render::components::{key_value_rows, section_panel};
 
-pub fn render_selected(
+pub(super) fn render_selected(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,
@@ -63,7 +63,7 @@ pub fn render_selected(
     );
 }
 
-pub fn render_overlay(
+pub(super) fn render_overlay(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,

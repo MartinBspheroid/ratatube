@@ -12,11 +12,11 @@ use crate::render::layout::Breakpoint;
 use crate::state::{Focus, PlayingPane, View};
 use ratatube_domain::action::{Action, NavigationAction, PlaybackAction};
 
-pub use help::HELP_SECTIONS;
-pub use views::view_action;
+pub(crate) use help::HELP_SECTIONS;
+use views::view_action;
 
 /// Map a key event to a global action, independent of the active view.
-pub fn global_action(key: &KeyEvent) -> Option<Action> {
+fn global_action(key: &KeyEvent) -> Option<Action> {
     if key.modifiers.contains(KeyModifiers::CONTROL) {
         return match key.code {
             KeyCode::Char('c') => Some(Action::Navigation(NavigationAction::Quit)),

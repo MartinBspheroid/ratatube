@@ -18,7 +18,7 @@ const VARIANT_WIDTH: usize = 8;
 const CHROME_ROWS: u16 = 4;
 
 /// Render the settings menu when it is open.
-pub fn render(
+pub(super) fn render(
     frame: &mut ratatui::Frame,
     area: ratatui::layout::Rect,
     settings: &SettingsState,

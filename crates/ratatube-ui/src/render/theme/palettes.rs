@@ -9,28 +9,28 @@ use ratatube_domain::config::ThemeName;
 
 /// Truecolor swatch of one published color scheme, mapped onto the style
 /// roles the UI consumes.
-pub struct Palette {
-    pub bg: Color,
-    pub panel_bg: Color,
+pub(super) struct Palette {
+    pub(super) bg: Color,
+    pub(super) panel_bg: Color,
     /// Emphasized foreground: headers, values, selected rows.
-    pub text: Color,
+    pub(super) text: Color,
     /// Secondary foreground: chips and de-emphasized copy.
-    pub subtext: Color,
+    pub(super) subtext: Color,
     /// Lowest-emphasis foreground: labels, rules, hints.
-    pub dim: Color,
-    pub accent: Color,
-    pub accent_alt: Color,
-    pub red: Color,
-    pub yellow: Color,
-    pub orange: Color,
-    pub green: Color,
-    pub selected_bg: Color,
-    pub border: Color,
+    pub(super) dim: Color,
+    pub(super) accent: Color,
+    pub(super) accent_alt: Color,
+    pub(super) red: Color,
+    pub(super) yellow: Color,
+    pub(super) orange: Color,
+    pub(super) green: Color,
+    pub(super) selected_bg: Color,
+    pub(super) border: Color,
 }
 
 /// The palette for `name`; `None` only for dark Neon, whose palette is the
 /// legacy `from_truecolor` builder.
-pub fn palette_for(name: ThemeName) -> Option<&'static Palette> {
+pub(super) fn palette_for(name: ThemeName) -> Option<&'static Palette> {
     Some(match name {
         ThemeName::Neon => return None,
         ThemeName::NeonLight => &NEON_LIGHT,

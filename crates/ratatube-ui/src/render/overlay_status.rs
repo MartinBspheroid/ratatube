@@ -7,7 +7,7 @@ use crate::render::{centered_rect, icons, theme, widgets};
 use crate::state::{AppState, ImportState};
 
 /// Render status-owned overlays, returning whether one was active.
-pub fn render(
+pub(super) fn render(
     frame: &mut ratatui::Frame,
     area: ratatui::layout::Rect,
     state: &AppState,

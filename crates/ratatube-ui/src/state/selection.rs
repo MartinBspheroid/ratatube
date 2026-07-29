@@ -8,7 +8,7 @@ use ratatube_domain::media::search::SearchState;
 
 impl UiState {
     /// Clamp selection to the length of the active list.
-    pub fn clamp_selection(&mut self, domain: &DomainState) {
+    pub(crate) fn clamp_selection(&mut self, domain: &DomainState) {
         let length = self.active_list_len(domain);
         if length == 0 {
             self.selected_index = 0;
@@ -18,20 +18,20 @@ impl UiState {
     }
 
     /// Reset list scroll state; called on navigation between views.
-    pub fn reset_list(&mut self, domain: &DomainState) {
+    pub(crate) fn reset_list(&mut self, domain: &DomainState) {
         self.list_state = ratatui::widgets::ListState::default();
         self.table_state = ratatui::widgets::TableState::default();
         self.clamp_selection(domain);
     }
 
     /// Advance the spinner animation frame.
-    pub fn tick_spinner(&mut self) {
+    fn tick_spinner(&mut self) {
         self.spinner_frame = self.spinner_frame.wrapping_add(1);
     }
 
     /// Map a position in the possibly filtered visible list back to an index
     /// into the underlying list.
-    pub fn resolve_index(&self, visible: usize) -> usize {
+    fn resolve_index(&self, visible: usize) -> usize {
         match &self.visible_indices {
             Some(indices) => indices.get(visible).copied().unwrap_or(visible),
             None => visible,
@@ -39,7 +39,7 @@ impl UiState {
     }
 
     /// Length of the list backing the current view.
-    pub fn active_list_len(&self, domain: &DomainState) -> usize {
+    pub(crate) fn active_list_len(&self, domain: &DomainState) -> usize {
         if let Some(indices) = &self.visible_indices {
             return indices.len();
         }
@@ -92,12 +92,12 @@ impl AppState {
     }
 
     /// Chapters of the current track, whether uploader-set or parsed from a tracklist.
-    pub fn chapters(&self) -> &[ratatube_domain::media::Chapter] {
+    pub(crate) fn chapters(&self) -> &[ratatube_domain::media::Chapter] {
         self.domain.chapters()
     }
 
     /// Index of the chapter the playhead is currently inside.
-    pub fn current_chapter_index(&self) -> Option<usize> {
+    pub(crate) fn current_chapter_index(&self) -> Option<usize> {
         self.domain.current_chapter_index()
     }
 

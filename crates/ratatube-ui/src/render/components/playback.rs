@@ -15,7 +15,7 @@ use crate::state::AppState;
 use ratatube_domain::queue::RepeatMode;
 
 /// Render the shared name, timeline, and playback-status rows.
-pub fn playback_summary(
+pub(crate) fn playback_summary(
     frame: &mut Frame,
     area: Rect,
     state: &AppState,

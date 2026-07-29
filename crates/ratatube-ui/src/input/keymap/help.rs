@@ -1,7 +1,7 @@
 //! User-facing key catalog.
 
 /// Canonical user-facing command catalog rendered by the Help view.
-pub const HELP_SECTIONS: &[(&str, &[(&str, &str)])] = &[
+pub(crate) const HELP_SECTIONS: &[(&str, &[(&str, &str)])] = &[
     (
         "Views",
         &[

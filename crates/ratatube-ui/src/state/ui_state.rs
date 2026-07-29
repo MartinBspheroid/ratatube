@@ -46,7 +46,7 @@ pub struct UiState {
     /// Selection state for the search results table.
     pub table_state: ratatui::widgets::TableState,
     /// Rotates on every render tick to animate spinners.
-    pub spinner_frame: usize,
+    pub(crate) spinner_frame: usize,
     /// Last rendered main content area, for mouse hit-testing.
     pub main_area: ratatui::layout::Rect,
     /// Renderer-provided rows that map one-to-one to selectable items.
@@ -87,7 +87,7 @@ pub struct UiState {
 
     // Notifications
     /// Recent notifications, newest first, in a bounded ring.
-    pub notification_log: std::collections::VecDeque<Notification>,
+    pub(crate) notification_log: std::collections::VecDeque<Notification>,
     /// Whether the notification log overlay is open.
     pub show_notification_log: bool,
     pub notification: Option<Notification>,
@@ -99,7 +99,7 @@ pub struct UiState {
     pub now_playing_scroll: u16,
     /// Show the description instead of chapters in the Playing view's right
     /// pane; this is meaningful only when chapters exist.
-    pub now_playing_show_description: bool,
+    pub(crate) now_playing_show_description: bool,
     /// Active pane when the ultra-wide Playing layout exposes its queue.
     pub playing_pane: PlayingPane,
 
@@ -113,7 +113,7 @@ pub struct UiState {
     pub history_len: usize,
 
     /// Displayed level-meter band heights, smoothed between level updates.
-    pub viz_bands: [f32; crate::render::components::BAND_COUNT],
+    pub(crate) viz_bands: [f32; crate::render::components::BAND_COUNT],
 
     /// Resolved icon mode from configuration (PRD 10.12).
     pub icon_mode: ratatube_domain::config::IconMode,

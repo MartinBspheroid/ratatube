@@ -1,15 +1,15 @@
 //! Terminal UI: layout, theme, icons, widgets, and views.
 
 pub mod activity;
-pub mod components;
-pub mod context_menu;
-pub mod footer;
+pub(crate) mod components;
+mod context_menu;
+mod footer;
 pub mod header;
 pub mod icons;
 pub mod layout;
-pub mod theme;
-pub mod views;
-pub mod widgets;
+mod theme;
+mod views;
+mod widgets;
 
 mod overlay_playlists;
 mod overlay_settings;
@@ -128,11 +128,7 @@ where
 }
 
 /// Center a modal of `width`/`height` within `area`.
-pub fn centered_rect(
-    area: ratatui::layout::Rect,
-    width: u16,
-    height: u16,
-) -> ratatui::layout::Rect {
+fn centered_rect(area: ratatui::layout::Rect, width: u16, height: u16) -> ratatui::layout::Rect {
     let width = width.min(area.width);
     let height = height.min(area.height);
     ratatui::layout::Rect {

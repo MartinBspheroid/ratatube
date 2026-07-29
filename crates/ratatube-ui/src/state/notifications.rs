@@ -7,7 +7,7 @@ use crate::state::AppState;
 pub struct Notification {
     pub message: String,
     pub is_error: bool,
-    pub created_at: chrono::DateTime<chrono::Local>,
+    pub(crate) created_at: chrono::DateTime<chrono::Local>,
     expires_at: std::time::Instant,
 }
 
@@ -35,7 +35,7 @@ impl Notification {
 
 impl crate::state::UiState {
     /// Record a transient notification and retain it in the bounded log.
-    pub fn notify(&mut self, message: &str, is_error: bool) {
+    pub(crate) fn notify(&mut self, message: &str, is_error: bool) {
         let notification = Notification::new_at(message, is_error, std::time::Instant::now());
         self.notification_log.push_front(notification.clone());
         self.notification_log.truncate(50);

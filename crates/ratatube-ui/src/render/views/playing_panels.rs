@@ -6,7 +6,7 @@ use crate::render::components::{
 };
 use crate::state::PlayingPane;
 
-pub fn render_up_next(
+pub(super) fn render_up_next(
     frame: &mut Frame,
     area: Rect,
     state: &AppState,
@@ -79,7 +79,7 @@ pub fn render_up_next(
     }
 }
 
-pub fn render_description(
+pub(super) fn render_description(
     frame: &mut Frame,
     area: Rect,
     state: &AppState,
@@ -159,7 +159,7 @@ fn render_chapters(
     scrollbar(frame, inner, chapters.len(), offset);
 }
 
-pub fn render_queue(
+pub(super) fn render_queue(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,

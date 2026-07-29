@@ -32,7 +32,7 @@ use ratatube_domain::history::HistoryLog;
 use ratatube_domain::media::search::SearchState;
 
 /// Dispatch to the renderer for the active view.
-pub fn render_main(
+pub(super) fn render_main(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,

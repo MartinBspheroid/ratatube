@@ -22,14 +22,14 @@ const HIGHLIGHT_WIDTH: u16 = 1;
 
 /// Cross-tab track state shown in the marker column.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct TrackFlags {
-    pub playing: bool,
-    pub queued: bool,
-    pub in_playlist: bool,
+pub(crate) struct TrackFlags {
+    pub(crate) playing: bool,
+    pub(crate) queued: bool,
+    pub(crate) in_playlist: bool,
 }
 
 /// Resolve the marker flags for a track ID against global state.
-pub fn track_flags(state: &AppState, track_id: &str) -> TrackFlags {
+pub(crate) fn track_flags(state: &AppState, track_id: &str) -> TrackFlags {
     TrackFlags {
         playing: state
             .domain
@@ -52,17 +52,17 @@ pub fn track_flags(state: &AppState, track_id: &str) -> TrackFlags {
 }
 
 /// One row of the shared track table.
-pub struct TrackRow {
-    pub index: usize,
-    pub title: String,
-    pub channel: String,
-    pub right: String,
-    pub flags: TrackFlags,
+pub(crate) struct TrackRow {
+    pub(crate) index: usize,
+    pub(crate) title: String,
+    pub(crate) channel: String,
+    pub(crate) right: String,
+    pub(crate) flags: TrackFlags,
 }
 
 /// Column budget for one table instance, derived from the pane width.
 #[derive(Debug, Clone, Copy)]
-pub struct TrackTableLayout {
+pub(crate) struct TrackTableLayout {
     title_width: u16,
     channel_width: u16,
     right_width: u16,
@@ -71,7 +71,7 @@ pub struct TrackTableLayout {
 impl TrackTableLayout {
     /// Split `width` into the five standard columns; `right_width` sizes the
     /// trailing column (8 fits `LENGTH`, wider fits history statistics).
-    pub fn new(width: u16, right_width: u16) -> Self {
+    pub(crate) fn new(width: u16, right_width: u16) -> Self {
         let fixed = MARKER_WIDTH + INDEX_WIDTH + COLUMN_SPACING + HIGHLIGHT_WIDTH + right_width;
         let flexible = width.saturating_sub(fixed);
         let title_width = flexible * 3 / 5;
@@ -83,7 +83,7 @@ impl TrackTableLayout {
     }
 
     /// Ratatui constraints matching the pre-truncated cell contents.
-    pub fn constraints(&self) -> [Constraint; 5] {
+    pub(crate) fn constraints(&self) -> [Constraint; 5] {
         [
             Constraint::Length(MARKER_WIDTH),
             Constraint::Length(INDEX_WIDTH),
@@ -96,14 +96,14 @@ impl TrackTableLayout {
 
 /// Standard dim column header; `right_header` is `LENGTH` unless a view has
 /// a domain-specific trailing column (for example `LISTENED`).
-pub fn header_row<'a>(right_header: &'a str, theme: &Theme) -> Row<'a> {
+pub(crate) fn header_row<'a>(right_header: &'a str, theme: &Theme) -> Row<'a> {
     Row::new(["", "#", "TITLE", "CHANNEL", right_header])
         .style(theme.label)
         .bottom_margin(1)
 }
 
 /// Build one standardized row with ellipsis truncation and marker glyph.
-pub fn track_row(
+pub(crate) fn track_row(
     layout: &TrackTableLayout,
     row: TrackRow,
     theme: &Theme,
@@ -123,7 +123,7 @@ pub fn track_row(
 }
 
 /// Build a full-width message row (for example `Load more…` / `Retry…`).
-pub fn message_row(label: String, detail: String, theme: &Theme) -> Row<'static> {
+pub(crate) fn message_row(label: String, detail: String, theme: &Theme) -> Row<'static> {
     Row::new(vec![
         Cell::from(""),
         Cell::from(""),
@@ -134,7 +134,7 @@ pub fn message_row(label: String, detail: String, theme: &Theme) -> Row<'static>
 }
 
 /// Marker-legend spans for a results meta line or help text.
-pub fn marker_legend(theme: &Theme, icons: &Icons) -> Vec<Span<'static>> {
+pub(crate) fn marker_legend(theme: &Theme, icons: &Icons) -> Vec<Span<'static>> {
     vec![
         Span::styled(format!("  ·  {} ", icons.play_btn), theme.success),
         Span::styled("playing  ", theme.dim),

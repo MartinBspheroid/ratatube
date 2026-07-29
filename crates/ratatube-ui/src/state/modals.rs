@@ -23,7 +23,7 @@ impl crate::state::UiState {
     /// Return the topmost modal that captures keyboard, mouse, and paste
     /// input. `import_active` is the domain-side import flow, whose review
     /// modal also captures input.
-    pub fn modal_capture(&self, import_active: bool) -> Option<ModalCapture> {
+    fn modal_capture(&self, import_active: bool) -> Option<ModalCapture> {
         if self.track_context_menu.is_some() {
             Some(ModalCapture::TrackContext)
         } else if self.track_details_modal.is_some() {
@@ -52,7 +52,7 @@ impl crate::state::UiState {
     }
 
     /// Replace any context menu with an add-to-playlist picker for `track`.
-    pub fn show_playlist_picker(&mut self, track: ratatube_domain::media::Track) {
+    fn show_playlist_picker(&mut self, track: ratatube_domain::media::Track) {
         self.track_context_menu = None;
         self.picker = Some(PickerState {
             track,
@@ -63,7 +63,7 @@ impl crate::state::UiState {
 
     /// Replace any context menu with stable details for `track`; `details`
     /// are supplied by the caller only when they belong to this exact track.
-    pub fn show_track_details(
+    pub(crate) fn show_track_details(
         &mut self,
         track: ratatube_domain::media::Track,
         details: Option<ratatube_domain::media::TrackDetails>,

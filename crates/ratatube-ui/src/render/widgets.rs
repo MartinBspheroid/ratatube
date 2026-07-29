@@ -11,16 +11,16 @@ use crate::render::theme::Theme;
 use crate::state::AppState;
 
 /// Braille spinner frames, cycled by `spinner_frame`.
-pub const SPINNER_FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const SPINNER_FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 /// Current spinner glyph for animations.
-pub fn spinner(frame: usize) -> &'static str {
+pub(super) fn spinner(frame: usize) -> &'static str {
     SPINNER_FRAMES[frame % SPINNER_FRAMES.len()]
 }
 
 /// Render the mini player as a chrome strip: a top rule, then the shared
 /// three-row playback summary (borders are reserved for overlays).
-pub fn render_now_playing(
+pub(super) fn render_now_playing(
     frame: &mut Frame,
     area: Rect,
     state: &AppState,
@@ -46,7 +46,7 @@ pub fn render_now_playing(
 }
 
 /// Truncate `text` to `max_width` chars with a trailing ellipsis.
-pub fn truncate_end(text: &str, max_width: usize) -> String {
+pub(super) fn truncate_end(text: &str, max_width: usize) -> String {
     let len = text.chars().count();
     if len <= max_width {
         return text.to_string();
@@ -60,7 +60,7 @@ pub fn truncate_end(text: &str, max_width: usize) -> String {
 }
 
 /// Truncate `text` with a middle ellipsis while retaining both ends.
-pub fn truncate_middle(text: &str, max_width: usize) -> String {
+pub(super) fn truncate_middle(text: &str, max_width: usize) -> String {
     let chars: Vec<char> = text.chars().collect();
     if chars.len() <= max_width {
         return text.to_string();
@@ -78,7 +78,7 @@ pub fn truncate_middle(text: &str, max_width: usize) -> String {
 }
 
 /// Format seconds as m:ss, or h:mm:ss for long durations.
-pub fn format_time(seconds: f64) -> String {
+pub(super) fn format_time(seconds: f64) -> String {
     let total = seconds.max(0.0) as u64;
     let hours = total / 3600;
     let minutes = (total % 3600) / 60;

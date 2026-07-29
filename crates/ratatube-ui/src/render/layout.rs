@@ -4,31 +4,31 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 /// Documented minimum terminal dimensions (PRD 20). Below this the UI
 /// degrades adaptively (panels hidden) but keeps working.
-pub const MIN_COLS: u16 = 80;
-pub const MIN_ROWS: u16 = 24;
+pub(super) const MIN_COLS: u16 = 80;
+pub(super) const MIN_ROWS: u16 = 24;
 
 /// Hard floor: below these dimensions only a warning can be shown.
-pub const FLOOR_COLS: u16 = 40;
-pub const FLOOR_ROWS: u16 = 10;
+pub(super) const FLOOR_COLS: u16 = 40;
+pub(super) const FLOOR_ROWS: u16 = 10;
 
 /// One-cell gap between adjacent panes so separation survives terminals
 /// where `panel_bg` is a no-op (non-truecolor).
-pub const PANE_GUTTER: u16 = 1;
+pub(super) const PANE_GUTTER: u16 = 1;
 
 /// Shared list/detail split for browse views (Search, Channel).
-pub const LIST_DETAIL: [u16; 2] = [65, 35];
+pub(super) const LIST_DETAIL: [u16; 2] = [65, 35];
 
 /// Master/detail split for the Playlists overview.
-pub const PLAYLIST_MASTER: [u16; 2] = [38, 62];
+pub(super) const PLAYLIST_MASTER: [u16; 2] = [38, 62];
 
 /// Minimum pane width for the Home playlists card grid.
-pub const HOME_GRID_MIN_WIDTH: u16 = 68;
+pub(super) const HOME_GRID_MIN_WIDTH: u16 = 68;
 
 /// Minimum editor width before the playlist inspector pane appears.
-pub const INSPECTOR_MIN_WIDTH: u16 = 88;
+pub(super) const INSPECTOR_MIN_WIDTH: u16 = 88;
 
 /// Minimum Quick Resume pane width before thumbnail art appears.
-pub const RESUME_ART_MIN_WIDTH: u16 = 36;
+pub(super) const RESUME_ART_MIN_WIDTH: u16 = 36;
 
 /// Responsive layout band selected only from terminal width.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -54,10 +54,10 @@ impl Breakpoint {
 /// Rectangles for the four fixed screen areas.
 #[derive(Debug, Clone, Copy)]
 pub struct AppLayout {
-    pub header: Rect,
-    pub main: Rect,
+    pub(super) header: Rect,
+    pub(super) main: Rect,
     pub now_playing: Rect,
-    pub footer: Rect,
+    pub(super) footer: Rect,
 }
 
 impl AppLayout {
@@ -91,13 +91,13 @@ impl AppLayout {
 }
 
 /// Whether the terminal is below the hard floor and cannot render the UI.
-pub fn is_compact(area: Rect) -> bool {
+pub(super) fn is_compact(area: Rect) -> bool {
     area.width < FLOOR_COLS || area.height < FLOOR_ROWS
 }
 
 /// Whether the terminal is below the documented minimum; the UI renders
 /// adaptively but should tell the user (PRD 20).
-pub fn is_small(area: Rect) -> bool {
+pub(super) fn is_small(area: Rect) -> bool {
     area.width < MIN_COLS || area.height < MIN_ROWS
 }
 

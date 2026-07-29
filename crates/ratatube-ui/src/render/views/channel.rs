@@ -15,7 +15,7 @@ use crate::render::theme::Theme;
 use crate::render::widgets::{format_time, spinner};
 use crate::state::AppState;
 
-pub fn render_channel(
+pub(super) fn render_channel(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,

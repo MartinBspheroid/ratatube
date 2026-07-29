@@ -8,7 +8,7 @@ use crate::state::track_context::TrackContextAction;
 use crate::state::{TrackContextMenuState, TrackDetailsModalState};
 
 /// Render the non-blocking track context menu above the active view.
-pub fn render(
+pub(super) fn render(
     frame: &mut ratatui::Frame,
     area: ratatui::layout::Rect,
     menu: &TrackContextMenuState,
@@ -60,7 +60,7 @@ pub fn render(
 }
 
 /// Render details for the context-selected track without replacing playback data.
-pub fn render_details(
+pub(super) fn render_details(
     frame: &mut ratatui::Frame,
     area: ratatui::layout::Rect,
     modal: &TrackDetailsModalState,

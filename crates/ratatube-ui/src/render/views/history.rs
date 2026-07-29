@@ -7,7 +7,7 @@ use crate::render::components::{
 };
 use crate::state::HistoryViewMode;
 
-pub fn render_history(
+pub(super) fn render_history(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,

@@ -27,12 +27,12 @@ pub fn reduce_history(ui: &mut UiState, action: HistoryAction) -> Vec<Effect> {
 }
 
 /// Toggle the notification log overlay.
-pub(crate) fn toggle_notification_log(ui: &mut UiState) {
+pub(super) fn toggle_notification_log(ui: &mut UiState) {
     ui.show_notification_log = !ui.show_notification_log;
 }
 
 /// Switch the History view between its Recent and Top modes.
-pub(crate) fn toggle_history_view_mode(ui: &mut UiState, domain: &DomainState) {
+pub(super) fn toggle_history_view_mode(ui: &mut UiState, domain: &DomainState) {
     ui.history_view_mode = match ui.history_view_mode {
         HistoryViewMode::Recent => HistoryViewMode::Top,
         HistoryViewMode::Top => HistoryViewMode::Recent,
@@ -42,24 +42,24 @@ pub(crate) fn toggle_history_view_mode(ui: &mut UiState, domain: &DomainState) {
 }
 
 /// Dismiss the visible notification toast.
-pub(crate) fn dismiss_notification(ui: &mut UiState) {
+pub(super) fn dismiss_notification(ui: &mut UiState) {
     ui.notification = None;
 }
 
 /// Scroll the now-playing description panel by signed rows.
-pub(crate) fn scroll_now_playing(ui: &mut UiState, delta: i32) {
+pub(super) fn scroll_now_playing(ui: &mut UiState, delta: i32) {
     let next = i32::from(ui.now_playing_scroll) + delta;
     ui.now_playing_scroll = next.max(0) as u16;
 }
 
 /// Toggle the Playing view's right pane between chapters and description.
-pub(crate) fn toggle_now_playing_pane(ui: &mut UiState) {
+pub(super) fn toggle_now_playing_pane(ui: &mut UiState) {
     ui.now_playing_show_description = !ui.now_playing_show_description;
     ui.now_playing_scroll = 0;
 }
 
 /// Switch between info and queue focus in the ultra-wide Playing view.
-pub(crate) fn cycle_playing_pane(ui: &mut UiState, domain: &DomainState) {
+pub(super) fn cycle_playing_pane(ui: &mut UiState, domain: &DomainState) {
     if ui.view == View::NowPlaying
         && crate::render::layout::Breakpoint::from_width(ui.screen_area.width)
             == crate::render::layout::Breakpoint::UltraWide

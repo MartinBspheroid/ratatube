@@ -4,7 +4,7 @@ use super::*;
 use crate::render::views::home_panels::panel;
 use crate::state::{HomeSection, PendingResume};
 
-pub fn render_resume(
+pub(super) fn render_resume(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,

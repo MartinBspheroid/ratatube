@@ -6,7 +6,7 @@ use crate::render::{
 use crate::state::AppState;
 
 /// Render the highest-priority active overlay.
-pub fn render(
+pub(super) fn render(
     frame: &mut ratatui::Frame,
     area: ratatui::layout::Rect,
     state: &AppState,

@@ -14,31 +14,31 @@ use ratatube_domain::config::ThemeName;
 /// Central palette resolved from the selected theme.
 #[derive(Debug, Clone, Copy)]
 pub struct Theme {
-    pub truecolor: bool,
-    pub bg: Style,
-    pub panel_bg: Style,
-    pub base: Style,
-    pub accent: Style,
-    pub accent_alt: Style,
-    pub dim: Style,
-    pub error: Style,
-    pub warning: Style,
-    pub orange: Style,
-    pub playing: Style,
-    pub selected: Style,
-    pub header: Style,
-    pub border: Style,
-    pub border_active: Style,
-    pub gauge_filled: Style,
-    pub tab_active: Style,
-    pub key_chip: Style,
-    pub panel_title: Style,
-    pub panel_rule: Style,
-    pub chip: Style,
-    pub success: Style,
-    pub link: Style,
-    pub value: Style,
-    pub label: Style,
+    pub(super) truecolor: bool,
+    pub(super) bg: Style,
+    pub(super) panel_bg: Style,
+    pub(super) base: Style,
+    pub(super) accent: Style,
+    pub(super) accent_alt: Style,
+    pub(super) dim: Style,
+    pub(super) error: Style,
+    pub(super) warning: Style,
+    pub(super) orange: Style,
+    pub(super) playing: Style,
+    pub(super) selected: Style,
+    pub(super) header: Style,
+    pub(super) border: Style,
+    pub(super) border_active: Style,
+    pub(super) gauge_filled: Style,
+    pub(super) tab_active: Style,
+    pub(super) key_chip: Style,
+    pub(super) panel_title: Style,
+    pub(super) panel_rule: Style,
+    pub(super) chip: Style,
+    pub(super) success: Style,
+    pub(super) link: Style,
+    pub(super) value: Style,
+    pub(super) label: Style,
 }
 
 impl Default for Theme {
@@ -50,7 +50,7 @@ impl Default for Theme {
 impl Theme {
     /// Build `name`'s palette after sniffing terminal color capability from
     /// the environment (`COLORTERM`, `NO_COLOR`).
-    pub fn resolve(name: ThemeName) -> Self {
+    pub(super) fn resolve(name: ThemeName) -> Self {
         let truecolor = std::env::var("COLORTERM").is_ok_and(|value| {
             matches!(value.to_ascii_lowercase().as_str(), "truecolor" | "24bit")
         }) && std::env::var_os("NO_COLOR").is_none();
@@ -59,7 +59,7 @@ impl Theme {
 
     /// Build `name`'s palette for a known terminal color capability. Without
     /// truecolor every theme collapses to the shared ANSI fallback (PRD 20).
-    pub fn from_preset(name: ThemeName, truecolor: bool) -> Self {
+    pub(super) fn from_preset(name: ThemeName, truecolor: bool) -> Self {
         if !truecolor {
             return Self::from_truecolor(false);
         }
@@ -115,7 +115,7 @@ impl Theme {
     }
 
     /// Build the original neon palette for a known terminal color capability.
-    pub fn from_truecolor(truecolor: bool) -> Self {
+    pub(super) fn from_truecolor(truecolor: bool) -> Self {
         let accent_color = if truecolor {
             Color::Rgb(34, 211, 238)
         } else {

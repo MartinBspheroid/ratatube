@@ -5,36 +5,36 @@ use ratatube_domain::config::IconMode;
 /// Semantic icon slots used across the interface.
 #[derive(Debug, Clone, Copy)]
 pub struct Icons {
-    pub section_bar: &'static str,
-    pub panel_rule: &'static str,
+    pub(super) section_bar: &'static str,
+    pub(super) panel_rule: &'static str,
     pub prev: &'static str,
     pub next: &'static str,
     pub pause_btn: &'static str,
-    pub play_btn: &'static str,
-    pub chevron_l: &'static str,
-    pub chevron_r: &'static str,
-    pub spectrum_ramp: [&'static str; 5],
+    pub(super) play_btn: &'static str,
+    pub(super) chevron_l: &'static str,
+    pub(super) chevron_r: &'static str,
+    pub(super) spectrum_ramp: [&'static str; 5],
     pub dropdown: &'static str,
-    pub home: &'static str,
-    pub playing: &'static str,
+    pub(super) home: &'static str,
+    pub(super) playing: &'static str,
     pub paused: &'static str,
     pub stopped: &'static str,
-    pub music: &'static str,
-    pub volume: &'static str,
+    pub(super) music: &'static str,
+    pub(super) volume: &'static str,
     pub muted: &'static str,
-    pub search: &'static str,
-    pub playlist: &'static str,
-    pub queue: &'static str,
-    pub history: &'static str,
-    pub shuffle: &'static str,
-    pub repeat: &'static str,
-    pub error: &'static str,
+    pub(super) search: &'static str,
+    pub(super) playlist: &'static str,
+    pub(super) queue: &'static str,
+    pub(super) history: &'static str,
+    pub(super) shuffle: &'static str,
+    pub(super) repeat: &'static str,
+    pub(super) error: &'static str,
     pub loading: &'static str,
-    pub import: &'static str,
-    pub dot: &'static str,
+    pub(super) import: &'static str,
+    pub(super) dot: &'static str,
     /// Single-cell "in queue" marker for track-table rows (the wide `queue`
     /// tab icon does not fit the marker column in ASCII mode).
-    pub marker_queued: &'static str,
+    pub(super) marker_queued: &'static str,
 }
 
 /// Nerd Font glyphs.
@@ -180,7 +180,7 @@ fn is_renderable_char(c: char, keep_newlines: bool) -> bool {
 
 /// Strip terminal control characters and deceptive Unicode format characters
 /// from untrusted strings (PRD 19).
-pub fn sanitize_terminal_text(input: &str) -> String {
+pub(super) fn sanitize_terminal_text(input: &str) -> String {
     input
         .chars()
         .filter(|c| is_renderable_char(*c, false))
@@ -189,7 +189,7 @@ pub fn sanitize_terminal_text(input: &str) -> String {
 
 /// Like [`sanitize_terminal_text`] but preserves line breaks, for multi-line
 /// content such as video descriptions. `\r\n` collapses to `\n`.
-pub fn sanitize_multiline_text(input: &str) -> String {
+pub(super) fn sanitize_multiline_text(input: &str) -> String {
     input
         .chars()
         .filter(|c| is_renderable_char(*c, true))

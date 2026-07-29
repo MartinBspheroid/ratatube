@@ -14,7 +14,7 @@ struct DashboardData<'a> {
     show_resume: bool,
 }
 
-pub fn render_home(
+pub(super) fn render_home(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,

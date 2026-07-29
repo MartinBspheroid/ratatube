@@ -7,7 +7,7 @@ use crate::render::components::{
 };
 use crate::render::layout::Breakpoint;
 
-pub fn render_playlists(
+pub(super) fn render_playlists(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,
@@ -200,7 +200,7 @@ fn preview_row(
     }
 }
 
-pub fn render_playlist_detail(
+pub(super) fn render_playlist_detail(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,

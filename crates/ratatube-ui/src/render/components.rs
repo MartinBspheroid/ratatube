@@ -14,15 +14,15 @@ mod playback;
 mod track_table;
 mod visualizer;
 
-pub use playback::playback_summary;
-pub use track_table::{
+pub(super) use playback::playback_summary;
+pub(super) use track_table::{
     TrackFlags, TrackRow, TrackTableLayout, header_row, marker_legend, message_row, track_flags,
     track_row,
 };
-pub use visualizer::{BAND_COUNT, bands_for, smooth as smooth_meter};
+pub(crate) use visualizer::{BAND_COUNT, bands_for, smooth as smooth_meter};
 
 /// Draw a dedicated title line and return the content rectangle below it.
-pub fn section_panel(
+pub(super) fn section_panel(
     frame: &mut Frame,
     area: Rect,
     title: &str,
@@ -75,14 +75,14 @@ pub fn section_panel(
 
 /// Standard empty-state content: an icon, a headline, and the keys that fix
 /// it. Every empty state names its next action.
-pub struct EmptyState<'a> {
-    pub icon: &'a str,
-    pub headline: &'a str,
-    pub hints: &'a [(&'a str, &'a str)],
+pub(super) struct EmptyState<'a> {
+    pub(super) icon: &'a str,
+    pub(super) headline: &'a str,
+    pub(super) hints: &'a [(&'a str, &'a str)],
 }
 
 /// Render the shared empty-state pattern inside a pane's content area.
-pub fn empty_state(frame: &mut Frame, area: Rect, content: EmptyState<'_>, theme: &Theme) {
+pub(super) fn empty_state(frame: &mut Frame, area: Rect, content: EmptyState<'_>, theme: &Theme) {
     let mut lines = vec![
         Line::from(""),
         Line::from(vec![
@@ -109,7 +109,7 @@ pub fn empty_state(frame: &mut Frame, area: Rect, content: EmptyState<'_>, theme
 }
 
 /// Build a link label and optional, truthful accelerator chip.
-pub fn header_link<'a>(label: &'a str, key: Option<char>, theme: &Theme) -> Vec<Span<'a>> {
+pub(super) fn header_link<'a>(label: &'a str, key: Option<char>, theme: &Theme) -> Vec<Span<'a>> {
     let mut spans = vec![Span::styled(
         label,
         if key.is_some() { theme.link } else { theme.dim },
@@ -121,7 +121,7 @@ pub fn header_link<'a>(label: &'a str, key: Option<char>, theme: &Theme) -> Vec<
 }
 
 /// Render compact bracketed metadata chips.
-pub fn chips(items: &[String], theme: &Theme) -> Line<'static> {
+pub(super) fn chips(items: &[String], theme: &Theme) -> Line<'static> {
     Line::from(
         items
             .iter()
@@ -136,7 +136,7 @@ pub fn chips(items: &[String], theme: &Theme) -> Line<'static> {
 }
 
 /// Build aligned label/value rows.
-pub fn key_value_rows(
+pub(super) fn key_value_rows(
     pairs: &[(String, String)],
     right_align: bool,
     theme: &Theme,
@@ -164,16 +164,16 @@ pub fn key_value_rows(
 }
 
 /// Content and semantic state for a numbered list row.
-pub struct NumberedRow<'a> {
-    pub index: usize,
-    pub title: &'a str,
-    pub right_columns: &'a [String],
-    pub playing: bool,
-    pub selected: bool,
+pub(super) struct NumberedRow<'a> {
+    pub(super) index: usize,
+    pub(super) title: &'a str,
+    pub(super) right_columns: &'a [String],
+    pub(super) playing: bool,
+    pub(super) selected: bool,
 }
 
 /// Build a width-safe numbered row with right-aligned secondary columns.
-pub fn numbered_row(
+pub(super) fn numbered_row(
     row: NumberedRow<'_>,
     width: usize,
     theme: &Theme,
@@ -216,7 +216,7 @@ pub fn numbered_row(
 }
 
 /// Draw a standardized scrollbar only when content overflows its viewport.
-pub fn scrollbar(frame: &mut Frame, area: Rect, content_len: usize, position: usize) {
+pub(super) fn scrollbar(frame: &mut Frame, area: Rect, content_len: usize, position: usize) {
     if content_len <= area.height as usize || area.is_empty() {
         return;
     }

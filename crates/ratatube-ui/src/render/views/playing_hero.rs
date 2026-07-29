@@ -4,7 +4,7 @@ use super::*;
 use crate::render::components::{chips, key_value_rows, section_panel};
 use crate::render::layout::Breakpoint;
 
-pub fn render_hero(
+pub(super) fn render_hero(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,

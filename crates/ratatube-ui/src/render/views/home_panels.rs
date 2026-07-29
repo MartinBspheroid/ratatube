@@ -4,7 +4,7 @@ use super::*;
 use crate::render::components::{NumberedRow, header_link, numbered_row, section_panel};
 use crate::state::HomeSection;
 
-pub fn panel(
+pub(super) fn panel(
     frame: &mut Frame,
     area: Rect,
     title: &str,
@@ -23,7 +23,7 @@ pub fn panel(
     inner
 }
 
-pub fn render_recent(
+pub(super) fn render_recent(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,
@@ -90,7 +90,7 @@ pub fn render_recent(
     }
 }
 
-pub fn render_playlists(
+pub(super) fn render_playlists(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,

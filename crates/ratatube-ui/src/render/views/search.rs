@@ -8,7 +8,7 @@ use crate::render::components::{
 use crate::render::layout::Breakpoint;
 use crate::render::views::search_detail::{render_overlay, render_selected};
 
-pub fn render_search(
+pub(super) fn render_search(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,

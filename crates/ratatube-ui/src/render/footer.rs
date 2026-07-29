@@ -9,7 +9,7 @@ use crate::render::theme::Theme;
 use crate::state::{AppState, View};
 
 /// Render context-sensitive keyboard hints as styled chips.
-pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Theme) {
+pub(super) fn render_footer(frame: &mut Frame, area: Rect, state: &AppState, theme: &Theme) {
     let hints: &[(&str, &str)] = match state.ui.view {
         View::Home
             if state.ui.home_section == crate::state::HomeSection::Resume

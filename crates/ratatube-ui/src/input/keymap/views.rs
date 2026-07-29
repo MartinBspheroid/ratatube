@@ -9,7 +9,7 @@ use ratatube_domain::action::{
 };
 
 /// Map view-owned bindings before global bindings.
-pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
+pub(super) fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
     if key.modifiers.contains(KeyModifiers::CONTROL) {
         return None;
     }

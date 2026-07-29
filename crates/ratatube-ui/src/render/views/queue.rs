@@ -6,7 +6,7 @@ use crate::render::components::{
     track_row,
 };
 
-pub fn render_queue(
+pub(super) fn render_queue(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,

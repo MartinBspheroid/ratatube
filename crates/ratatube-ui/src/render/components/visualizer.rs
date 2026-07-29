@@ -13,10 +13,10 @@ use crate::render::theme::Theme;
 use ratatube_domain::playback::AudioLevels;
 
 /// Number of meter bands.
-pub const BAND_COUNT: usize = 6;
+pub(crate) const BAND_COUNT: usize = 6;
 
 /// Rendered width of the meter in cells (bands separated by one space).
-pub const METER_WIDTH: u16 = (BAND_COUNT * 2 - 1) as u16;
+pub(super) const METER_WIDTH: u16 = (BAND_COUNT * 2 - 1) as u16;
 
 /// Exponential release factor per update; attack is instantaneous.
 const RELEASE: f32 = 0.72;
@@ -25,7 +25,7 @@ const RELEASE: f32 = 0.72;
 const FLOOR_DB: f32 = -60.0;
 
 /// Shape target band heights (0..1) from one measurement window.
-pub fn bands_for(levels: AudioLevels) -> [f32; BAND_COUNT] {
+pub(crate) fn bands_for(levels: AudioLevels) -> [f32; BAND_COUNT] {
     let energy = ((levels.rms_db - FLOOR_DB) / -FLOOR_DB).clamp(0.0, 1.0);
     // Music ZCR rarely exceeds ~0.25; map it onto the band axis.
     let brightness = (levels.zcr * 4.0).clamp(0.0, 1.0);
@@ -41,7 +41,7 @@ pub fn bands_for(levels: AudioLevels) -> [f32; BAND_COUNT] {
 }
 
 /// Advance displayed heights toward `target`: instant attack, smooth release.
-pub fn smooth(displayed: &mut [f32; BAND_COUNT], target: &[f32; BAND_COUNT]) {
+pub(crate) fn smooth(displayed: &mut [f32; BAND_COUNT], target: &[f32; BAND_COUNT]) {
     for (shown, wanted) in displayed.iter_mut().zip(target) {
         *shown = wanted.max(*shown * RELEASE);
         if *shown < 0.02 {
@@ -52,7 +52,7 @@ pub fn smooth(displayed: &mut [f32; BAND_COUNT], target: &[f32; BAND_COUNT]) {
 
 /// Render the meter as one line of ramp glyphs colored along the theme's
 /// accent gradient.
-pub fn meter_line(bands: &[f32; BAND_COUNT], theme: &Theme, icons: &Icons) -> Line<'static> {
+pub(super) fn meter_line(bands: &[f32; BAND_COUNT], theme: &Theme, icons: &Icons) -> Line<'static> {
     let ramp = icons.spectrum_ramp;
     let mut spans = Vec::with_capacity(BAND_COUNT * 2 - 1);
     for (index, band) in bands.iter().enumerate() {

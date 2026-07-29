@@ -23,4 +23,5 @@ pub use ratatube_domain::state::{
     HomeSection, ImportState, OperationStatus, PendingResume, PlayingPane, PromptPurpose,
     SleepTimer, View,
 };
-pub use ui_state::{HomeHitZone, UiState};
+pub use ui_state::HomeHitZone;
+pub(crate) use ui_state::UiState;

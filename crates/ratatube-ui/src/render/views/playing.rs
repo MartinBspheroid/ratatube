@@ -7,7 +7,7 @@ use crate::render::views::playing_hero::render_hero;
 use crate::render::views::playing_panels::{render_description, render_queue, render_up_next};
 use crate::state::PlayingPane;
 
-pub fn render_now_playing_view(
+pub(super) fn render_now_playing_view(
     frame: &mut Frame,
     area: Rect,
     state: &mut AppState,
