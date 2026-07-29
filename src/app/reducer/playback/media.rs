@@ -36,15 +36,6 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
         }
         PlaybackAction::NextChapter => next_chapter(&state.domain),
         PlaybackAction::PreviousChapter => previous_chapter(&state.domain),
-        PlaybackAction::ScrollNowPlaying(_)
-        | PlaybackAction::ToggleNowPlayingPane
-        | PlaybackAction::CyclePlayingPane => {
-            crate::app::reducer::ui::presentation::reduce_playing_panes(
-                &mut state.ui,
-                &state.domain,
-                action,
-            )
-        }
         _ => Vec::new(),
     }
 }

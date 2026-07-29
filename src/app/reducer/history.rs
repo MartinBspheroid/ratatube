@@ -24,6 +24,8 @@ pub(super) fn reduce(state: &mut AppState, action: HistoryAction) -> Vec<Effect>
         HistoryAction::ClearHistoryConfirmed
         | HistoryAction::DeleteSelectedHistoryEntry
         | HistoryAction::DeleteHistoryEntry { .. } => Vec::new(),
-        other => super::ui::presentation::reduce_history(&mut state.ui, &state.domain, other),
+        other @ HistoryAction::Notify(_) => {
+            super::ui::presentation::reduce_history(&mut state.ui, other)
+        }
     }
 }

@@ -2,21 +2,21 @@
 //! save/cancel transitions. On the Appearance tab the selection walks theme
 //! families while h/l flips the dark/light mode of the whole preview.
 
-use crate::app::action::NavigationAction;
+use crate::app::actions::UiMsg;
 use crate::app::reducer::Effect;
 use crate::app::state::{SETTINGS_GENERAL_ROWS, SettingsTab, UiState};
 use crate::config::{IconMode, ResumeMode, ThemeFamily};
 
 /// Reduce settings-menu transitions. `OpenSettings` is service-owned (it
 /// seeds drafts from configuration) and is a no-op here.
-pub(in crate::app::reducer) fn reduce(ui: &mut UiState, action: NavigationAction) -> Vec<Effect> {
-    match action {
-        NavigationAction::CloseSettings => {
+pub(in crate::app::reducer) fn reduce(ui: &mut UiState, msg: UiMsg) -> Vec<Effect> {
+    match msg {
+        UiMsg::CloseSettings => {
             if let Some(settings) = ui.settings.take() {
                 ui.theme = settings.original_theme;
             }
         }
-        NavigationAction::SettingsCycleTab => {
+        UiMsg::SettingsCycleTab => {
             if let Some(settings) = &mut ui.settings {
                 (settings.tab, settings.selected) = match settings.tab {
                     SettingsTab::Appearance => (SettingsTab::General, 0),
@@ -26,7 +26,7 @@ pub(in crate::app::reducer) fn reduce(ui: &mut UiState, action: NavigationAction
                 };
             }
         }
-        NavigationAction::SettingsMove(delta) => {
+        UiMsg::SettingsMove(delta) => {
             if let Some(settings) = &mut ui.settings {
                 let rows = match settings.tab {
                     SettingsTab::Appearance => ThemeFamily::ALL.len(),
@@ -41,7 +41,7 @@ pub(in crate::app::reducer) fn reduce(ui: &mut UiState, action: NavigationAction
                 }
             }
         }
-        NavigationAction::SettingsAdjust(delta) => {
+        UiMsg::SettingsAdjust(delta) => {
             if let Some(settings) = &mut ui.settings {
                 match settings.tab {
                     // Both directions flip between the two modes.
@@ -55,7 +55,7 @@ pub(in crate::app::reducer) fn reduce(ui: &mut UiState, action: NavigationAction
                 }
             }
         }
-        NavigationAction::SettingsSubmit => {
+        UiMsg::SettingsSubmit => {
             if let Some(settings) = ui.settings.take() {
                 return vec![Effect::PersistUiSettings {
                     theme: ui.theme,

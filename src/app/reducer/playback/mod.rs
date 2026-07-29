@@ -47,11 +47,8 @@ pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect
         action @ (PlaybackAction::DetailsStarted { .. }
         | PlaybackAction::DetailsLoaded { .. }
         | PlaybackAction::DetailsFailed { .. }
-        | PlaybackAction::ScrollNowPlaying(_)
         | PlaybackAction::NextChapter
-        | PlaybackAction::PreviousChapter
-        | PlaybackAction::ToggleNowPlayingPane
-        | PlaybackAction::CyclePlayingPane) => media::reduce(state, action),
+        | PlaybackAction::PreviousChapter) => media::reduce(state, action),
         action @ (PlaybackAction::MixLoaded { .. }
         | PlaybackAction::RadioRefillStarted { .. }
         | PlaybackAction::RadioTracksLoaded { .. }) => radio::reduce(state, action),

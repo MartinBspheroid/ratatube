@@ -1,7 +1,6 @@
 //! Navigation, search, and selection actions.
 
 use crate::app::operations::OperationId;
-use crate::app::state::View;
 use crate::media::Track;
 use crate::media::channel::ChannelPage;
 
@@ -22,17 +21,6 @@ pub enum ExternalCommandTarget {
 /// An intent that changes the active view, search, or list selection.
 #[derive(Debug, Clone)]
 pub enum NavigationAction {
-    Navigate(View),
-    /// Open help while remembering the current view.
-    OpenHelp,
-    /// Return from help to the view that opened it.
-    CloseHelp,
-    /// Scroll the help document by signed rows.
-    ScrollHelp(i32),
-    NextView,
-    PreviousView,
-    /// Move Home section focus forward/backward.
-    CycleHomeSection(i32),
     Quit,
     SearchInput(char),
     SearchBackspace,
@@ -48,8 +36,6 @@ pub enum NavigationAction {
         message: String,
     },
     ClearSearch,
-    /// Toggle the selected-result detail overlay on narrow Search layouts.
-    ToggleSearchDetail,
     /// Open the selected Search result or current Playing track in a browser.
     OpenInBrowser,
     /// Complete one bounded browser or clipboard operation.
@@ -91,18 +77,4 @@ pub enum NavigationAction {
     ShowTrackDetails(Track),
     /// Close the selected-track details modal.
     CloseTrackDetails,
-    /// Open the ctrl+p settings menu seeded from current configuration.
-    OpenSettings,
-    /// Close the settings menu, restoring the theme it opened with.
-    CloseSettings,
-    /// Move to the next settings tab.
-    SettingsCycleTab,
-    /// Move the settings selection by signed rows; previews themes live.
-    SettingsMove(i32),
-    /// Cycle the selected settings value by a signed step.
-    SettingsAdjust(i32),
-    /// Persist every settings draft and close the menu.
-    SettingsSubmit,
-    SelectNext,
-    SelectPrevious,
 }

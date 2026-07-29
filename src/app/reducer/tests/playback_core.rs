@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::actions::UiMsg;
 
 #[test]
 fn quit_persists_and_exits() {
@@ -144,15 +145,9 @@ fn ultra_wide_playing_queue_focus_selects_without_duplicating() {
     state.domain.queue.push(track("b"));
     state.domain.queue.position = Some(0);
 
-    assert!(
-        reduce(
-            &mut state,
-            Action::Playback(PlaybackAction::CyclePlayingPane)
-        )
-        .is_empty()
-    );
+    assert!(reduce(&mut state, Action::Ui(UiMsg::CyclePlayingPane)).is_empty());
     assert_eq!(state.ui.playing_pane, PlayingPane::Queue);
-    assert!(reduce(&mut state, Action::Navigation(NavigationAction::SelectNext)).is_empty());
+    assert!(reduce(&mut state, Action::Ui(UiMsg::SelectNext)).is_empty());
     assert_eq!(state.ui.selected_index, 1);
     let effects = reduce(&mut state, Action::Playback(PlaybackAction::PlaySelected));
 

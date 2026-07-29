@@ -1,5 +1,6 @@
 //! Keyboard routing for text inputs, filters, and content views.
 
+use crate::app::actions::UiMsg;
 use crossterm::event::KeyCode;
 use tokio::sync::mpsc;
 
@@ -71,14 +72,10 @@ impl App {
                 // Allow movement while editing so users can filter, then pick,
                 // without leaving the filter bar.
                 KeyCode::Down => {
-                    let _ = action_tx
-                        .send(Action::Navigation(NavigationAction::SelectNext))
-                        .await;
+                    let _ = action_tx.send(Action::Ui(UiMsg::SelectNext)).await;
                 }
                 KeyCode::Up => {
-                    let _ = action_tx
-                        .send(Action::Navigation(NavigationAction::SelectPrevious))
-                        .await;
+                    let _ = action_tx.send(Action::Ui(UiMsg::SelectPrevious)).await;
                 }
                 _ => {}
             },

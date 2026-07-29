@@ -4,13 +4,14 @@
 //! queue pane focuses itself, and a double-click performs exactly the action
 //! Enter would (it synthesizes the key through the normal keyboard path).
 
+use crate::app::actions::UiMsg;
 use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use tokio::sync::mpsc;
 
 use crate::app::App;
-use crate::app::action::{Action, NavigationAction, PlaybackAction};
+use crate::app::action::{Action, PlaybackAction};
 use crate::app::state::{AppState, Focus, HomeSection, PlayingPane, View};
 
 /// Two clicks on the same item within this window act as Enter. Matches
@@ -53,27 +54,21 @@ impl App {
         match mouse.kind {
             MouseEventKind::ScrollDown => {
                 if self.state.ui.view == View::NowPlaying {
-                    let _ = action_tx
-                        .send(Action::Playback(PlaybackAction::ScrollNowPlaying(3)))
-                        .await;
+                    let _ = action_tx.send(Action::Ui(UiMsg::ScrollNowPlaying(3))).await;
                 } else {
                     for _ in 0..3 {
-                        let _ = action_tx
-                            .send(Action::Navigation(NavigationAction::SelectNext))
-                            .await;
+                        let _ = action_tx.send(Action::Ui(UiMsg::SelectNext)).await;
                     }
                 }
             }
             MouseEventKind::ScrollUp => {
                 if self.state.ui.view == View::NowPlaying {
                     let _ = action_tx
-                        .send(Action::Playback(PlaybackAction::ScrollNowPlaying(-3)))
+                        .send(Action::Ui(UiMsg::ScrollNowPlaying(-3)))
                         .await;
                 } else {
                     for _ in 0..3 {
-                        let _ = action_tx
-                            .send(Action::Navigation(NavigationAction::SelectPrevious))
-                            .await;
+                        let _ = action_tx.send(Action::Ui(UiMsg::SelectPrevious)).await;
                     }
                 }
             }
@@ -88,9 +83,7 @@ impl App {
                         crate::ui::header::tab_hit_zones(&icons, self.state.ui.view, narrow)
                     {
                         if mouse.column >= start && mouse.column < end {
-                            let _ = action_tx
-                                .send(Action::Navigation(NavigationAction::Navigate(view)))
-                                .await;
+                            let _ = action_tx.send(Action::Ui(UiMsg::Navigate(view))).await;
                             return;
                         }
                     }

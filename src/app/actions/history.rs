@@ -16,10 +16,5 @@ pub enum HistoryAction {
         index: usize,
         expected_track_id: String,
     },
-    /// Toggle Recent and Top (aggregated) presentation.
-    ToggleHistoryViewMode,
     Notify(String),
-    DismissNotification,
-    /// Toggle the notification log overlay (`!`).
-    ToggleNotificationLog,
 }

@@ -42,6 +42,8 @@ pub(crate) enum Route {
 /// Classify one action for the client runtime.
 pub(crate) fn route(action: &Action, state: &AppState, history: Option<&HistoryService>) -> Route {
     match action {
+        // Presentation messages are local by type; no per-variant decision.
+        Action::Ui(_) => Route::Local,
         Action::Navigation(action) => route_navigation(action),
         Action::Playback(action) => route_playback(action, state, history),
         Action::Queue(action) => route_queue(action, state, history),
@@ -70,17 +72,9 @@ fn route_navigation(action: &NavigationAction) -> Route {
         | NavigationAction::ChannelPageLoaded { .. }
         | NavigationAction::SearchCompleted { .. }
         | NavigationAction::SearchFailed { .. } => Route::Ignore,
-        NavigationAction::Navigate(_)
-        | NavigationAction::OpenHelp
-        | NavigationAction::CloseHelp
-        | NavigationAction::ScrollHelp(_)
-        | NavigationAction::NextView
-        | NavigationAction::PreviousView
-        | NavigationAction::CycleHomeSection(_)
-        | NavigationAction::SearchInput(_)
+        NavigationAction::SearchInput(_)
         | NavigationAction::SearchBackspace
         | NavigationAction::ClearSearch
-        | NavigationAction::ToggleSearchDetail
         | NavigationAction::OpenInBrowser
         | NavigationAction::ExternalCommandCompleted { .. }
         | NavigationAction::OpenTrackContext
@@ -88,15 +82,7 @@ fn route_navigation(action: &NavigationAction) -> Route {
         | NavigationAction::MoveTrackContext(_)
         | NavigationAction::SubmitTrackContext
         | NavigationAction::ShowTrackDetails(_)
-        | NavigationAction::CloseTrackDetails
-        | NavigationAction::OpenSettings
-        | NavigationAction::CloseSettings
-        | NavigationAction::SettingsCycleTab
-        | NavigationAction::SettingsMove(_)
-        | NavigationAction::SettingsAdjust(_)
-        | NavigationAction::SettingsSubmit
-        | NavigationAction::SelectNext
-        | NavigationAction::SelectPrevious => Route::Local,
+        | NavigationAction::CloseTrackDetails => Route::Local,
     }
 }
 
@@ -155,12 +141,10 @@ fn route_playback(
         PlaybackAction::PreviousChapter => previous_chapter_target(state)
             .map(|seconds| Route::Send(Command::SeekAbsolute { seconds }))
             .unwrap_or(Route::Ignore),
-        // Presentation-only transitions and local thumbnail completions.
-        PlaybackAction::ScrollNowPlaying(_)
-        | PlaybackAction::ToggleNowPlayingPane
-        | PlaybackAction::CyclePlayingPane
-        | PlaybackAction::ThumbnailLoaded { .. }
-        | PlaybackAction::SearchThumbnailLoaded { .. } => Route::Local,
+        // Local thumbnail completions.
+        PlaybackAction::ThumbnailLoaded { .. } | PlaybackAction::SearchThumbnailLoaded { .. } => {
+            Route::Local
+        }
         // Daemon-internal completions and supervision results never arise
         // from client input; drop them defensively.
         PlaybackAction::SessionStreamResolved { .. }
@@ -462,11 +446,7 @@ fn route_history(
             index: *index,
             expected_track_id: expected_track_id.clone(),
         }),
-        HistoryAction::ClearHistory
-        | HistoryAction::ToggleHistoryViewMode
-        | HistoryAction::Notify(_)
-        | HistoryAction::DismissNotification
-        | HistoryAction::ToggleNotificationLog => Route::Local,
+        HistoryAction::ClearHistory | HistoryAction::Notify(_) => Route::Local,
     }
 }
 

@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::actions::UiMsg;
 use crate::app::state::{SETTINGS_GENERAL_ROWS, SettingsState, SettingsTab};
 use crate::config::{IconMode, ResumeMode, ThemeFamily, ThemeName};
 
@@ -20,10 +21,7 @@ fn settings(state: &AppState) -> &SettingsState {
 fn moving_the_appearance_selection_previews_the_family_live() {
     let mut state = AppState::new();
     open_settings(&mut state);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsMove(1)),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsMove(1)));
     assert_eq!(settings(&state).selected, 1);
     assert_eq!(state.ui.theme, ThemeName::CatppuccinMocha);
 }
@@ -32,15 +30,9 @@ fn moving_the_appearance_selection_previews_the_family_live() {
 fn adjust_toggles_between_dark_and_light_keeping_the_family() {
     let mut state = AppState::new();
     open_settings(&mut state);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsAdjust(1)),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsAdjust(1)));
     assert_eq!(state.ui.theme, ThemeName::NeonLight);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsAdjust(-1)),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsAdjust(-1)));
     assert_eq!(state.ui.theme, ThemeName::Neon);
 }
 
@@ -48,14 +40,8 @@ fn adjust_toggles_between_dark_and_light_keeping_the_family() {
 fn moving_in_light_mode_previews_the_light_variant() {
     let mut state = AppState::new();
     open_settings(&mut state);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsAdjust(1)),
-    );
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsMove(1)),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsAdjust(1)));
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsMove(1)));
     assert_eq!(state.ui.theme, ThemeName::CatppuccinLatte);
 }
 
@@ -63,16 +49,10 @@ fn moving_in_light_mode_previews_the_light_variant() {
 fn appearance_selection_clamps_at_both_ends() {
     let mut state = AppState::new();
     open_settings(&mut state);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsMove(-1)),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsMove(-1)));
     assert_eq!(settings(&state).selected, 0);
     let last = ThemeFamily::ALL.len() - 1;
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsMove(last as i32 + 5)),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsMove(last as i32 + 5)));
     assert_eq!(settings(&state).selected, last);
     assert_eq!(state.ui.theme, ThemeName::FlexokiDark);
 }
@@ -81,19 +61,10 @@ fn appearance_selection_clamps_at_both_ends() {
 fn closing_the_menu_restores_the_opening_theme() {
     let mut state = AppState::new();
     open_settings(&mut state);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsMove(2)),
-    );
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsAdjust(1)),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsMove(2)));
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsAdjust(1)));
     assert_ne!(state.ui.theme, ThemeName::Neon);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::CloseSettings),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::CloseSettings));
     assert!(state.ui.settings.is_none());
     assert_eq!(state.ui.theme, ThemeName::Neon);
 }
@@ -102,14 +73,8 @@ fn closing_the_menu_restores_the_opening_theme() {
 fn submit_persists_the_previewed_theme_and_closes() {
     let mut state = AppState::new();
     open_settings(&mut state);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsMove(1)),
-    );
-    let effects = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsSubmit),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsMove(1)));
+    let effects = reduce(&mut state, Action::Ui(UiMsg::SettingsSubmit));
     assert!(state.ui.settings.is_none());
     assert_eq!(state.ui.theme, ThemeName::CatppuccinMocha);
     assert_eq!(
@@ -127,16 +92,10 @@ fn tab_cycling_lands_general_on_the_first_row_and_back_on_the_family() {
     let mut state = AppState::new();
     state.ui.theme = ThemeName::NordLight;
     open_settings(&mut state);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsCycleTab),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsCycleTab));
     assert_eq!(settings(&state).tab, SettingsTab::General);
     assert_eq!(settings(&state).selected, 0);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsCycleTab),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsCycleTab));
     assert_eq!(settings(&state).tab, SettingsTab::Appearance);
     assert_eq!(
         settings(&state).selected,
@@ -150,24 +109,12 @@ fn tab_cycling_lands_general_on_the_first_row_and_back_on_the_family() {
 fn general_rows_cycle_their_values_and_wrap() {
     let mut state = AppState::new();
     open_settings(&mut state);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsCycleTab),
-    );
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsAdjust(-1)),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsCycleTab));
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsAdjust(-1)));
     assert_eq!(settings(&state).icons, IconMode::Ascii);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsMove(1)),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsMove(1)));
     assert_eq!(settings(&state).selected, SETTINGS_GENERAL_ROWS - 1);
-    let _ = reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::SettingsAdjust(1)),
-    );
+    let _ = reduce(&mut state, Action::Ui(UiMsg::SettingsAdjust(1)));
     assert_eq!(settings(&state).resume, ResumeMode::Playing);
     // Value changes on General never touch the live theme.
     assert_eq!(state.ui.theme, ThemeName::Neon);
@@ -177,13 +124,13 @@ fn general_rows_cycle_their_values_and_wrap() {
 fn settings_actions_without_an_open_menu_are_no_ops() {
     let mut state = AppState::new();
     for action in [
-        NavigationAction::CloseSettings,
-        NavigationAction::SettingsCycleTab,
-        NavigationAction::SettingsMove(1),
-        NavigationAction::SettingsAdjust(1),
-        NavigationAction::SettingsSubmit,
+        UiMsg::CloseSettings,
+        UiMsg::SettingsCycleTab,
+        UiMsg::SettingsMove(1),
+        UiMsg::SettingsAdjust(1),
+        UiMsg::SettingsSubmit,
     ] {
-        let effects = reduce(&mut state, Action::Navigation(action));
+        let effects = reduce(&mut state, Action::Ui(action));
         assert!(effects.is_empty());
         assert!(state.ui.settings.is_none());
     }

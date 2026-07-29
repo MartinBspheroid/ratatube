@@ -26,12 +26,22 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
         | NavigationAction::CloseTrackDetails => {
             super::ui::modals::reduce_track_context(&mut state.ui, &state.domain, action)
         }
-        NavigationAction::OpenSettings
-        | NavigationAction::CloseSettings
-        | NavigationAction::SettingsCycleTab
-        | NavigationAction::SettingsMove(_)
-        | NavigationAction::SettingsAdjust(_)
-        | NavigationAction::SettingsSubmit => super::ui::settings::reduce(&mut state.ui, action),
+        NavigationAction::Quit => {
+            state.ui.running = false;
+            vec![Effect::PersistQueue, Effect::QuitMpv, Effect::Exit]
+        }
+        NavigationAction::SearchInput(c) => {
+            if state.ui.focus == Focus::SearchInput {
+                state.ui.search_input.push(c);
+            }
+            Vec::new()
+        }
+        NavigationAction::SearchBackspace => {
+            if state.ui.focus == Focus::SearchInput {
+                state.ui.search_input.pop();
+            }
+            Vec::new()
+        }
         NavigationAction::ClearSearch => {
             state.ui.search_input.clear();
             state.domain.search = SearchState::Idle;
@@ -66,8 +76,16 @@ pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effe
             search_failed(&mut state.domain, generation, message);
             Vec::new()
         }
-        // UI-only navigation plus the service-owned no-op intents.
-        other => super::ui::navigation::reduce(&mut state.ui, &state.domain, other),
+        // Service-owned intents (browser, clipboard, channel) reduce to
+        // nothing here; the service layer handles them after reduce.
+        NavigationAction::OpenInBrowser
+        | NavigationAction::ExternalCommandCompleted { .. }
+        | NavigationAction::VisitChannel(_)
+        | NavigationAction::ChannelResolved { .. }
+        | NavigationAction::ChannelPageLoaded { .. }
+        | NavigationAction::LoadMoreChannel
+        | NavigationAction::RetryChannel
+        | NavigationAction::BackFromChannel => Vec::new(),
     }
 }
 

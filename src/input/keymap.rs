@@ -5,9 +5,10 @@
 mod help;
 mod views;
 
+use crate::app::action::UiMsg;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::app::action::{Action, HistoryAction, NavigationAction, PlaybackAction};
+use crate::app::action::{Action, NavigationAction, PlaybackAction};
 use crate::app::state::{Focus, PlayingPane, View};
 use crate::ui::layout::Breakpoint;
 
@@ -19,19 +20,19 @@ pub fn global_action(key: &KeyEvent) -> Option<Action> {
     if key.modifiers.contains(KeyModifiers::CONTROL) {
         return match key.code {
             KeyCode::Char('c') => Some(Action::Navigation(NavigationAction::Quit)),
-            KeyCode::Char('p') => Some(Action::Navigation(NavigationAction::OpenSettings)),
+            KeyCode::Char('p') => Some(Action::Ui(UiMsg::OpenSettings)),
             _ => None,
         };
     }
     let action = match key.code {
-        KeyCode::Char('1') => Action::Navigation(NavigationAction::Navigate(View::Home)),
-        KeyCode::Char('2') => Action::Navigation(NavigationAction::Navigate(View::Search)),
-        KeyCode::Char('3') => Action::Navigation(NavigationAction::Navigate(View::Queue)),
-        KeyCode::Char('4') => Action::Navigation(NavigationAction::Navigate(View::Playlists)),
-        KeyCode::Char('5') => Action::Navigation(NavigationAction::Navigate(View::History)),
-        KeyCode::Char('6') => Action::Navigation(NavigationAction::Navigate(View::NowPlaying)),
-        KeyCode::Tab => Action::Navigation(NavigationAction::NextView),
-        KeyCode::BackTab => Action::Navigation(NavigationAction::PreviousView),
+        KeyCode::Char('1') => Action::Ui(UiMsg::Navigate(View::Home)),
+        KeyCode::Char('2') => Action::Ui(UiMsg::Navigate(View::Search)),
+        KeyCode::Char('3') => Action::Ui(UiMsg::Navigate(View::Queue)),
+        KeyCode::Char('4') => Action::Ui(UiMsg::Navigate(View::Playlists)),
+        KeyCode::Char('5') => Action::Ui(UiMsg::Navigate(View::History)),
+        KeyCode::Char('6') => Action::Ui(UiMsg::Navigate(View::NowPlaying)),
+        KeyCode::Tab => Action::Ui(UiMsg::NextView),
+        KeyCode::BackTab => Action::Ui(UiMsg::PreviousView),
         KeyCode::Char(' ') => Action::Playback(PlaybackAction::PlayPause),
         KeyCode::Char('n') => Action::Playback(PlaybackAction::NextTrack),
         KeyCode::Char('b') => Action::Playback(PlaybackAction::PreviousTrack),
@@ -51,11 +52,11 @@ pub fn global_action(key: &KeyEvent) -> Option<Action> {
         KeyCode::Char('=') => Action::Playback(PlaybackAction::SpeedReset),
         KeyCode::Char('Z') => Action::Playback(PlaybackAction::CycleSleepTimer),
         KeyCode::Char('t') => Action::Playback(PlaybackAction::ToggleRadio),
-        KeyCode::Char('!') => Action::History(HistoryAction::ToggleNotificationLog),
-        KeyCode::Char('?') => Action::Navigation(NavigationAction::OpenHelp),
+        KeyCode::Char('!') => Action::Ui(UiMsg::ToggleNotificationLog),
+        KeyCode::Char('?') => Action::Ui(UiMsg::OpenHelp),
         KeyCode::Char('q') => Action::Navigation(NavigationAction::Quit),
-        KeyCode::Char('j') | KeyCode::Down => Action::Navigation(NavigationAction::SelectNext),
-        KeyCode::Char('k') | KeyCode::Up => Action::Navigation(NavigationAction::SelectPrevious),
+        KeyCode::Char('j') | KeyCode::Down => Action::Ui(UiMsg::SelectNext),
+        KeyCode::Char('k') | KeyCode::Up => Action::Ui(UiMsg::SelectPrevious),
         KeyCode::Enter => Action::Playback(PlaybackAction::PlaySelected),
         _ => return None,
     };
@@ -106,13 +107,13 @@ pub fn playing_pane_action(
     }
     match (pane, key.code) {
         (_, KeyCode::Char('h') | KeyCode::Char('l') | KeyCode::Left | KeyCode::Right) => {
-            Some(Action::Playback(PlaybackAction::CyclePlayingPane))
+            Some(Action::Ui(UiMsg::CyclePlayingPane))
         }
         (PlayingPane::Queue, KeyCode::Char('j') | KeyCode::Down) => {
-            Some(Action::Navigation(NavigationAction::SelectNext))
+            Some(Action::Ui(UiMsg::SelectNext))
         }
         (PlayingPane::Queue, KeyCode::Char('k') | KeyCode::Up) => {
-            Some(Action::Navigation(NavigationAction::SelectPrevious))
+            Some(Action::Ui(UiMsg::SelectPrevious))
         }
         (PlayingPane::Queue, KeyCode::Enter) => {
             Some(Action::Playback(PlaybackAction::PlaySelected))

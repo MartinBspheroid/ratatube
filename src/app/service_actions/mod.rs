@@ -22,6 +22,7 @@ impl App {
         action_tx: &mpsc::Sender<Action>,
     ) {
         match action {
+            Action::Ui(msg) => self.handle_ui_service(msg),
             Action::Navigation(action) => self.handle_navigation_service(action, action_tx).await,
             Action::Playback(action) => self.handle_playback_service(action, action_tx).await,
             Action::Queue(action) => self.handle_queue_service(action, action_tx).await,

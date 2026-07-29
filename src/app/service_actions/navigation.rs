@@ -6,6 +6,7 @@ use crate::app::App;
 use crate::app::action::{
     Action, ExternalCommandKind, ExternalCommandTarget, NavigationAction, PlaybackAction,
 };
+use crate::app::actions::UiMsg;
 use crate::app::state::View;
 
 impl App {
@@ -17,7 +18,6 @@ impl App {
     ) {
         match action {
             NavigationAction::OpenTrackContext => self.open_track_context(),
-            NavigationAction::OpenSettings => self.open_settings(),
             NavigationAction::SubmitTrackContext => self.submit_track_context(action_tx).await,
             NavigationAction::OpenInBrowser => {
                 let track = match self.state.ui.view {
@@ -75,6 +75,13 @@ impl App {
                 }
             }
             _ => {}
+        }
+    }
+
+    /// Handle the presentation messages that need service-owned state.
+    pub(super) fn handle_ui_service(&mut self, msg: UiMsg) {
+        if matches!(msg, UiMsg::OpenSettings) {
+            self.open_settings();
         }
     }
 

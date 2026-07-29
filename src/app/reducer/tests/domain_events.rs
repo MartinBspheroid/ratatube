@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::actions::UiMsg;
 use crate::app::domain_event::{DomainEvent, DomainWatermark};
 use crate::app::ui_sync::apply_domain_events;
 
@@ -33,7 +34,7 @@ fn selection_movement_emits_no_domain_events() {
     let mut state = AppState::new();
     state.domain.queue.push(track("a"));
     state.domain.queue.push(track("b"));
-    let events = events_for(&mut state, Action::Navigation(NavigationAction::SelectNext));
+    let events = events_for(&mut state, Action::Ui(UiMsg::SelectNext));
     assert!(events.is_empty(), "{events:?}");
 }
 

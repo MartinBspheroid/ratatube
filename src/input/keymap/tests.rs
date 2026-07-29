@@ -1,3 +1,4 @@
+use crate::app::action::UiMsg;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::{HELP_SECTIONS, playing_pane_action, route, view_action};
@@ -55,11 +56,11 @@ fn help_close_and_scroll_bindings_take_precedence_over_globals() {
     let down = KeyEvent::new(KeyCode::Down, KeyModifiers::NONE);
     assert!(matches!(
         route(&close, Focus::Content, View::Help),
-        Some(Action::Navigation(NavigationAction::CloseHelp))
+        Some(Action::Ui(UiMsg::CloseHelp))
     ));
     assert!(matches!(
         route(&down, Focus::Content, View::Help),
-        Some(Action::Navigation(NavigationAction::ScrollHelp(1)))
+        Some(Action::Ui(UiMsg::ScrollHelp(1)))
     ));
 }
 
@@ -72,7 +73,7 @@ fn ultra_wide_queue_pane_owns_navigation_and_play() {
             PlayingPane::Info,
             Breakpoint::UltraWide
         ),
-        Some(Action::Playback(PlaybackAction::CyclePlayingPane))
+        Some(Action::Ui(UiMsg::CyclePlayingPane))
     ));
     assert!(matches!(
         playing_pane_action(
@@ -80,7 +81,7 @@ fn ultra_wide_queue_pane_owns_navigation_and_play() {
             PlayingPane::Queue,
             Breakpoint::UltraWide
         ),
-        Some(Action::Navigation(NavigationAction::SelectNext))
+        Some(Action::Ui(UiMsg::SelectNext))
     ));
     assert!(matches!(
         playing_pane_action(
@@ -105,7 +106,7 @@ fn search_detail_and_browser_keys_dispatch_real_actions() {
     let key = |character| KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE);
     assert!(matches!(
         route(&key('i'), Focus::Content, View::Search),
-        Some(Action::Navigation(NavigationAction::ToggleSearchDetail))
+        Some(Action::Ui(UiMsg::ToggleSearchDetail))
     ));
     for view in [View::Search, View::NowPlaying] {
         assert!(matches!(

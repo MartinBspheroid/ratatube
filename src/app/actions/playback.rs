@@ -101,16 +101,10 @@ pub enum PlaybackAction {
         track_id: String,
         bytes: Vec<u8>,
     },
-    /// Scroll the now-playing description panel.
-    ScrollNowPlaying(i32),
     /// Jump to the next chapter of the current track (DJ-mix tracklists).
     NextChapter,
     /// Jump back to the chapter start first, then to the previous chapter.
     PreviousChapter,
-    /// Toggle the Playing view's right pane between chapters and description.
-    ToggleNowPlayingPane,
-    /// Switch between info and queue focus in the ultra-wide Playing view.
-    CyclePlayingPane,
     /// Increase playback speed by 0.25, clamped to 0.5-2.0.
     SpeedUp,
     /// Decrease playback speed by 0.25, clamped to 0.5-2.0.

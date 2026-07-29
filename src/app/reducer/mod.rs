@@ -20,6 +20,7 @@ use crate::app::state::AppState;
 /// Apply one action to state and return the side effects to execute.
 pub fn reduce(state: &mut AppState, action: Action) -> Vec<Effect> {
     let effects = match action {
+        Action::Ui(msg) => ui::reduce(state, msg),
         Action::Navigation(action) => navigation::reduce(state, action),
         Action::Playback(action) => playback::reduce(state, action),
         Action::Queue(action) => queue::reduce(state, action),

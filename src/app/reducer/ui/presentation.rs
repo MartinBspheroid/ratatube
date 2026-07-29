@@ -1,20 +1,32 @@
 //! Presentation-mode toggles and notification transitions.
 
-use crate::app::action::{HistoryAction, PlaybackAction};
+use crate::app::action::HistoryAction;
+use crate::app::actions::UiMsg;
 use crate::app::reducer::Effect;
 use crate::app::state::{DomainState, HistoryViewMode, PlayingPane, UiState, View};
 
-/// Reduce UI-only history-family transitions (view modes, notifications).
+/// Reduce service-notification transitions that remain history-family.
 pub(in crate::app::reducer) fn reduce_history(
     ui: &mut UiState,
-    domain: &DomainState,
     action: HistoryAction,
 ) -> Vec<Effect> {
-    match action {
-        HistoryAction::ToggleNotificationLog => {
+    if let HistoryAction::Notify(message) = action {
+        ui.notify(&message, false);
+    }
+    Vec::new()
+}
+
+/// Reduce pane, view-mode, and notification presentation messages.
+pub(in crate::app::reducer) fn reduce(
+    ui: &mut UiState,
+    domain: &DomainState,
+    msg: UiMsg,
+) -> Vec<Effect> {
+    match msg {
+        UiMsg::ToggleNotificationLog => {
             ui.show_notification_log = !ui.show_notification_log;
         }
-        HistoryAction::ToggleHistoryViewMode => {
+        UiMsg::ToggleHistoryViewMode => {
             ui.history_view_mode = match ui.history_view_mode {
                 HistoryViewMode::Recent => HistoryViewMode::Top,
                 HistoryViewMode::Top => HistoryViewMode::Recent,
@@ -22,29 +34,16 @@ pub(in crate::app::reducer) fn reduce_history(
             ui.selected_index = 0;
             ui.reset_list(domain);
         }
-        HistoryAction::Notify(message) => ui.notify(&message, false),
-        HistoryAction::DismissNotification => ui.notification = None,
-        _ => {}
-    }
-    Vec::new()
-}
-
-/// Reduce UI-only Playing-view pane and scroll transitions.
-pub(in crate::app::reducer) fn reduce_playing_panes(
-    ui: &mut UiState,
-    domain: &DomainState,
-    action: PlaybackAction,
-) -> Vec<Effect> {
-    match action {
-        PlaybackAction::ScrollNowPlaying(delta) => {
+        UiMsg::DismissNotification => ui.notification = None,
+        UiMsg::ScrollNowPlaying(delta) => {
             let next = i32::from(ui.now_playing_scroll) + delta;
             ui.now_playing_scroll = next.max(0) as u16;
         }
-        PlaybackAction::ToggleNowPlayingPane => {
+        UiMsg::ToggleNowPlayingPane => {
             ui.now_playing_show_description = !ui.now_playing_show_description;
             ui.now_playing_scroll = 0;
         }
-        PlaybackAction::CyclePlayingPane => {
+        UiMsg::CyclePlayingPane => {
             if ui.view == View::NowPlaying
                 && crate::ui::layout::Breakpoint::from_width(ui.screen_area.width)
                     == crate::ui::layout::Breakpoint::UltraWide

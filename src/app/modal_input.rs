@@ -1,5 +1,6 @@
 //! Modal-first keyboard routing.
 
+use crate::app::actions::UiMsg;
 use crossterm::event::{KeyCode, KeyEvent};
 use tokio::sync::mpsc;
 
@@ -52,28 +53,26 @@ impl App {
                         .contains(crossterm::event::KeyModifiers::CONTROL);
                 let action = if ctrl_p {
                     // ctrl+p toggles the menu closed again.
-                    Some(Action::Navigation(NavigationAction::CloseSettings))
+                    Some(Action::Ui(UiMsg::CloseSettings))
                 } else {
                     match key.code {
-                        KeyCode::Esc => Some(Action::Navigation(NavigationAction::CloseSettings)),
+                        KeyCode::Esc => Some(Action::Ui(UiMsg::CloseSettings)),
                         KeyCode::Tab | KeyCode::BackTab => {
-                            Some(Action::Navigation(NavigationAction::SettingsCycleTab))
+                            Some(Action::Ui(UiMsg::SettingsCycleTab))
                         }
                         KeyCode::Char('j') | KeyCode::Down => {
-                            Some(Action::Navigation(NavigationAction::SettingsMove(1)))
+                            Some(Action::Ui(UiMsg::SettingsMove(1)))
                         }
                         KeyCode::Char('k') | KeyCode::Up => {
-                            Some(Action::Navigation(NavigationAction::SettingsMove(-1)))
+                            Some(Action::Ui(UiMsg::SettingsMove(-1)))
                         }
                         KeyCode::Char('l') | KeyCode::Right => {
-                            Some(Action::Navigation(NavigationAction::SettingsAdjust(1)))
+                            Some(Action::Ui(UiMsg::SettingsAdjust(1)))
                         }
                         KeyCode::Char('h') | KeyCode::Left => {
-                            Some(Action::Navigation(NavigationAction::SettingsAdjust(-1)))
+                            Some(Action::Ui(UiMsg::SettingsAdjust(-1)))
                         }
-                        KeyCode::Enter => {
-                            Some(Action::Navigation(NavigationAction::SettingsSubmit))
-                        }
+                        KeyCode::Enter => Some(Action::Ui(UiMsg::SettingsSubmit)),
                         _ => None,
                     }
                 };
@@ -81,9 +80,7 @@ impl App {
             }
             ModalCapture::SearchDetails => {
                 if matches!(key.code, KeyCode::Esc | KeyCode::Char('i')) {
-                    let _ = action_tx
-                        .send(Action::Navigation(NavigationAction::ToggleSearchDetail))
-                        .await;
+                    let _ = action_tx.send(Action::Ui(UiMsg::ToggleSearchDetail)).await;
                 }
             }
             ModalCapture::Import => {

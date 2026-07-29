@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::actions::UiMsg;
 
 #[test]
 fn superseded_search_results_are_discarded() {
@@ -26,15 +27,12 @@ fn superseded_search_results_are_discarded() {
 fn help_returns_to_the_view_that_opened_it_and_scrolls() {
     let mut state = AppState::new();
     state.ui.view = View::Queue;
-    reduce(&mut state, Action::Navigation(NavigationAction::OpenHelp));
+    reduce(&mut state, Action::Ui(UiMsg::OpenHelp));
     assert_eq!(state.ui.view, View::Help);
     assert_eq!(state.ui.help_return_view, View::Queue);
-    reduce(
-        &mut state,
-        Action::Navigation(NavigationAction::ScrollHelp(7)),
-    );
+    reduce(&mut state, Action::Ui(UiMsg::ScrollHelp(7)));
     assert_eq!(state.ui.help_scroll, 7);
-    reduce(&mut state, Action::Navigation(NavigationAction::CloseHelp));
+    reduce(&mut state, Action::Ui(UiMsg::CloseHelp));
     assert_eq!(state.ui.view, View::Queue);
     assert_eq!(state.ui.help_scroll, 0);
 }

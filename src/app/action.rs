@@ -2,13 +2,15 @@
 
 pub use crate::app::actions::{
     ExternalCommandKind, ExternalCommandTarget, HistoryAction, NavigationAction, PlaybackAction,
-    PlaylistAction, QueueAction,
+    PlaylistAction, QueueAction, UiMsg,
 };
 
 /// A state-changing intent produced by input, timers, or subprocess events and
 /// grouped by the responsibility that handles it.
 #[derive(Debug, Clone)]
 pub enum Action {
+    /// Client-local presentation transitions; never routed to the daemon.
+    Ui(UiMsg),
     /// Navigation, search, selection, and context-menu intent.
     Navigation(NavigationAction),
     /// Playback and media-lifecycle intent.
@@ -24,6 +26,7 @@ pub enum Action {
 /// Payload-free identity used to distinguish action domains and inner variants in diagnostics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ActionDiagnosticIdentity {
+    Ui(std::mem::Discriminant<UiMsg>),
     Navigation(std::mem::Discriminant<NavigationAction>),
     Playback(std::mem::Discriminant<PlaybackAction>),
     Queue(std::mem::Discriminant<QueueAction>),
@@ -35,6 +38,7 @@ impl Action {
     /// Return the domain plus inner discriminant without formatting action payloads.
     pub(super) fn diagnostic_identity(&self) -> ActionDiagnosticIdentity {
         match self {
+            Self::Ui(msg) => ActionDiagnosticIdentity::Ui(std::mem::discriminant(msg)),
             Self::Navigation(action) => {
                 ActionDiagnosticIdentity::Navigation(std::mem::discriminant(action))
             }
@@ -54,13 +58,12 @@ impl Action {
 
 #[cfg(test)]
 mod tests {
-    use super::{Action, NavigationAction, PlaybackAction};
+    use super::{Action, NavigationAction, PlaybackAction, UiMsg};
 
     #[test]
     fn diagnostic_identity_distinguishes_variants_within_one_domain() {
-        let navigate =
-            Action::Navigation(NavigationAction::Navigate(crate::app::state::View::Home));
-        let open_help = Action::Navigation(NavigationAction::OpenHelp);
+        let navigate = Action::Ui(UiMsg::Navigate(crate::app::state::View::Home));
+        let open_help = Action::Ui(UiMsg::OpenHelp);
 
         assert_ne!(
             navigate.diagnostic_identity(),

@@ -1,10 +1,9 @@
 //! View-specific key bindings.
 
+use crate::app::action::UiMsg;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::app::action::{
-    Action, HistoryAction, NavigationAction, PlaybackAction, PlaylistAction, QueueAction,
-};
+use crate::app::action::{Action, HistoryAction, NavigationAction, PlaylistAction, QueueAction};
 use crate::app::state::View;
 
 /// Map view-owned bindings before global bindings.
@@ -32,10 +31,10 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
             Action::Playlists(PlaylistAction::OpenPlaylistPicker)
         }
         (View::Home, KeyCode::Char('h')) | (View::Home, KeyCode::Left) => {
-            Action::Navigation(NavigationAction::CycleHomeSection(-1))
+            Action::Ui(UiMsg::CycleHomeSection(-1))
         }
         (View::Home, KeyCode::Char('l')) | (View::Home, KeyCode::Right) => {
-            Action::Navigation(NavigationAction::CycleHomeSection(1))
+            Action::Ui(UiMsg::CycleHomeSection(1))
         }
         (View::Home, KeyCode::Char('a')) => Action::Queue(QueueAction::AddSelectedToQueue),
         (View::Home, KeyCode::Char('p')) => {
@@ -100,41 +99,29 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
         (View::PlaylistDetail, KeyCode::Char('e')) => {
             Action::Playlists(PlaylistAction::OpenPlaylistEditor)
         }
-        (View::PlaylistDetail, KeyCode::Backspace) => {
-            Action::Navigation(NavigationAction::Navigate(View::Playlists))
-        }
+        (View::PlaylistDetail, KeyCode::Backspace) => Action::Ui(UiMsg::Navigate(View::Playlists)),
         (View::NowPlaying, KeyCode::Char('j') | KeyCode::Down) => {
-            Action::Playback(PlaybackAction::ScrollNowPlaying(3))
+            Action::Ui(UiMsg::ScrollNowPlaying(3))
         }
         (View::NowPlaying, KeyCode::Char('k') | KeyCode::Up) => {
-            Action::Playback(PlaybackAction::ScrollNowPlaying(-3))
+            Action::Ui(UiMsg::ScrollNowPlaying(-3))
         }
         (View::NowPlaying, KeyCode::Char('d') | KeyCode::PageDown) => {
-            Action::Playback(PlaybackAction::ScrollNowPlaying(15))
+            Action::Ui(UiMsg::ScrollNowPlaying(15))
         }
         (View::NowPlaying, KeyCode::Char('u') | KeyCode::PageUp) => {
-            Action::Playback(PlaybackAction::ScrollNowPlaying(-15))
+            Action::Ui(UiMsg::ScrollNowPlaying(-15))
         }
-        (View::NowPlaying, KeyCode::Char('v')) => {
-            Action::Playback(PlaybackAction::ToggleNowPlayingPane)
-        }
-        (View::Help, KeyCode::Esc | KeyCode::Char('?')) => {
-            Action::Navigation(NavigationAction::CloseHelp)
-        }
-        (View::Help, KeyCode::Char('j') | KeyCode::Down) => {
-            Action::Navigation(NavigationAction::ScrollHelp(1))
-        }
-        (View::Help, KeyCode::Char('k') | KeyCode::Up) => {
-            Action::Navigation(NavigationAction::ScrollHelp(-1))
-        }
-        (View::Help, KeyCode::PageDown) => Action::Navigation(NavigationAction::ScrollHelp(10)),
-        (View::Help, KeyCode::PageUp) => Action::Navigation(NavigationAction::ScrollHelp(-10)),
+        (View::NowPlaying, KeyCode::Char('v')) => Action::Ui(UiMsg::ToggleNowPlayingPane),
+        (View::Help, KeyCode::Esc | KeyCode::Char('?')) => Action::Ui(UiMsg::CloseHelp),
+        (View::Help, KeyCode::Char('j') | KeyCode::Down) => Action::Ui(UiMsg::ScrollHelp(1)),
+        (View::Help, KeyCode::Char('k') | KeyCode::Up) => Action::Ui(UiMsg::ScrollHelp(-1)),
+        (View::Help, KeyCode::PageDown) => Action::Ui(UiMsg::ScrollHelp(10)),
+        (View::Help, KeyCode::PageUp) => Action::Ui(UiMsg::ScrollHelp(-10)),
         (View::Search, KeyCode::Char('a')) => Action::Queue(QueueAction::AddSelectedToQueue),
         (View::Search, KeyCode::Char('A')) => Action::Queue(QueueAction::AddSelectedAsNext),
         (View::Search, KeyCode::Char('P')) => Action::Playlists(PlaylistAction::OpenPlaylistPicker),
-        (View::Search, KeyCode::Char('i')) => {
-            Action::Navigation(NavigationAction::ToggleSearchDetail)
-        }
+        (View::Search, KeyCode::Char('i')) => Action::Ui(UiMsg::ToggleSearchDetail),
         (View::Search | View::NowPlaying, KeyCode::Char('o')) => {
             Action::Navigation(NavigationAction::OpenInBrowser)
         }
@@ -147,9 +134,7 @@ pub fn view_action(key: &KeyEvent, view: View) -> Option<Action> {
             Action::History(HistoryAction::DeleteSelectedHistoryEntry)
         }
         (View::History, KeyCode::Char('C')) => Action::History(HistoryAction::ClearHistory),
-        (View::History, KeyCode::Char('g')) => {
-            Action::History(HistoryAction::ToggleHistoryViewMode)
-        }
+        (View::History, KeyCode::Char('g')) => Action::Ui(UiMsg::ToggleHistoryViewMode),
         _ => return None,
     };
     Some(action)
