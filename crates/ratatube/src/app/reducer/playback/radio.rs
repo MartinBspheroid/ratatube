@@ -1,6 +1,10 @@
 //! Mix loading and radio-refill transitions.
+//!
+//! Every entry point takes the payload it needs rather than a
+//! `PlaybackAction`, so the family dispatcher in `super` is the only place
+//! that enumerates the enum.
 
-use crate::app::action::PlaybackAction;
+use crate::app::operations::OperationId;
 use crate::app::reducer::Effect;
 use crate::app::state::{AppState, DomainState};
 use crate::media::Track;
@@ -15,47 +19,49 @@ enum RadioOutcome {
     Started { count: usize, first_new: usize },
 }
 
-/// Reduce mix loading and radio-refill transitions.
-pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect> {
-    match action {
-        PlaybackAction::MixLoaded { title, tracks, .. } => {
-            if tracks.is_empty() {
-                state.notify("Mix came back empty", true);
-                return Vec::new();
-            }
-            let effects = load_mix(&mut state.domain, tracks);
-            // The domain switched tracks; drop the presentation caches.
+/// Replace the queue with a fetched mix and play it from the top.
+pub(super) fn mix_loaded(state: &mut AppState, title: String, tracks: Vec<Track>) -> Vec<Effect> {
+    if tracks.is_empty() {
+        state.notify("Mix came back empty", true);
+        return Vec::new();
+    }
+    let effects = load_mix(&mut state.domain, tracks);
+    // The domain switched tracks; drop the presentation caches.
+    state.ui.thumbnail = None;
+    state.ui.now_playing_scroll = 0;
+    state.notify(&format!("Playing mix: {title}"), false);
+    effects
+}
+
+/// Mark a radio refill as the active one, superseding any prior refill.
+pub(super) fn refill_started(domain: &mut DomainState, operation_id: OperationId) -> Vec<Effect> {
+    domain.radio_operation = Some(operation_id);
+    Vec::new()
+}
+
+/// Accept a radio refill batch and announce what it added.
+pub(super) fn tracks_loaded(
+    state: &mut AppState,
+    operation_id: OperationId,
+    tracks: Vec<Track>,
+) -> Vec<Effect> {
+    match radio_tracks_loaded(&mut state.domain, operation_id, tracks) {
+        RadioOutcome::Ignored => Vec::new(),
+        RadioOutcome::Appended { count } => {
+            state.notify(&format!("Radio: added {count} tracks"), false);
+            vec![Effect::PersistQueue]
+        }
+        RadioOutcome::Started { count, first_new } => {
+            state.notify(&format!("Radio: added {count} tracks"), false);
             state.ui.thumbnail = None;
             state.ui.now_playing_scroll = 0;
-            state.notify(&format!("Playing mix: {title}"), false);
-            effects
+            vec![
+                Effect::ResolveAndPlay {
+                    track_index_in_queue: first_new,
+                },
+                Effect::PersistQueue,
+            ]
         }
-        PlaybackAction::RadioRefillStarted { operation_id } => {
-            state.domain.radio_operation = Some(operation_id);
-            Vec::new()
-        }
-        PlaybackAction::RadioTracksLoaded {
-            operation_id,
-            tracks,
-        } => match radio_tracks_loaded(&mut state.domain, operation_id, tracks) {
-            RadioOutcome::Ignored => Vec::new(),
-            RadioOutcome::Appended { count } => {
-                state.notify(&format!("Radio: added {count} tracks"), false);
-                vec![Effect::PersistQueue]
-            }
-            RadioOutcome::Started { count, first_new } => {
-                state.notify(&format!("Radio: added {count} tracks"), false);
-                state.ui.thumbnail = None;
-                state.ui.now_playing_scroll = 0;
-                vec![
-                    Effect::ResolveAndPlay {
-                        track_index_in_queue: first_new,
-                    },
-                    Effect::PersistQueue,
-                ]
-            }
-        },
-        _ => Vec::new(),
     }
 }
 
@@ -77,7 +83,7 @@ fn load_mix(domain: &mut DomainState, tracks: Vec<Track>) -> Vec<Effect> {
 /// Deduplicate and append a refill batch; start playback when it ran dry.
 fn radio_tracks_loaded(
     domain: &mut DomainState,
-    operation_id: crate::app::operations::OperationId,
+    operation_id: OperationId,
     tracks: Vec<Track>,
 ) -> RadioOutcome {
     if !domain.radio || domain.radio_operation != Some(operation_id) {

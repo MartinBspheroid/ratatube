@@ -1,53 +1,35 @@
 //! Playback metadata and chapter transitions; pane toggles route to the UI
 //! reducer.
+//!
+//! Every entry point takes the payload it needs rather than a
+//! `PlaybackAction`, so the family dispatcher in `super` is the only place
+//! that enumerates the enum.
 
-use crate::app::action::PlaybackAction;
+use crate::app::operations::OperationId;
 use crate::app::reducer::Effect;
-use crate::app::state::{AppState, DetailsStatus, DomainState};
+use crate::app::state::{DetailsStatus, DomainState};
 
-/// Reduce metadata, chapter, and playback-pane transitions.
-pub(super) fn reduce(state: &mut AppState, action: PlaybackAction) -> Vec<Effect> {
-    match action {
-        PlaybackAction::DetailsStarted {
-            operation_id,
-            track_id,
-        } => {
-            state.domain.details_status = DetailsStatus::Loading {
-                operation_id,
-                track_id,
-            };
-            Vec::new()
-        }
-        PlaybackAction::DetailsLoaded {
-            operation_id,
-            track_id,
-            details,
-        } => {
-            details_loaded(&mut state.domain, operation_id, track_id, *details);
-            Vec::new()
-        }
-        PlaybackAction::DetailsFailed {
-            operation_id,
-            track_id,
-            message,
-        } => {
-            details_failed(&mut state.domain, operation_id, track_id, message);
-            Vec::new()
-        }
-        PlaybackAction::NextChapter => next_chapter(&state.domain),
-        PlaybackAction::PreviousChapter => previous_chapter(&state.domain),
-        _ => Vec::new(),
-    }
+/// Mark an extended-metadata fetch as the active one.
+pub(super) fn details_started(
+    domain: &mut DomainState,
+    operation_id: OperationId,
+    track_id: String,
+) -> Vec<Effect> {
+    domain.details_status = DetailsStatus::Loading {
+        operation_id,
+        track_id,
+    };
+    Vec::new()
 }
 
 /// Apply details only when they still belong to the active operation and the
 /// current track.
-fn details_loaded(
+pub(super) fn details_loaded(
     domain: &mut DomainState,
-    operation_id: crate::app::operations::OperationId,
+    operation_id: OperationId,
     track_id: String,
     details: crate::media::TrackDetails,
-) {
+) -> Vec<Effect> {
     if matches!(
         domain.details_status,
         DetailsStatus::Loading {
@@ -59,15 +41,16 @@ fn details_loaded(
         domain.current_details = Some(details);
         domain.details_status = DetailsStatus::Idle;
     }
+    Vec::new()
 }
 
 /// Record a details failure only for the active operation and current track.
-fn details_failed(
+pub(super) fn details_failed(
     domain: &mut DomainState,
-    operation_id: crate::app::operations::OperationId,
+    operation_id: OperationId,
     track_id: String,
     message: String,
-) {
+) -> Vec<Effect> {
     if matches!(
         domain.details_status,
         DetailsStatus::Loading {
@@ -78,10 +61,11 @@ fn details_failed(
     {
         domain.details_status = DetailsStatus::Failed { track_id, message };
     }
+    Vec::new()
 }
 
 /// Seek to the next chapter boundary after the playhead.
-fn next_chapter(domain: &DomainState) -> Vec<Effect> {
+pub(super) fn next_chapter(domain: &DomainState) -> Vec<Effect> {
     let position = domain.playback.position_seconds;
     if let Some(chapter) = domain
         .chapters()
@@ -94,7 +78,7 @@ fn next_chapter(domain: &DomainState) -> Vec<Effect> {
 }
 
 /// Restart the current chapter, or step back to the previous one.
-fn previous_chapter(domain: &DomainState) -> Vec<Effect> {
+pub(super) fn previous_chapter(domain: &DomainState) -> Vec<Effect> {
     let chapters = domain.chapters();
     if let Some(current) = domain.current_chapter_index() {
         let start = chapters[current].start_seconds;

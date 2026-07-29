@@ -124,8 +124,15 @@ pub(super) fn reduce(state: &mut AppState, action: QueueAction) -> Vec<Effect> {
             state.notify("Queue finished", false);
             Vec::new()
         }
-        // Selected-content variants are resolved by the service layer.
-        _ => Vec::new(),
+        // Selected-content variants need the full app state and the playlist
+        // store to resolve "the selection" into tracks, so the service layer
+        // applies them after reduce; there is no pure transition to make here.
+        // `QueueLoaded` is a pure report — `client_route` ignores it too.
+        QueueAction::QueueLoaded(_)
+        | QueueAction::AddSelectedToQueue
+        | QueueAction::AddSelectedAsNext
+        | QueueAction::LoadSelectedPlaylistIntoQueue
+        | QueueAction::AppendSelectedPlaylistToQueue => Vec::new(),
     }
 }
 
