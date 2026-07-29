@@ -2,14 +2,15 @@
 //! the playlist picker/prompt/editor family.
 
 use crate::state::{DomainState, UiState};
-use ratatube_domain::action::{NavigationAction, PlaylistAction};
+use ratatube_domain::action::PlaylistAction;
 use ratatube_domain::effect::Effect;
 use ratatube_domain::media::Track;
 
-/// The context-menu subset of [`NavigationAction`]: the only messages
+/// The context-menu subset of `NavigationAction`: the only messages
 /// [`reduce_context_menu`] can be asked to apply. Narrowing the input this
 /// way makes "non-context action routed to the context reducer" an
-/// unrepresentable state instead of a runtime panic.
+/// unrepresentable state rather than a runtime panic or a silent no-op — the
+/// caller's own wildcard-free match must name the message it is asking for.
 #[derive(Debug, Clone)]
 pub enum TrackContextMsg {
     /// Resolve the selected track and open the menu (service-owned).
@@ -24,59 +25,6 @@ pub enum TrackContextMsg {
     ShowDetails(Track),
     /// Close the selected-track details modal.
     CloseDetails,
-}
-
-impl TrackContextMsg {
-    /// Classify one navigation action, yielding `None` for the variants the
-    /// navigation coordinator routes to search, channel, or quit handling.
-    ///
-    /// Wildcard-free on purpose: a new [`NavigationAction`] variant cannot
-    /// compile until it is classified as context-menu or not.
-    pub fn from_navigation(action: NavigationAction) -> Option<Self> {
-        match action {
-            NavigationAction::OpenTrackContext => Some(Self::Open),
-            NavigationAction::CloseTrackContext => Some(Self::Close),
-            NavigationAction::MoveTrackContext(delta) => Some(Self::Move(delta)),
-            NavigationAction::SubmitTrackContext => Some(Self::Submit),
-            NavigationAction::ShowTrackDetails(track) => Some(Self::ShowDetails(track)),
-            NavigationAction::CloseTrackDetails => Some(Self::CloseDetails),
-            NavigationAction::Quit
-            | NavigationAction::SearchInput(_)
-            | NavigationAction::SearchBackspace
-            | NavigationAction::SubmitSearch(_)
-            | NavigationAction::SubmitExactVideo(_)
-            | NavigationAction::SearchCompleted { .. }
-            | NavigationAction::SearchFailed { .. }
-            | NavigationAction::ClearSearch
-            | NavigationAction::OpenInBrowser
-            | NavigationAction::ExternalCommandCompleted { .. }
-            | NavigationAction::VisitChannel(_)
-            | NavigationAction::ChannelResolved { .. }
-            | NavigationAction::ChannelPageLoaded { .. }
-            | NavigationAction::LoadMoreChannel
-            | NavigationAction::RetryChannel
-            | NavigationAction::BackFromChannel => None,
-        }
-    }
-}
-
-/// Reduce context-menu intents that do not require application services.
-///
-/// Stays total over [`NavigationAction`] so the navigation coordinator can
-/// forward its context-menu arm as-is, but the transitions themselves take
-/// the narrowed [`TrackContextMsg`]. A non-context action is a routing
-/// decision owned by that coordinator's own wildcard-free match, so it is
-/// left unhandled here: this is public API of the crate and must not abort
-/// the process for a caller that misroutes.
-pub fn reduce_track_context(
-    ui: &mut UiState,
-    domain: &DomainState,
-    action: NavigationAction,
-) -> Vec<Effect> {
-    match TrackContextMsg::from_navigation(action) {
-        Some(msg) => reduce_context_menu(ui, domain, msg),
-        None => Vec::new(),
-    }
 }
 
 /// Apply one context-menu or details transition.

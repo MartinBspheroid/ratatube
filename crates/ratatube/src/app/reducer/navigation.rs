@@ -7,6 +7,12 @@ use crate::app::reducer::Effect;
 use crate::app::state::{AppState, DomainState, Focus};
 use crate::media::Track;
 use crate::media::search::SearchState;
+use ratatube_ui::reducer::modals::TrackContextMsg;
+
+/// Apply one narrowed context-menu message to the UI half.
+fn context_menu(state: &mut AppState, msg: TrackContextMsg) -> Vec<Effect> {
+    super::ui::modals::reduce_context_menu(&mut state.ui, &state.domain, msg)
+}
 
 /// Outcome of accepting or rejecting a completed search.
 enum SearchOutcome {
@@ -18,14 +24,18 @@ enum SearchOutcome {
 /// Reduce navigation-domain state transitions.
 pub(super) fn reduce(state: &mut AppState, action: NavigationAction) -> Vec<Effect> {
     match action {
-        NavigationAction::OpenTrackContext
-        | NavigationAction::CloseTrackContext
-        | NavigationAction::MoveTrackContext(_)
-        | NavigationAction::SubmitTrackContext
-        | NavigationAction::ShowTrackDetails(_)
-        | NavigationAction::CloseTrackDetails => {
-            super::ui::modals::reduce_track_context(&mut state.ui, &state.domain, action)
+        // Each context-menu action names the narrowed message it maps to, so
+        // routing a non-context action here cannot compile.
+        NavigationAction::OpenTrackContext => context_menu(state, TrackContextMsg::Open),
+        NavigationAction::CloseTrackContext => context_menu(state, TrackContextMsg::Close),
+        NavigationAction::MoveTrackContext(delta) => {
+            context_menu(state, TrackContextMsg::Move(delta))
         }
+        NavigationAction::SubmitTrackContext => context_menu(state, TrackContextMsg::Submit),
+        NavigationAction::ShowTrackDetails(track) => {
+            context_menu(state, TrackContextMsg::ShowDetails(track))
+        }
+        NavigationAction::CloseTrackDetails => context_menu(state, TrackContextMsg::CloseDetails),
         NavigationAction::Quit => {
             state.ui.running = false;
             vec![Effect::PersistQueue, Effect::QuitMpv, Effect::Exit]
