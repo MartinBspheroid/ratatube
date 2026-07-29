@@ -1,11 +1,13 @@
 //! Atomic JSON persistence (PRD section 11.4).
 //!
-//! Writes serialize the full value, write to a sibling temp file, flush,
-//! sync, and rename over the original. Malformed files are never silently
-//! reset: reads report the affected file and preserve a `.bak` copy.
+//! Writes serialize the full value, write to a *uniquely named* sibling temp
+//! file, flush, sync, rename over the original, and finally sync the parent
+//! directory so the rename itself survives a crash. Malformed files are never
+//! silently reset: reads report the affected file and preserve a `.bak` copy.
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -78,27 +80,72 @@ pub fn atomic_write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
             message: format!("document exceeds {} byte limit", MAX_DOCUMENT_BYTES),
         });
     }
+    // Unique per write: two writers racing on the same document must not
+    // share scratch space, or one can rename the other's partial payload
+    // into place.
     let tmp = tmp_path(path);
 
     let write_result = (|| -> Result<()> {
         fs::write(&tmp, &payload)?;
-        // Flush to disk before rename.
+        // Flush the data to disk before rename.
         let file = fs::File::open(&tmp)?;
         file.sync_all()?;
         fs::rename(&tmp, path)?;
+        // Flush the directory entry too: without this the rename can be lost
+        // after a power failure even though the payload was synced.
+        sync_dir(parent)?;
         Ok(())
     })();
 
     if write_result.is_err() {
-        // Preserve the previous file; clean up the temp file best effort.
+        // Preserve the previous file; clean up the temp file best effort. The
+        // temp path is only ever touched by this call, so removing it after a
+        // post-rename failure is a harmless no-op.
         let _ = fs::remove_file(&tmp);
     }
     write_result
 }
 
+/// Fsync a directory so a rename inside it becomes durable.
+///
+/// On Unix (the platforms this project targets) a directory can be opened
+/// read-only and fsynced, which is exactly what POSIX requires to make a
+/// rename survive a crash. Errors propagate like every other IO failure in
+/// [`atomic_write`].
+#[cfg(unix)]
+fn sync_dir(dir: &Path) -> Result<()> {
+    let handle = fs::File::open(dir)?;
+    handle.sync_all()?;
+    Ok(())
+}
+
+/// Non-Unix fallback: Windows cannot open a directory as a regular file, and
+/// it offers no per-directory flush, so there is nothing to sync here. This
+/// is a genuine gap rather than a silent one — the durability guarantee below
+/// Unix is whatever the filesystem gives us for the rename itself.
+#[cfg(not(unix))]
+fn sync_dir(_dir: &Path) -> Result<()> {
+    Ok(())
+}
+
+/// Temp file name for one write attempt.
+///
+/// The process id plus a monotonic counter makes the name unique across
+/// threads within a process and across processes on the same machine, without
+/// pulling in a new dependency for random names.
+///
+/// A hard crash mid-write therefore leaves an orphan `*.tmp.<pid>.<seq>` that
+/// nothing reuses. That is deliberate: a sweeper for those siblings could not
+/// tell an orphan from another process's in-flight write without racing a
+/// liveness check, and deleting a live writer's scratch file is exactly the
+/// corruption this unique naming removed. A few stale bytes after a crash is
+/// the cheaper failure. Reap them from the data directory at startup if it
+/// ever matters — not from here.
 fn tmp_path(path: &Path) -> PathBuf {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
     let mut tmp = path.as_os_str().to_owned();
-    tmp.push(".tmp");
+    tmp.push(format!(".tmp.{}.{}", std::process::id(), seq));
     PathBuf::from(tmp)
 }
 
@@ -112,14 +159,85 @@ fn backup_path(path: &Path) -> PathBuf {
 mod tests {
     use super::*;
 
+    /// Every temp file this module can create is a sibling whose name
+    /// contains `.tmp`; a write must leave none of them behind. This is
+    /// stronger than probing one predicted name, because temp names are
+    /// unique per write and unpredictable from the outside.
+    fn stray_tmp_files(dir: &Path) -> Vec<PathBuf> {
+        fs::read_dir(dir)
+            .expect("read_dir")
+            .map(|entry| entry.expect("entry").path())
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.contains(".tmp"))
+            })
+            .collect()
+    }
+
     #[test]
     fn atomic_write_and_read_roundtrip() {
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("doc.json");
         atomic_write(&path, &serde_json::json!({"a": 1})).expect("write");
-        assert!(!tmp_path(&path).exists(), "temp file must be renamed away");
+        assert_eq!(
+            stray_tmp_files(dir.path()),
+            Vec::<PathBuf>::new(),
+            "temp file must be renamed away"
+        );
         let value: serde_json::Value = read(&path).expect("read");
         assert_eq!(value["a"], 1);
+    }
+
+    #[test]
+    fn concurrent_writes_never_publish_a_partial_document() {
+        const WRITERS: usize = 8;
+        const ROUNDS: usize = 40;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("doc.json");
+        // Distinct sizes per writer so a shared scratch file shows up as a
+        // truncated or blended payload instead of hiding behind equal lengths.
+        let payloads: Vec<(usize, String)> = (0..WRITERS)
+            .map(|writer| (writer, "x".repeat(64 * 1024 * (writer + 1))))
+            .collect();
+
+        for _ in 0..ROUNDS {
+            let barrier = std::sync::Arc::new(std::sync::Barrier::new(WRITERS));
+            let handles: Vec<_> = payloads
+                .iter()
+                .map(|(writer, filler)| {
+                    let path = path.clone();
+                    let barrier = std::sync::Arc::clone(&barrier);
+                    let value = serde_json::json!({"who": writer, "filler": filler});
+                    std::thread::spawn(move || {
+                        // Line the writers up so their write/rename windows
+                        // actually overlap.
+                        barrier.wait();
+                        atomic_write(&path, &value)
+                    })
+                })
+                .collect();
+            for handle in handles {
+                handle.join().expect("thread").expect("write");
+            }
+
+            // Whichever writer won the rename, the published document must be
+            // exactly one complete payload — never truncated or interleaved.
+            let stored: serde_json::Value = read(&path).expect("read");
+            let who = stored["who"].as_u64().expect("who") as usize;
+            assert_eq!(
+                stored["filler"].as_str().expect("filler"),
+                payloads[who].1,
+                "writer {who} published a corrupted payload"
+            );
+            assert_eq!(
+                stray_tmp_files(dir.path()),
+                Vec::<PathBuf>::new(),
+                "concurrent writes must not leak temp files"
+            );
+        }
     }
 
     #[test]
