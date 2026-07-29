@@ -1,6 +1,7 @@
 # Workspace Split and Per-Context Messages — Design
 
-Date: 2026-07-29. Status: approved in discussion; awaiting spec review.
+Date: 2026-07-29. Status: implemented, with two items deliberately not built
+(see "Implementation status" at the end).
 
 ## Problem
 
@@ -167,3 +168,53 @@ Full verify gate green after each phase; each is a stable resting point.
   phase 2 (`ratatube quit` + auto-respawn).
 - **Snapshot copy sweeps**: none expected (no copy changes), but any
   incidental layout change triggers the usual same-commit sweep.
+
+## Implementation status
+
+Landed in three commits, each with the full verify gate green:
+
+1. `refactor: make service-action routing wildcard-free` — every handler in
+   `src/app/service_actions/` matches its own enum exhaustively. The
+   playlist storage catch-all that shipped the rename bug is gone, and the
+   `PromptPurpose` catch-all with it. Routing `RenameSelectedPlaylist`
+   (previously a silent no-op outside the daemon path) was the first thing
+   the exhaustive match forced.
+2. `refactor: split into a cargo workspace with ratatube-domain and
+   ratatube-protocol` — the crate topology, plus the CI
+   `cargo tree -p ratatube-domain` assert replacing the source-scanning
+   guard test.
+3. `refactor: extract ratatube-services and ratatube-ui crates` — the
+   remaining two crates. Services and UI are siblings that cannot name each
+   other.
+
+Deviations, and why:
+
+- **No protocol version bump.** The wire format did not change, so a bump
+  would only force running daemons to restart for nothing. Bump it when the
+  frames actually change.
+- **Reducers stayed in the binary.** They take `&mut AppState` and still
+  carry ~70 cross-half touches (notifications, selection clamping). Moving
+  them into the domain crate needs those concerns lifted out first; the
+  crate boundary now makes that a compile error rather than a convention,
+  which is the property the split was for.
+- **`Action` kept its flat shape** (`Ui`, `Navigation`, `Playback`, `Queue`,
+  `Playlists`, `History`) in `ratatube-domain`, rather than growing a
+  nested `Command` envelope. `UiMsg` still implements no serde traits.
+
+Not built, with the blocker each one hit:
+
+- **`service_actions/` deletion in favour of per-context executors in
+  ratatube-services.** The handlers make 67 UI-half calls (`notify`,
+  `clamp_selection`, modal state). An executor living in `ratatube-services`
+  cannot make them — services cannot name the UI crate. This needs a prior
+  design step: notifications and selection effects must become returned
+  events the client applies. The bug class this was meant to kill is already
+  dead by exhaustive routing (item 1), so the remaining benefit is placement,
+  not safety.
+- **`Command` as the only type the protocol accepts, with
+  `Effect::Followup(Command)`.** The per-context enums contain daemon-internal
+  completions — `client_route.rs` routes 22 of them to `Route::Ignore`
+  precisely because they must never arrive from a client. Promoting those
+  enums wholesale to the wire vocabulary would widen what a connected client
+  can inject, against the existing "completion-style actions never cross the
+  wire" invariant. A narrower wire enum per context would be needed first.
