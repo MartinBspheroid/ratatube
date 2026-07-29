@@ -166,7 +166,12 @@ fn is_deceptive_format_char(c: char) -> bool {
     )
 }
 
-/// Shared filter behind both public sanitizers, so they cannot drift apart.
+/// Shared filter behind both sanitizers, so they cannot drift apart.
+///
+/// The sanitizers are renderer-internal on purpose: every surface that shows
+/// external metadata is inside `crate::render`, so keeping them here means new
+/// rendering code cannot forget to sanitize by reaching for a crate-wide
+/// helper from somewhere that never displays anything.
 ///
 /// Everything else — combining marks, non-Latin scripts, emoji — is
 /// legitimate content and passes through untouched. `keep_newlines` is the
