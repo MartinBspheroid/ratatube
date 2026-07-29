@@ -40,15 +40,22 @@ pub fn render_up_next(
         .take(inner.height as usize)
         .map(|(queue_position, &track_index)| {
             shown += 1;
-            let track = &state.domain.queue.tracks[track_index];
+            // An order entry that does not index a track means the queue broke
+            // its own invariant. Render a placeholder rather than panicking the
+            // render loop, and keep one row per order position so the row
+            // numbering still matches the queue.
+            let title = match state.domain.queue.tracks.get(track_index) {
+                Some(track) => format!(
+                    "{} — {}",
+                    sanitize_terminal_text(&track.title),
+                    sanitize_terminal_text(&track.artist)
+                ),
+                None => "Track unavailable".to_string(),
+            };
             numbered_row(
                 NumberedRow {
                     index: queue_position,
-                    title: &format!(
-                        "{} — {}",
-                        sanitize_terminal_text(&track.title),
-                        sanitize_terminal_text(&track.artist)
-                    ),
+                    title: &title,
                     right_columns: &[],
                     playing: false,
                     selected: false,
@@ -178,11 +185,17 @@ pub fn render_queue(
         .skip(start)
         .take(inner.height as usize)
         .map(|(position, &track_index)| {
-            let track = &state.domain.queue.tracks[track_index];
+            // One row per order position even when an entry is out of range:
+            // this pane feeds `list_hit_offset`, so dropping a row would map
+            // mouse clicks onto the wrong track.
+            let title = match state.domain.queue.tracks.get(track_index) {
+                Some(track) => sanitize_terminal_text(&track.title),
+                None => "Track unavailable".to_string(),
+            };
             numbered_row(
                 NumberedRow {
                     index: position,
-                    title: &sanitize_terminal_text(&track.title),
+                    title: &title,
                     right_columns: &[],
                     playing: state.domain.queue.position == Some(position),
                     selected: focused && state.ui.selected_index == position,
