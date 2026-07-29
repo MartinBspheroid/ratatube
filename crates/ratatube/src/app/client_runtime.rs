@@ -103,7 +103,7 @@ impl App {
                 }
             }
             self.sync_list_view();
-            crate::ui::render_with(terminal, &mut self.state, self.history.as_ref())?;
+            crate::ui::render_with(terminal, &mut self.state, self.history.as_deref())?;
         }
         drop(parked_keepalive);
         self.operations.shutdown(Duration::from_secs(1)).await;
@@ -226,7 +226,7 @@ impl App {
         session: &mut ClientSession,
         action_tx: &mpsc::Sender<Action>,
     ) {
-        match crate::app::client_route::route(&action, &self.state, self.history.as_ref()) {
+        match crate::app::client_route::route(&action, &self.state, self.history.as_deref()) {
             Route::Local => {
                 let _ = self.handle_action(action, action_tx).await;
             }

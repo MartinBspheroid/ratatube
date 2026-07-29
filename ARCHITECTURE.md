@@ -12,26 +12,33 @@ crates/
                       No tokio, no ratatui, no process or filesystem code.
   ratatube-protocol   versioned NDJSON frames and wire DTOs. Depends on
                       domain only, so both runtimes cannot drift.
-  ratatube            binary: services (mpv, yt-dlp, persistence, clipboard,
-                      browser), rendering, input, and the daemon/client
-                      runtimes that wire them together.
+  ratatube-services   the impure edge: mpv process and IPC, yt-dlp,
+                      thumbnails, persistence, clipboard, child processes.
+                      Depends on domain and tokio; cannot reach the UI.
+  ratatube-ui         UI state, presentation reducers, ratatui rendering,
+                      keymap, themes, icons. Reads domain, never writes it.
+  ratatube            binary: the daemon runtime, the client runtime, the
+                      CLI, and the wiring between the four.
 ```
 
 `ratatube-domain` cannot render, spawn, or block, because those crates are
 absent from its dependency tree. CI asserts that directly
 (`cargo tree -p ratatube-domain`), replacing the source-scanning guard test
-that used to approximate it.
+that used to approximate it. `ratatube-services` and `ratatube-ui` are
+siblings: neither can name the other, so a service cannot draw and a widget
+cannot spawn a process.
 
-Inside the binary crate, four boundaries remain:
+Each service module re-exports the domain model it adapts (for example
+`ratatube_services::media` re-exports `Track` next to the yt-dlp client), so
+call sites keep one vocabulary per subject. Where a type was half model and
+half IO it was split: `HistoryLog` is the domain log the UI renders, and
+`HistoryService` is the file-backed store that derefs to it.
 
-1. `src/app` owns application state, command reduction, background-operation identity, and effect execution.
-2. `src/media` and `src/playback` own untrusted external adapters (`yt-dlp`, `curl`, and `mpv`).
-3. `src/persistence`, `src/queue`, `src/history`, and `src/playlists` own validated local documents.
-4. `src/ui` and `src/input` own terminal rendering and interaction metadata.
+Inside the binary crate, the remaining boundaries are:
 
-Modules 2-4 are service facades over the matching domain models: the model
-is re-exported so call sites keep one vocabulary, while the impure adapter
-stays in the binary.
+1. `src/app` owns state composition, command reduction, background-operation identity, and effect execution.
+2. `src/app/domain` owns supervised external work (resolution, imports, thumbnails, recovery).
+3. `src/client` and `src/daemon` own the two runtimes and the socket.
 
 ## Domain/UI state split (daemon phase 1)
 

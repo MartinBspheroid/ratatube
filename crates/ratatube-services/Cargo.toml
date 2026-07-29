@@ -1,0 +1,24 @@
+[package]
+name = "ratatube-services"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "The impure edge of ratatube: mpv, yt-dlp, persistence, and OS adapters"
+publish.workspace = true
+
+[dependencies]
+ratatube-domain.workspace = true
+
+chrono.workspace = true
+directories.workspace = true
+image.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+ulid.workspace = true
+which.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

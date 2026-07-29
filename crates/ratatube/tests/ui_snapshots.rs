@@ -32,7 +32,7 @@ mod search;
 /// Render the app to a string for snapshot-style assertions.
 fn render_to_string(
     state: &mut AppState,
-    history: Option<&HistoryService>,
+    history: Option<&ratatube_domain::history::HistoryLog>,
     w: u16,
     h: u16,
 ) -> String {

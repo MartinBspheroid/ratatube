@@ -126,7 +126,7 @@ impl App {
             // Keep filter indices and mirrored history length synchronized with
             // the exact state rendered in this loop iteration.
             self.sync_list_view();
-            crate::ui::render_with(terminal, &mut self.state, self.history.as_ref())?;
+            crate::ui::render_with(terminal, &mut self.state, self.history.as_deref())?;
         }
         self.operations.shutdown(Duration::from_secs(1)).await;
         Ok(())

@@ -6,6 +6,7 @@
 //! filesystem; the impure edge lives in the binary's service layer. CI
 //! asserts the dependency tree stays clean.
 
+pub mod action;
 pub mod commands;
 pub mod config;
 pub mod effect;

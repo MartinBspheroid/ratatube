@@ -1,0 +1,19 @@
+[package]
+name = "ratatube-ui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Terminal rendering, UI state, and input mapping for ratatube"
+publish.workspace = true
+
+# Reads the domain; never writes it, never spawns, never touches the wire.
+[dependencies]
+ratatube-domain.workspace = true
+
+chrono.workspace = true
+crossterm.workspace = true
+image.workspace = true
+ratatui.workspace = true
+ratatui-image.workspace = true
+rand.workspace = true
+unicode-width.workspace = true

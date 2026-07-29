@@ -10,6 +10,8 @@ publish.workspace = true
 [dependencies]
 ratatube-domain.workspace = true
 ratatube-protocol.workspace = true
+ratatube-services.workspace = true
+ratatube-ui.workspace = true
 
 chrono.workspace = true
 clap.workspace = true
@@ -32,4 +34,5 @@ unicode-width.workspace = true
 which.workspace = true
 
 [dev-dependencies]
+ratatube-domain.workspace = true
 tempfile.workspace = true

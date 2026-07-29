@@ -1,14 +1,16 @@
 //! Application orchestration facade and shared runtime ownership.
 
-pub mod action;
-mod actions;
 pub mod domain;
 pub mod domain_event;
-pub mod filter;
 pub mod reducer;
-pub mod state;
-pub mod track_context;
-pub(crate) mod ui_sync;
+
+pub use ratatube_domain::action;
+pub use ratatube_domain::commands as actions;
+pub use ratatube_ui::state::track_context;
+pub use ratatube_ui::{filter, state, sync as ui_sync};
+
+#[cfg(test)]
+mod track_context_tests;
 
 pub use domain::operations;
 

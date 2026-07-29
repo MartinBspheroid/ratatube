@@ -12,7 +12,7 @@ use crate::app::track_context::{CollectionRevision, TrackContextAction};
 impl App {
     /// Resolve the active track with optional history data and open its menu.
     pub(super) fn open_track_context(&mut self) {
-        crate::app::track_context::open_track_context(&mut self.state, self.history.as_ref());
+        crate::app::track_context::open_track_context(&mut self.state, self.history.as_deref());
     }
 
     /// Execute or dispatch the stable operation selected in the open menu.

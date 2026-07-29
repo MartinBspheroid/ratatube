@@ -12,11 +12,14 @@ are selected.
   events, models). No tokio, no ratatui, no process code; CI asserts the
   dependency tree stays clean.
 - `crates/ratatube-protocol` — NDJSON frames and wire DTOs over the domain.
-- `crates/ratatube` — the binary: services, rendering, input, runtimes.
+- `crates/ratatube-services` — the impure edge: mpv, yt-dlp, persistence,
+  clipboard, child processes.
+- `crates/ratatube-ui` — UI state, presentation reducers, rendering, keymap.
+- `crates/ratatube` — the binary: daemon runtime, client runtime, CLI, wiring.
 
-Service modules in the binary (`media`, `queue`, `playlists`, `history`,
-`playback`, `config`) re-export their domain model, so `crate::media::Track`
-and friends resolve unchanged.
+Services and UI are siblings and cannot name each other. Service and UI
+modules re-export the domain model they adapt, so `crate::media::Track` and
+friends still resolve from the binary.
 
 ## Read before changing code
 

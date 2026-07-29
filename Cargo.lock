@@ -1951,6 +1951,8 @@ dependencies = [
  "rand 0.10.2",
  "ratatube-domain",
  "ratatube-protocol",
+ "ratatube-services",
+ "ratatube-ui",
  "ratatui",
  "ratatui-image",
  "serde",
@@ -1986,6 +1988,38 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "ratatube-services"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "directories",
+ "image",
+ "ratatube-domain",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "ulid",
+ "which",
+]
+
+[[package]]
+name = "ratatube-ui"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "crossterm",
+ "image",
+ "rand 0.10.2",
+ "ratatube-domain",
+ "ratatui",
+ "ratatui-image",
+ "unicode-width",
 ]
 
 [[package]]

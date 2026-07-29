@@ -8,10 +8,11 @@ mod navigation;
 mod playback;
 mod playlists;
 mod queue;
-mod ui;
 
 pub use ratatube_domain::effect::Effect;
-pub(crate) use ui::settings::family_index;
+
+use ratatube_ui::reducer as ui;
+pub use ratatube_ui::reducer::settings::family_index;
 
 use crate::app::action::Action;
 use crate::app::state::AppState;

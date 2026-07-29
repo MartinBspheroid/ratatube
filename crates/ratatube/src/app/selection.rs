@@ -1,5 +1,7 @@
 //! Filter synchronization and selected-track resolution across views.
 
+use ratatube_domain::history::HistoryLog;
+
 use crate::app::state::{HistoryViewMode, View};
 use crate::app::{App, FilterSyncKey};
 use crate::media::Track;
@@ -41,7 +43,7 @@ impl App {
             self.state.ui.visible_indices = match (
                 self.state.ui.view,
                 self.state.ui.history_view_mode,
-                self.history.as_ref(),
+                self.history.as_deref(),
             ) {
                 (View::History, HistoryViewMode::Recent, Some(history)) => {
                     Some(history.recent_unique_indices())
@@ -54,7 +56,7 @@ impl App {
         if self.state.ui.view == View::History
             && self.state.ui.history_view_mode == HistoryViewMode::Recent
         {
-            self.state.ui.visible_indices = self.history.as_ref().map(|history| {
+            self.state.ui.visible_indices = self.history.as_deref().map(|history| {
                 history
                     .recent_unique_indices()
                     .into_iter()
@@ -142,7 +144,7 @@ impl App {
     /// Resolve the selected track across track-listing views, mapping through
     /// the in-list filter and History presentation mode.
     pub(super) fn resolve_selected_track(&self) -> Option<Track> {
-        resolve_selected_track(&self.state, self.history.as_ref())
+        resolve_selected_track(&self.state, self.history.as_deref())
     }
 }
 
@@ -150,7 +152,7 @@ impl App {
 /// router can reuse it without an `App`.
 pub(crate) fn resolve_selected_track(
     state: &crate::app::state::AppState,
-    history: Option<&crate::history::HistoryService>,
+    history: Option<&HistoryLog>,
 ) -> Option<Track> {
     let index = state.resolve_index(state.ui.selected_index);
     match state.ui.view {

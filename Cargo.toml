@@ -12,6 +12,8 @@ publish = false
 [workspace.dependencies]
 ratatube-domain = { path = "crates/ratatube-domain" }
 ratatube-protocol = { path = "crates/ratatube-protocol" }
+ratatube-services = { path = "crates/ratatube-services" }
+ratatube-ui = { path = "crates/ratatube-ui" }
 
 chrono = { version = "0.4.45", features = ["serde"] }
 clap = { version = "4.6.2", features = ["derive"] }

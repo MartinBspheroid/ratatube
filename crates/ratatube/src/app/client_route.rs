@@ -9,8 +9,8 @@ use crate::app::action::{
     Action, HistoryAction, NavigationAction, PlaybackAction, PlaylistAction, QueueAction,
 };
 use crate::app::state::{AppState, PlayingPane, View};
-use crate::history::HistoryService;
 use crate::protocol::Command;
+use ratatube_domain::history::HistoryLog;
 
 /// Where a client-mode action goes.
 #[derive(Debug)]
@@ -40,7 +40,7 @@ pub(crate) enum Route {
 }
 
 /// Classify one action for the client runtime.
-pub(crate) fn route(action: &Action, state: &AppState, history: Option<&HistoryService>) -> Route {
+pub(crate) fn route(action: &Action, state: &AppState, history: Option<&HistoryLog>) -> Route {
     match action {
         // Presentation messages are local by type; no per-variant decision.
         Action::Ui(_) => Route::Local,
@@ -89,7 +89,7 @@ fn route_navigation(action: &NavigationAction) -> Route {
 fn route_playback(
     action: &PlaybackAction,
     state: &AppState,
-    history: Option<&HistoryService>,
+    history: Option<&HistoryLog>,
 ) -> Route {
     match action {
         PlaybackAction::PlayPause => Route::Send(Command::PlayPause),
@@ -164,7 +164,7 @@ fn route_playback(
     }
 }
 
-fn route_play_selected(state: &AppState, history: Option<&HistoryService>) -> Route {
+fn route_play_selected(state: &AppState, history: Option<&HistoryLog>) -> Route {
     let queue_pane = state.ui.view == View::Queue
         || (state.ui.view == View::NowPlaying
             && state.ui.playing_pane == PlayingPane::Queue
@@ -183,7 +183,7 @@ fn route_play_selected(state: &AppState, history: Option<&HistoryService>) -> Ro
     }
 }
 
-fn route_queue(action: &QueueAction, state: &AppState, history: Option<&HistoryService>) -> Route {
+fn route_queue(action: &QueueAction, state: &AppState, history: Option<&HistoryLog>) -> Route {
     match action {
         QueueAction::AddToQueue(track) => Route::Send(Command::QueueAdd {
             track: track.clone(),
@@ -416,11 +416,7 @@ fn route_playlists(action: &PlaylistAction, state: &AppState) -> Route {
     }
 }
 
-fn route_history(
-    action: &HistoryAction,
-    state: &AppState,
-    history: Option<&HistoryService>,
-) -> Route {
+fn route_history(action: &HistoryAction, state: &AppState, history: Option<&HistoryLog>) -> Route {
     match action {
         HistoryAction::ClearHistoryConfirmed => Route::Send(Command::HistoryClear),
         HistoryAction::ClearActivity => Route::Send(Command::ActivityClear),

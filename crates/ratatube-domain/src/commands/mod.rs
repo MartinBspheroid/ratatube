@@ -9,9 +9,11 @@ mod navigation;
 mod playback;
 mod playlists;
 mod queue;
+mod ui;
 
 pub use history::HistoryAction;
 pub use navigation::{ExternalCommandKind, ExternalCommandTarget, NavigationAction};
 pub use playback::PlaybackAction;
 pub use playlists::PlaylistAction;
 pub use queue::QueueAction;
+pub use ui::UiMsg;
