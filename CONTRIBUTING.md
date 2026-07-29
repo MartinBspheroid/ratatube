@@ -1,6 +1,6 @@
 # Contributing
 
-Use the pinned Rust toolchain and keep `Cargo.lock` synchronized. Before changing a subsystem, read `ARCHITECTURE.md` and its colocated tests. Do not edit user data or depend on the machine's normal application directory in tests; use `--data-dir` and temporary directories.
+Use the pinned Rust toolchain and keep `Cargo.lock` synchronized. Before changing a subsystem, read `ARCHITECTURE.md` and its colocated tests; UI changes must also follow `DESIGN.md`. Do not edit user data or depend on the machine's normal application directory in tests; use `--data-dir` and temporary directories.
 
 The local merge gate is:
 

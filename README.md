@@ -99,6 +99,6 @@ If `mpv` exits, the app performs three bounded reconnect attempts and reports fa
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for exact gates, [ARCHITECTURE.md](ARCHITECTURE.md) for ownership and invariants, [PRD.md](PRD.md) for the checked-in behavioral contract, and [dependencies.md](dependencies.md) for dependency rationale.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for exact gates, [ARCHITECTURE.md](ARCHITECTURE.md) for ownership and invariants, [DESIGN.md](DESIGN.md) for the visual and interaction language, [PRD.md](PRD.md) for the checked-in behavioral contract, and [dependencies.md](dependencies.md) for dependency rationale. [AGENTS.md](AGENTS.md) (mirrored as `CLAUDE.md`) is the entry point for coding agents.
 
 This repository currently has no selected software license and is marked `publish = false`. Distribution rights must be decided by the owner before release.

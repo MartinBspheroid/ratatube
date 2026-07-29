@@ -1,0 +1,44 @@
+# Agent Guide
+
+ratatube: a Rust ratatui YouTube-music player with a daemon/client split.
+`CLAUDE.md` is a symlink to this file — edit here, both stay in sync.
+
+## Read before changing code
+
+- `ARCHITECTURE.md` — boundaries, action/reducer/effect flow, daemon
+  protocol, persistence and security invariants.
+- `DESIGN.md` — visual style and interaction language (theme roles, copy
+  conventions, icon slots, breakpoints, mouse rules). Any UI or UX change
+  must follow it; if a rule changes, update `DESIGN.md` in the same commit.
+- `PRD.md` — the product/runtime contract; source comments cite its section
+  numbers (e.g. "PRD 20").
+
+## Verify gate (run before every commit)
+
+```sh
+cargo fmt --all -- --check
+cargo check --locked --all-targets
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked --all-targets
+git diff --check
+```
+
+- Run one `cargo test` invocation at a time — `tests/mpv_ipc.rs` drives a
+  real local mpv and flakes under parallel load; re-run a failure alone
+  before treating it as a regression.
+- Never pipe `cargo test` into `grep` in a `&&` chain without
+  `set -o pipefail` — grep's exit code masks failures.
+- Snapshot tests (`tests/ui_snapshots/`) pin rendered copy verbatim; a copy
+  or layout change requires a same-commit sweep of those assertions.
+
+## Conventions
+
+- New wire-reachable `PlaylistAction`/service actions must be routed
+  explicitly in `src/app/service_actions/` — the storage handler has a
+  catch-all that silently drops anything unrouted (this shipped a real bug).
+- `src/app/client_route.rs` matches wildcard-free on purpose: adding an
+  action forces a routing decision. Keep it that way.
+- Daemon-side changes need a daemon restart to take effect in a live
+  session: `./target/debug/ratatube quit --data-dir <data-dir>` — an
+  attached TUI auto-respawns the daemon within seconds. Client-side changes
+  need a TUI relaunch instead.

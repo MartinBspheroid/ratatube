@@ -11,16 +11,18 @@ The executable is an event-driven terminal client with four explicit boundaries:
 
 `AppState` is `{ domain: DomainState, ui: UiState }`. The domain half (queue,
 playback, playlists, search, import, channel data, health) is what the
-planned daemon owns; the UI half (view, focus, selection, overlays, filters,
-notifications, thumbnails) stays with the future client. Domain sub-reducers
+daemon owns; the UI half (view, focus, selection, overlays, filters,
+notifications, thumbnails) stays with the client. Domain sub-reducers
 take `&mut DomainState`; UI-only transitions live in `src/app/reducer/ui`;
 per-family coordinators keep the residual cross-half glue explicit. After
 each action, `DomainWatermark` derives coarse `DomainEvent`s and
 `apply_domain_events` is the single point where UI state reacts to domain
-changes — the seam the daemon socket replaces in phase 2. Supervised domain
+changes — the seam the daemon socket replaced in phase 2. Supervised domain
 work lives under `src/app/domain`, which a guard test keeps free of
-`ratatui` types. Known phase-2 debts: `ChannelState::return_to` snapshots
-client-local navigation, and `service_actions` handlers still run on `App`.
+`ratatui` types. Remaining debt: `service_actions` handlers still run on
+`App` rather than a domain-owned service type; the storage handler ends in
+a catch-all, so every new wire-reachable action must be routed explicitly
+in `src/app/service_actions/` or it is silently dropped.
 See `docs/superpowers/specs/2026-07-21-daemon-split-design.md`.
 
 ## Daemon and client (daemon phase 2)
@@ -67,8 +69,8 @@ All positional subprocess inputs follow `--`. Supported YouTube URLs are parsed 
 
 ## UI invariants
 
-The renderer publishes selectable hit rows into state; mouse code does not recalculate layout. Double-click requires the same view and item. Help renders from the command catalog in `src/input/keymap.rs`, scrolls at 80x24, and restores the opening view. Bulk deletion requires confirmation; queue-item deletion has one-level undo.
+The renderer publishes selectable hit rows into state (list hit area plus window offset, per-item Home zones); mouse code does not recalculate layout. Double-click requires the same view, pane, and item within 500 ms and performs Enter by synthesizing the key through the normal keyboard path. Visual and interaction conventions live in `DESIGN.md`. Help renders from the command catalog in `src/input/keymap.rs`, scrolls at 80x24, and restores the opening view. Bulk deletion requires confirmation; queue-item deletion has one-level undo.
 
 ## Known concentration of ownership
 
-`src/app/mod.rs`, `src/app/reducer.rs`, and `src/ui/views.rs` remain too large. They are not permission for unrelated abstractions: extract a cohesive command processor, playback session, or view module only with characterization tests. See the remediation plan under `docs/superpowers/plans` for measured consolidation work.
+The former monoliths (`src/app/mod.rs`, `src/app/reducer.rs`, `src/ui/views.rs`) have been split into the `reducer/`, `state/`, `service_actions/`, and `ui/views/` module trees. The largest remaining single files are `src/app/client_route.rs` (deliberately wildcard-free, so it grows one arm per action) and the two runtime loops (`daemon_runtime.rs`, `client_runtime.rs`). They are not permission for unrelated abstractions: extract a cohesive module only with characterization tests.
