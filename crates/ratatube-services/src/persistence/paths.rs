@@ -1,6 +1,6 @@
 //! Platform-appropriate storage locations (PRD section 11.1).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use directories::ProjectDirs;
 
@@ -87,11 +87,74 @@ impl AppPaths {
         self.data_dir.join("ratatube.log")
     }
 
-    /// Create all required directories.
+    /// Create all required directories, owner-only.
+    ///
+    /// These directories hold the playlists, the session snapshot and the
+    /// full listening history, so on a multi-user machine they must not be
+    /// readable by other local users. `create_dir_all` used the process
+    /// umask (typically 0o755); every directory is now created with mode
+    /// 0o700 instead. The files inside stay at their umask mode, which is
+    /// enough: an owner-only directory cannot be traversed by another user,
+    /// so the files it contains are unreachable regardless of their own bits.
     pub fn ensure_dirs(&self) -> Result<()> {
-        std::fs::create_dir_all(&self.data_dir)?;
-        std::fs::create_dir_all(&self.config_dir)?;
-        std::fs::create_dir_all(self.playlists_dir())?;
+        create_private_dir(&self.data_dir)?;
+        create_private_dir(&self.config_dir)?;
+        create_private_dir(&self.playlists_dir())?;
         Ok(())
+    }
+}
+
+/// Create `dir` (with any missing parents) and make sure neither group nor
+/// other can reach it.
+fn create_private_dir(dir: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(dir)?;
+        restrict_to_owner(dir);
+    }
+    #[cfg(not(unix))]
+    std::fs::create_dir_all(dir)?;
+    Ok(())
+}
+
+/// Clear the group and other bits of an existing directory.
+///
+/// Deliberate choice: a directory left behind by an earlier install (created
+/// with the umask, so usually 0o755) *is* tightened in place, not merely
+/// warned about. Warning only would leave every upgrading user's playlists
+/// and listening history world-readable forever, and 0o700 on an
+/// application-private directory cannot break anything the application does.
+/// Two guard rails keep that from being a destructive surprise: only the
+/// group/other bits are cleared, so a deliberately stricter mode such as
+/// 0o500 survives untouched; and a failed chmod is logged rather than fatal,
+/// because refusing to start would not un-share files that are already
+/// exposed — it would only take the player away from the user.
+#[cfg(unix)]
+fn restrict_to_owner(dir: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let Ok(metadata) = std::fs::metadata(dir) else {
+        return;
+    };
+    let mode = metadata.permissions().mode();
+    if mode & 0o077 == 0 {
+        return;
+    }
+    match std::fs::set_permissions(dir, std::fs::Permissions::from_mode(mode & !0o077)) {
+        Ok(()) => tracing::info!(
+            dir = %dir.display(),
+            from = format!("{:o}", mode & 0o777),
+            "tightened directory to owner-only"
+        ),
+        Err(err) => tracing::warn!(
+            dir = %dir.display(),
+            ?err,
+            "could not tighten directory to owner-only; contents may be readable by other local users"
+        ),
     }
 }

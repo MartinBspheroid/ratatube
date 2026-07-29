@@ -325,6 +325,267 @@ async fn slow_clients_are_disconnected_instead_of_blocking() {
     daemon.await.expect("join").expect("clean exit");
 }
 
+/// Defect: `serve_client` awaited `Hello` forever, so a peer that connected
+/// and never spoke pinned a task and a descriptor for the daemon's lifetime.
+#[tokio::test]
+async fn a_silent_client_is_dropped_after_the_handshake_timeout() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let paths = AppPaths::with_data_dir(dir.path().to_path_buf());
+    let mut config = Config::default();
+    config.paths.mpv = "false".to_string();
+    config.paths.yt_dlp = "/nonexistent/yt-dlp".to_string();
+    let socket = ratatube::daemon::socket_path(&paths);
+    let daemon = tokio::spawn(ratatube::daemon::run(paths, config, None));
+
+    // Connect and never send hello. The daemon must hang up on its own.
+    let silent = connect_with_retry(&socket).await;
+    let (read_half, _write_half) = silent.into_split();
+    let mut read = BufReader::new(read_half);
+    let hung_up = tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        protocol::read_frame::<_, DaemonFrame>(&mut read),
+    )
+    .await;
+    match hung_up {
+        Ok(Ok(None)) | Ok(Err(_)) => {}
+        Ok(Ok(Some(frame))) => panic!("silent client should get no frames, got {frame:?}"),
+        Err(_) => panic!("daemon never dropped a client that skipped the handshake"),
+    }
+
+    // The daemon is unharmed: a well-behaved client still connects.
+    let mut good = ratatube::client::Connection::connect(&socket)
+        .await
+        .expect("daemon still serves after the timeout");
+    good.request(Command::Shutdown).await.expect("shutdown");
+    daemon.await.expect("join").expect("clean exit");
+}
+
+/// Defect: one task and descriptor per connection with no bound. Past the
+/// cap the daemon answers a completed handshake with a protocol error instead
+/// of serving the client, and keeps working for the clients it already has.
+#[tokio::test]
+async fn connections_past_the_client_cap_are_refused() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let paths = AppPaths::with_data_dir(dir.path().to_path_buf());
+    let mut config = Config::default();
+    config.paths.mpv = "false".to_string();
+    config.paths.yt_dlp = "/nonexistent/yt-dlp".to_string();
+    let socket = ratatube::daemon::socket_path(&paths);
+    let daemon = tokio::spawn(ratatube::daemon::run(paths, config, None));
+
+    // MAX_CLIENTS is 64 and not public; fill it by connecting until the
+    // daemon starts refusing, then check the refusal is the documented one
+    // and lands only after a generous number of accepted clients.
+    let mut connected = Vec::new();
+    let mut refusal = None;
+    for _ in 0..128 {
+        match ratatube::client::Connection::connect(&socket).await {
+            Ok(conn) => connected.push(conn),
+            Err(err) => {
+                if connected.is_empty() {
+                    // Daemon not up yet.
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                    continue;
+                }
+                refusal = Some(err.to_string());
+                break;
+            }
+        }
+    }
+    let refusal = refusal.expect("daemon must eventually refuse");
+    assert!(
+        refusal.contains("maximum"),
+        "expected a client-limit refusal, got {refusal}"
+    );
+    assert!(
+        connected.len() >= 32,
+        "the cap must be generous for real use, refused after {} clients",
+        connected.len()
+    );
+
+    // Already-connected clients keep working.
+    let mut first = connected.remove(0);
+    first.request(Command::Status).await.expect("status reply");
+    first.request(Command::Shutdown).await.expect("shutdown");
+    daemon.await.expect("join").expect("clean exit");
+}
+
+/// The genuinely-stale case: a socket file whose listener is gone answers
+/// ECONNREFUSED and must be unlinked and rebound.
+#[tokio::test]
+async fn a_stale_socket_from_a_crashed_daemon_is_replaced() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let paths = AppPaths::with_data_dir(dir.path().to_path_buf());
+    let mut config = Config::default();
+    config.paths.mpv = "false".to_string();
+    config.paths.yt_dlp = "/nonexistent/yt-dlp".to_string();
+    let socket = ratatube::daemon::socket_path(&paths);
+
+    // Leave behind exactly what a killed daemon leaves: a bound socket path
+    // with no process listening on it.
+    let leftover = std::os::unix::net::UnixListener::bind(&socket).expect("bind leftover socket");
+    drop(leftover);
+    assert!(socket.exists(), "leftover socket file should remain");
+
+    let daemon = tokio::spawn(ratatube::daemon::run(paths, config, None));
+    let mut client = None;
+    for _ in 0..200 {
+        match ratatube::client::Connection::connect(&socket).await {
+            Ok(conn) => {
+                client = Some(conn);
+                break;
+            }
+            Err(_) => tokio::time::sleep(std::time::Duration::from_millis(20)).await,
+        }
+    }
+    let mut client = client.expect("daemon rebinds over a stale socket");
+    client.request(Command::Status).await.expect("status reply");
+    client.request(Command::Shutdown).await.expect("shutdown");
+    daemon.await.expect("join").expect("clean exit");
+}
+
+/// Defect: the old probe unlinked the socket on *any* connect failure, so a
+/// probe that failed for a reason other than "nobody is listening" let a
+/// second daemon steal a live daemon's socket — two processes writing the
+/// same JSON documents. Only ECONNREFUSED may unlink.
+///
+/// The motivating case is a live daemon with a full accept backlog (EAGAIN),
+/// which cannot be forced deterministically (the kernel queue is thousands
+/// deep). A datagram socket at the path produces the same *class* of answer —
+/// a live socket that reports something other than ECONNREFUSED, here
+/// EPROTOTYPE — and is exact, so the assertion is the same one without a
+/// flood of connections.
+#[tokio::test]
+async fn a_probe_failure_that_is_not_refused_never_unlinks_the_socket() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let paths = AppPaths::with_data_dir(dir.path().to_path_buf());
+    let mut config = Config::default();
+    config.paths.mpv = "false".to_string();
+    config.paths.yt_dlp = "/nonexistent/yt-dlp".to_string();
+    let socket = ratatube::daemon::socket_path(&paths);
+    paths.ensure_dirs().expect("data dir");
+
+    let live = std::os::unix::net::UnixDatagram::bind(&socket).expect("bind live socket");
+    let probe_error = UnixStream::connect(&socket)
+        .await
+        .expect_err("stream connect to a datagram socket fails");
+    assert_ne!(
+        probe_error.kind(),
+        std::io::ErrorKind::ConnectionRefused,
+        "test setup must not look like a stale socket"
+    );
+
+    // Bounded: a daemon that wrongly claims the socket would otherwise serve
+    // forever and hang the test instead of failing it.
+    let refused = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        ratatube::daemon::run(paths, config, None),
+    )
+    .await
+    .expect("daemon must not take over the socket and keep running");
+    let message = refused
+        .expect_err("daemon must refuse when it cannot prove the socket is dead")
+        .to_string();
+    assert!(
+        message.contains("refusing to start"),
+        "expected a refusal to displace the socket, got {message}"
+    );
+    assert!(socket.exists(), "the live socket must not be unlinked");
+    // Still the original owner's socket, not a replacement.
+    assert!(
+        UnixStream::connect(&socket).await.is_err(),
+        "the datagram socket must still be the one bound to the path"
+    );
+    drop(live);
+}
+
+/// A bound socket path must fit SUN_LEN (108 bytes), so however the socket is
+/// published, that must not need a longer path than binding the final name
+/// would. Regression: a staging name that appended to the socket name broke
+/// deep `--data-dir` paths that used to work.
+#[tokio::test]
+async fn a_data_directory_near_the_sun_len_limit_still_binds() {
+    let base = tempfile::tempdir().expect("tempdir");
+    // Pad the data directory so the socket path lands just inside SUN_LEN.
+    let socket_name_len = ratatube::daemon::SOCKET_NAME.len() + 1;
+    let target_socket_len = 100;
+    let padding = target_socket_len - base.path().as_os_str().len() - socket_name_len - 1;
+    let dir = base.path().join("d".repeat(padding));
+    let paths = AppPaths::with_data_dir(dir);
+    let socket = ratatube::daemon::socket_path(&paths);
+    assert_eq!(socket.as_os_str().len(), target_socket_len);
+    let mut config = Config::default();
+    config.paths.mpv = "false".to_string();
+    config.paths.yt_dlp = "/nonexistent/yt-dlp".to_string();
+    let daemon = tokio::spawn(ratatube::daemon::run(paths, config, None));
+
+    let mut client = None;
+    for _ in 0..200 {
+        match ratatube::client::Connection::connect(&socket).await {
+            Ok(conn) => {
+                client = Some(conn);
+                break;
+            }
+            Err(_) => tokio::time::sleep(std::time::Duration::from_millis(20)).await,
+        }
+    }
+    let mut client = client.expect("daemon binds a long-but-legal socket path");
+    client.request(Command::Shutdown).await.expect("shutdown");
+    daemon.await.expect("join").expect("clean exit");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn the_data_directory_and_socket_are_owner_only() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    // Simulate a data directory created by an older install under the umask.
+    std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755))
+        .expect("widen data dir");
+    let paths = AppPaths::with_data_dir(dir.path().to_path_buf());
+    let mut config = Config::default();
+    config.paths.mpv = "false".to_string();
+    config.paths.yt_dlp = "/nonexistent/yt-dlp".to_string();
+    let socket = ratatube::daemon::socket_path(&paths);
+    let playlists = paths.playlists_dir();
+    let daemon = tokio::spawn(ratatube::daemon::run(paths, config, None));
+
+    let mut client = None;
+    for _ in 0..200 {
+        match ratatube::client::Connection::connect(&socket).await {
+            Ok(conn) => {
+                client = Some(conn);
+                break;
+            }
+            Err(_) => tokio::time::sleep(std::time::Duration::from_millis(20)).await,
+        }
+    }
+    let mut client = client.expect("daemon starts");
+
+    let mode = |path: &std::path::Path| {
+        std::fs::metadata(path)
+            .unwrap_or_else(|err| panic!("metadata for {}: {err}", path.display()))
+            .permissions()
+            .mode()
+            & 0o777
+    };
+    assert_eq!(
+        mode(dir.path()) & 0o077,
+        0,
+        "a pre-existing data directory must be tightened"
+    );
+    assert_eq!(mode(&playlists) & 0o077, 0, "playlists dir must be private");
+    assert_eq!(
+        mode(&socket),
+        0o600,
+        "the control socket must never be group- or world-reachable"
+    );
+
+    client.request(Command::Shutdown).await.expect("shutdown");
+    daemon.await.expect("join").expect("clean exit");
+}
+
 #[tokio::test]
 async fn second_daemon_refuses_while_first_owns_the_socket() {
     let dir = tempfile::tempdir().expect("tempdir");
