@@ -1949,6 +1949,8 @@ dependencies = [
  "futures-util",
  "image",
  "rand 0.10.2",
+ "ratatube-domain",
+ "ratatube-protocol",
  "ratatui",
  "ratatui-image",
  "serde",
@@ -1962,6 +1964,28 @@ dependencies = [
  "ulid",
  "unicode-width",
  "which",
+]
+
+[[package]]
+name = "ratatube-domain"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "rand 0.10.2",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "ulid",
+]
+
+[[package]]
+name = "ratatube-protocol"
+version = "0.1.0"
+dependencies = [
+ "ratatube-domain",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

@@ -1,0 +1,17 @@
+[package]
+name = "ratatube-domain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Pure domain model, commands, reducers, and effects for ratatube"
+publish.workspace = true
+
+# Deliberately free of tokio, ratatui, and every process/terminal crate: the
+# CI `cargo tree -p ratatube-domain` assert is what keeps it that way.
+[dependencies]
+chrono.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+ulid.workspace = true

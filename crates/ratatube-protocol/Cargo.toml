@@ -1,0 +1,18 @@
+[package]
+name = "ratatube-protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Versioned NDJSON daemon protocol and wire DTOs for ratatube"
+publish.workspace = true
+
+[dependencies]
+ratatube-domain.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+# Only the async byte-stream traits; the frame codec is generic over them.
+tokio = { workspace = true, features = ["io-util"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }

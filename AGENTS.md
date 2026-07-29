@@ -3,6 +3,21 @@
 ratatube: a Rust ratatui YouTube-music player with a daemon/client split.
 `CLAUDE.md` is a symlink to this file — edit here, both stay in sync.
 
+## Workspace
+
+Cargo workspace; run every command from the repository root so all members
+are selected.
+
+- `crates/ratatube-domain` — pure core (state, per-context commands, effects,
+  events, models). No tokio, no ratatui, no process code; CI asserts the
+  dependency tree stays clean.
+- `crates/ratatube-protocol` — NDJSON frames and wire DTOs over the domain.
+- `crates/ratatube` — the binary: services, rendering, input, runtimes.
+
+Service modules in the binary (`media`, `queue`, `playlists`, `history`,
+`playback`, `config`) re-export their domain model, so `crate::media::Track`
+and friends resolve unchanged.
+
 ## Read before changing code
 
 - `ARCHITECTURE.md` — boundaries, action/reducer/effect flow, daemon

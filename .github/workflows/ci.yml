@@ -22,6 +22,13 @@ jobs:
         run: cargo check --locked --all-targets
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Domain crate stays pure
+        run: |
+          if cargo tree -p ratatube-domain --edges normal \
+              | grep -Ei '\b(tokio|tokio-util|ratatui|ratatui-image|crossterm|image|which|directories)\b'; then
+            echo "::error::ratatube-domain gained a runtime/terminal dependency; it must stay pure"
+            exit 1
+          fi
       - name: Deterministic and adapter tests
         run: cargo test --locked --all-targets
       - name: Explain external integration policy

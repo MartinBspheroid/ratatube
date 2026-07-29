@@ -1,11 +1,37 @@
 # Architecture
 
-The executable is an event-driven terminal client with four explicit boundaries:
+## Workspace layout
+
+The repository is a cargo workspace. The crate graph is the outermost
+boundary: it is enforced by the compiler, not by review.
+
+```
+crates/
+  ratatube-domain     pure core: state, per-context commands, effects,
+                      change events, media/queue/playlist/history models.
+                      No tokio, no ratatui, no process or filesystem code.
+  ratatube-protocol   versioned NDJSON frames and wire DTOs. Depends on
+                      domain only, so both runtimes cannot drift.
+  ratatube            binary: services (mpv, yt-dlp, persistence, clipboard,
+                      browser), rendering, input, and the daemon/client
+                      runtimes that wire them together.
+```
+
+`ratatube-domain` cannot render, spawn, or block, because those crates are
+absent from its dependency tree. CI asserts that directly
+(`cargo tree -p ratatube-domain`), replacing the source-scanning guard test
+that used to approximate it.
+
+Inside the binary crate, four boundaries remain:
 
 1. `src/app` owns application state, command reduction, background-operation identity, and effect execution.
 2. `src/media` and `src/playback` own untrusted external adapters (`yt-dlp`, `curl`, and `mpv`).
 3. `src/persistence`, `src/queue`, `src/history`, and `src/playlists` own validated local documents.
 4. `src/ui` and `src/input` own terminal rendering and interaction metadata.
+
+Modules 2-4 are service facades over the matching domain models: the model
+is re-exported so call sites keep one vocabulary, while the impure adapter
+stays in the binary.
 
 ## Domain/UI state split (daemon phase 1)
 
@@ -17,9 +43,9 @@ take `&mut DomainState`; UI-only transitions live in `src/app/reducer/ui`;
 per-family coordinators keep the residual cross-half glue explicit. After
 each action, `DomainWatermark` derives coarse `DomainEvent`s and
 `apply_domain_events` is the single point where UI state reacts to domain
-changes — the seam the daemon socket replaced in phase 2. Supervised domain
-work lives under `src/app/domain`, which a guard test keeps free of
-`ratatui` types. `service_actions` routing is wildcard-free per action
+changes — the seam the daemon socket replaced in phase 2. `DomainState` and
+its transitions now live in `ratatube-domain`; supervised external work for
+them lives under `src/app/domain` in the binary. `service_actions` routing is wildcard-free per action
 family, so a new variant — including the by-id ones only daemon clients
 send — cannot compile until it is given an owner. Remaining debt: those
 handlers still run on `App` rather than a domain-owned service type.

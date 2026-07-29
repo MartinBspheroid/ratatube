@@ -1,13 +1,18 @@
-[package]
-name = "ratatube"
+[workspace]
+members = ["crates/*"]
+resolver = "3"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
-description = "A keyboard-first terminal client for searching and playing YouTube audio through yt-dlp and mpv"
-readme = "README.md"
 publish = false
 
-[dependencies]
+# One version table for the whole workspace so the crate split cannot drift.
+[workspace.dependencies]
+ratatube-domain = { path = "crates/ratatube-domain" }
+ratatube-protocol = { path = "crates/ratatube-protocol" }
+
 chrono = { version = "0.4.45", features = ["serde"] }
 clap = { version = "4.6.2", features = ["derive"] }
 crossterm = { version = "0.29.0", features = ["event-stream"] }
@@ -28,5 +33,4 @@ ulid = { version = "3.0.0", features = ["serde"] }
 unicode-width = "0.2.2"
 which = "8.0.5"
 
-[dev-dependencies]
 tempfile = "3.27.0"
