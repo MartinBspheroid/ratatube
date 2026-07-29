@@ -4,16 +4,90 @@
 use crate::state::{DomainState, UiState};
 use ratatube_domain::action::{NavigationAction, PlaylistAction};
 use ratatube_domain::effect::Effect;
+use ratatube_domain::media::Track;
+
+/// The context-menu subset of [`NavigationAction`]: the only messages
+/// [`reduce_context_menu`] can be asked to apply. Narrowing the input this
+/// way makes "non-context action routed to the context reducer" an
+/// unrepresentable state instead of a runtime panic.
+#[derive(Debug, Clone)]
+pub enum TrackContextMsg {
+    /// Resolve the selected track and open the menu (service-owned).
+    Open,
+    /// Close the menu without executing an action.
+    Close,
+    /// Move the menu selection by a signed number of rows.
+    Move(i32),
+    /// Submit the selected menu row (service-owned).
+    Submit,
+    /// Show details for a track without changing playback ownership.
+    ShowDetails(Track),
+    /// Close the selected-track details modal.
+    CloseDetails,
+}
+
+impl TrackContextMsg {
+    /// Classify one navigation action, yielding `None` for the variants the
+    /// navigation coordinator routes to search, channel, or quit handling.
+    ///
+    /// Wildcard-free on purpose: a new [`NavigationAction`] variant cannot
+    /// compile until it is classified as context-menu or not.
+    pub fn from_navigation(action: NavigationAction) -> Option<Self> {
+        match action {
+            NavigationAction::OpenTrackContext => Some(Self::Open),
+            NavigationAction::CloseTrackContext => Some(Self::Close),
+            NavigationAction::MoveTrackContext(delta) => Some(Self::Move(delta)),
+            NavigationAction::SubmitTrackContext => Some(Self::Submit),
+            NavigationAction::ShowTrackDetails(track) => Some(Self::ShowDetails(track)),
+            NavigationAction::CloseTrackDetails => Some(Self::CloseDetails),
+            NavigationAction::Quit
+            | NavigationAction::SearchInput(_)
+            | NavigationAction::SearchBackspace
+            | NavigationAction::SubmitSearch(_)
+            | NavigationAction::SubmitExactVideo(_)
+            | NavigationAction::SearchCompleted { .. }
+            | NavigationAction::SearchFailed { .. }
+            | NavigationAction::ClearSearch
+            | NavigationAction::OpenInBrowser
+            | NavigationAction::ExternalCommandCompleted { .. }
+            | NavigationAction::VisitChannel(_)
+            | NavigationAction::ChannelResolved { .. }
+            | NavigationAction::ChannelPageLoaded { .. }
+            | NavigationAction::LoadMoreChannel
+            | NavigationAction::RetryChannel
+            | NavigationAction::BackFromChannel => None,
+        }
+    }
+}
 
 /// Reduce context-menu intents that do not require application services.
+///
+/// Stays total over [`NavigationAction`] so the navigation coordinator can
+/// forward its context-menu arm as-is, but the transitions themselves take
+/// the narrowed [`TrackContextMsg`]. A non-context action is a routing
+/// decision owned by that coordinator's own wildcard-free match, so it is
+/// left unhandled here: this is public API of the crate and must not abort
+/// the process for a caller that misroutes.
 pub fn reduce_track_context(
     ui: &mut UiState,
     domain: &DomainState,
     action: NavigationAction,
 ) -> Vec<Effect> {
-    match action {
-        NavigationAction::CloseTrackContext => ui.track_context_menu = None,
-        NavigationAction::MoveTrackContext(delta) => {
+    match TrackContextMsg::from_navigation(action) {
+        Some(msg) => reduce_context_menu(ui, domain, msg),
+        None => Vec::new(),
+    }
+}
+
+/// Apply one context-menu or details transition.
+pub fn reduce_context_menu(
+    ui: &mut UiState,
+    domain: &DomainState,
+    msg: TrackContextMsg,
+) -> Vec<Effect> {
+    match msg {
+        TrackContextMsg::Close => ui.track_context_menu = None,
+        TrackContextMsg::Move(delta) => {
             if let Some(menu) = &mut ui.track_context_menu {
                 let len = menu.context.actions.len();
                 if len > 0 {
@@ -27,7 +101,7 @@ pub fn reduce_track_context(
                 }
             }
         }
-        NavigationAction::ShowTrackDetails(track) => {
+        TrackContextMsg::ShowDetails(track) => {
             // Existing extended details apply only when they belong to this
             // exact track (mirrors the pre-split AppState helper).
             let details = domain
@@ -38,11 +112,10 @@ pub fn reduce_track_context(
                 .flatten();
             ui.show_track_details(track, details);
         }
-        NavigationAction::CloseTrackDetails => ui.track_details_modal = None,
+        TrackContextMsg::CloseDetails => ui.track_details_modal = None,
         // Opening needs HistoryLog; submission dispatches the selected
         // stable action through existing action domains.
-        NavigationAction::OpenTrackContext | NavigationAction::SubmitTrackContext => {}
-        _ => unreachable!("non-context action routed to context reducer"),
+        TrackContextMsg::Open | TrackContextMsg::Submit => {}
     }
     Vec::new()
 }
@@ -140,9 +213,42 @@ pub fn reduce_playlist_modals(
         }
         PlaylistAction::PlaylistEditorCancel => ui.playlist_editor = None,
         PlaylistAction::ConfirmNo => ui.confirm = None,
-        // PromptSubmit / ConfirmYes are resolved by the app layer, which
-        // knows the services required by each purpose.
-        _ => {}
+        // Everything else is owned by the playlist coordinator or the service
+        // layer: submissions (`PromptSubmit`, `PickerSubmit`, `ConfirmYes`,
+        // `PlaylistEditorSubmit`) need the services each purpose implies, and
+        // the catalog, import, and by-id commands never touch modal state.
+        // Listed explicitly so a new variant cannot be silently dropped.
+        PlaylistAction::DeleteSelectedPlaylist
+        | PlaylistAction::OpenPlaylistDetail
+        | PlaylistAction::SaveQueueAsPlaylist(_)
+        | PlaylistAction::CreatePlaylist(_)
+        | PlaylistAction::RenameSelectedPlaylist(_)
+        | PlaylistAction::LoadPlaylistIntoQueue(_)
+        | PlaylistAction::AppendPlaylistToQueue(_)
+        | PlaylistAction::DeletePlaylist(_)
+        | PlaylistAction::DeletePlaylistConfirmed(_)
+        | PlaylistAction::PlaylistSaved(_)
+        | PlaylistAction::StartImport(_)
+        | PlaylistAction::ImportStarted { .. }
+        | PlaylistAction::ImportCompleted { .. }
+        | PlaylistAction::ImportFailed { .. }
+        | PlaylistAction::ConfirmImport
+        | PlaylistAction::CancelImport
+        | PlaylistAction::PromptSubmit
+        | PlaylistAction::PlaylistEditorSubmit
+        | PlaylistAction::ConfirmYes
+        | PlaylistAction::OpenPlaylistPicker
+        | PlaylistAction::OpenPlaylistPickerForTrack(_)
+        | PlaylistAction::PickerSubmit
+        | PlaylistAction::RemoveSelectedFromPlaylist
+        | PlaylistAction::RemoveTrackOccurrence { .. }
+        | PlaylistAction::AddTrackToPlaylist { .. }
+        | PlaylistAction::AddTrackToNewPlaylist { .. }
+        | PlaylistAction::RenamePlaylist { .. }
+        | PlaylistAction::EditPlaylist { .. }
+        | PlaylistAction::MoveTrackInPlaylist { .. }
+        | PlaylistAction::ImportPlaylistsJson(_)
+        | PlaylistAction::MoveSelectedInPlaylist(_) => {}
     }
     Vec::new()
 }
