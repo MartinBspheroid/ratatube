@@ -70,6 +70,29 @@ async fn by_id_wire_actions_reach_the_editing_handler_and_persist() {
 }
 
 #[tokio::test]
+async fn selection_based_rename_persists_instead_of_being_dropped() {
+    let (_temp, mut app) = test_app();
+    let (action_tx, _action_rx) = mpsc::channel(8);
+    app.handle_action(
+        Action::Playlists(PlaylistAction::CreatePlaylist("Draft".into())),
+        &action_tx,
+    )
+    .await;
+    app.state.ui.view = crate::app::state::View::Playlists;
+    app.state.ui.selected_index = 0;
+
+    app.handle_action(
+        Action::Playlists(PlaylistAction::RenameSelectedPlaylist("Sunday".into())),
+        &action_tx,
+    )
+    .await;
+
+    assert_eq!(app.state.domain.playlists[0].name, "Sunday");
+    let stored = app.playlists.list().expect("stored playlists");
+    assert_eq!(stored[0].name, "Sunday");
+}
+
+#[tokio::test]
 async fn pasted_json_import_persists_every_playlist_after_full_validation() {
     let (_temp, mut app) = test_app();
     app.state.ui.prompt = Some(crate::app::state::PromptState {

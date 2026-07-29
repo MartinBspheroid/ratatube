@@ -41,7 +41,19 @@ impl App {
                         .await;
                 }
             }
-            _ => {}
+            // Explicit queue mutations and completions are fully reduced; only
+            // the "selected" variants need the service layer to resolve them.
+            QueueAction::AddToQueue(_)
+            | QueueAction::AddNext(_)
+            | QueueAction::RemoveSelectedFromQueue
+            | QueueAction::RemoveTrackOccurrence { .. }
+            | QueueAction::UndoQueueRemoval
+            | QueueAction::MoveSelectedInQueue(_)
+            | QueueAction::MoveTrack { .. }
+            | QueueAction::ClearQueue
+            | QueueAction::ClearQueueConfirmed
+            | QueueAction::QueueLoaded(_)
+            | QueueAction::QueueExhausted => {}
         }
     }
 }

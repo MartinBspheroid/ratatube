@@ -65,16 +65,30 @@ impl App {
                 }
             }
             NavigationAction::BackFromChannel => self.leave_channel(),
-            NavigationAction::SearchCompleted { .. } if self.autoplay_first_search => {
-                self.autoplay_first_search = false;
-                if self.state.active_list_len() > 0 {
-                    self.state.ui.selected_index = 0;
-                    let _ = action_tx
-                        .send(Action::Playback(PlaybackAction::PlaySelected))
-                        .await;
+            NavigationAction::SearchCompleted { .. } => {
+                if self.autoplay_first_search {
+                    self.autoplay_first_search = false;
+                    if self.state.active_list_len() > 0 {
+                        self.state.ui.selected_index = 0;
+                        let _ = action_tx
+                            .send(Action::Playback(PlaybackAction::PlaySelected))
+                            .await;
+                    }
                 }
             }
-            _ => {}
+            // Search input, the search request itself, and context-menu
+            // presentation are reducer-owned; search dispatch is an effect.
+            NavigationAction::Quit
+            | NavigationAction::SearchInput(_)
+            | NavigationAction::SearchBackspace
+            | NavigationAction::SubmitSearch(_)
+            | NavigationAction::SubmitExactVideo(_)
+            | NavigationAction::SearchFailed { .. }
+            | NavigationAction::ClearSearch
+            | NavigationAction::CloseTrackContext
+            | NavigationAction::MoveTrackContext(_)
+            | NavigationAction::ShowTrackDetails(_)
+            | NavigationAction::CloseTrackDetails => {}
         }
     }
 

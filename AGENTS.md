@@ -50,11 +50,11 @@ build it with `/graphify .`.
 
 ## Conventions
 
-- New wire-reachable `PlaylistAction`/service actions must be routed
-  explicitly in `src/app/service_actions/` — the storage handler has a
-  catch-all that silently drops anything unrouted (this shipped a real bug).
-- `src/app/client_route.rs` matches wildcard-free on purpose: adding an
-  action forces a routing decision. Keep it that way.
+- `src/app/client_route.rs` and `src/app/service_actions/` match
+  wildcard-free on purpose: adding an action variant forces a routing
+  decision at compile time. Keep it that way — the catch-all that used to
+  end the playlist storage handler silently dropped every by-id playlist
+  command and shipped a real bug.
 - Daemon-side changes need a daemon restart to take effect in a live
   session: `./target/debug/ratatube quit --data-dir <data-dir>` — an
   attached TUI auto-respawns the daemon within seconds. Client-side changes

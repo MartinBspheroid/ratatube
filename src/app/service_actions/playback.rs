@@ -95,8 +95,10 @@ impl App {
                         .await;
                 }
             }
-            PlaybackAction::PlaybackEvent(PlaybackEvent::Started) => {
-                self.after_track_started(action_tx);
+            PlaybackAction::PlaybackEvent(event) => {
+                if matches!(event, PlaybackEvent::Started) {
+                    self.after_track_started(action_tx);
+                }
             }
             PlaybackAction::PrefetchResolved { track_id, url, .. } => {
                 self.prefetched = Some((track_id, url, Instant::now()));
@@ -106,10 +108,11 @@ impl App {
                 // The reducer already appended; prefetch the fresh next track.
                 self.after_track_started(action_tx);
             }
-            PlaybackAction::ToggleRadio if self.state.domain.radio => {
+            PlaybackAction::ToggleRadio => {
                 // Radio switched on with a finished queue: refill immediately.
-                if self.state.domain.queue.position.is_none()
-                    || self.state.domain.current_track.is_none()
+                if self.state.domain.radio
+                    && (self.state.domain.queue.position.is_none()
+                        || self.state.domain.current_track.is_none())
                 {
                     let seed = self
                         .state
@@ -201,37 +204,86 @@ impl App {
                     self.state.notify("Couldn't resume the last session", true);
                 }
             }
-            PlaybackAction::PlaySelected if self.state.ui.view == View::Home => {
-                match self.state.ui.home_section {
-                    HomeSection::Resume => {
+            PlaybackAction::PlaySelected => self.play_selected(action_tx).await,
+
+            // Transport, seeking, volume, and supervised completions are fully
+            // reduced or executed as effects; no service coordination needed.
+            PlaybackAction::PlayPause
+            | PlaybackAction::Stop
+            | PlaybackAction::PlayTrack(_)
+            | PlaybackAction::PlaybackResolveStarted { .. }
+            | PlaybackAction::NextTrack
+            | PlaybackAction::PreviousTrack
+            | PlaybackAction::SeekForward
+            | PlaybackAction::SeekBackward
+            | PlaybackAction::SeekForwardLarge
+            | PlaybackAction::SeekBackwardLarge
+            | PlaybackAction::SeekBy(_)
+            | PlaybackAction::SeekToSeconds(_)
+            | PlaybackAction::SeekToFraction(_)
+            | PlaybackAction::PlayQueuePosition(_)
+            | PlaybackAction::VolumeUp
+            | PlaybackAction::VolumeDown
+            | PlaybackAction::VolumeBy(_)
+            | PlaybackAction::ToggleMute
+            | PlaybackAction::ToggleShuffle
+            | PlaybackAction::CycleRepeat
+            | PlaybackAction::DetailsStarted { .. }
+            | PlaybackAction::DetailsLoaded { .. }
+            | PlaybackAction::DetailsFailed { .. }
+            | PlaybackAction::ThumbnailLoaded { .. }
+            | PlaybackAction::SearchThumbnailLoaded { .. }
+            | PlaybackAction::NextChapter
+            | PlaybackAction::PreviousChapter
+            | PlaybackAction::SpeedUp
+            | PlaybackAction::SpeedDown
+            | PlaybackAction::SpeedReset
+            | PlaybackAction::CycleSleepTimer
+            | PlaybackAction::RadioRefillStarted { .. }
+            | PlaybackAction::MixLoaded { .. }
+            | PlaybackAction::RepeatChanged(_) => {}
+        }
+    }
+
+    /// Resolve "play the selection" for the views whose selection is not a
+    /// plain queue position; other views reduce it directly.
+    async fn play_selected(&mut self, action_tx: &mpsc::Sender<Action>) {
+        match self.state.ui.view {
+            View::Home => match self.state.ui.home_section {
+                HomeSection::Resume => {
+                    let _ = action_tx
+                        .send(Action::Playback(PlaybackAction::PlayPause))
+                        .await;
+                }
+                HomeSection::Recent => {
+                    if let Some(track) = self.resolve_selected_track() {
                         let _ = action_tx
-                            .send(Action::Playback(PlaybackAction::PlayPause))
+                            .send(Action::Playback(PlaybackAction::PlayTrack(track)))
                             .await;
                     }
-                    HomeSection::Recent => {
-                        if let Some(track) = self.resolve_selected_track() {
-                            let _ = action_tx
-                                .send(Action::Playback(PlaybackAction::PlayTrack(track)))
-                                .await;
-                        }
-                    }
-                    HomeSection::Playlists => {
-                        if let Some(id) = self.selected_playlist_id() {
-                            let _ = action_tx
-                                .send(Action::Playlists(PlaylistAction::LoadPlaylistIntoQueue(id)))
-                                .await;
-                        }
+                }
+                HomeSection::Playlists => {
+                    if let Some(id) = self.selected_playlist_id() {
+                        let _ = action_tx
+                            .send(Action::Playlists(PlaylistAction::LoadPlaylistIntoQueue(id)))
+                            .await;
                     }
                 }
-            }
-            PlaybackAction::PlaySelected if self.state.ui.view == View::History => {
+            },
+            View::History => {
                 if let Some(track) = self.resolve_selected_track() {
                     let _ = action_tx
                         .send(Action::Playback(PlaybackAction::PlayTrack(track)))
                         .await;
                 }
             }
-            _ => {}
+            View::Search
+            | View::Queue
+            | View::Playlists
+            | View::PlaylistDetail
+            | View::NowPlaying
+            | View::Channel
+            | View::Help => {}
         }
     }
 }

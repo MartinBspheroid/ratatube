@@ -49,7 +49,11 @@ impl App {
                 self.persist_history();
                 self.state.notify("History cleared", false);
             }
-            _ => {}
+            // Activity clearing, the confirm prompt, and notifications are
+            // reducer-owned; the history store is untouched.
+            HistoryAction::ClearActivity
+            | HistoryAction::ClearHistory
+            | HistoryAction::Notify(_) => {}
         }
     }
 }

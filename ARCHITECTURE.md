@@ -19,10 +19,10 @@ each action, `DomainWatermark` derives coarse `DomainEvent`s and
 `apply_domain_events` is the single point where UI state reacts to domain
 changes — the seam the daemon socket replaced in phase 2. Supervised domain
 work lives under `src/app/domain`, which a guard test keeps free of
-`ratatui` types. Remaining debt: `service_actions` handlers still run on
-`App` rather than a domain-owned service type; the storage handler ends in
-a catch-all, so every new wire-reachable action must be routed explicitly
-in `src/app/service_actions/` or it is silently dropped.
+`ratatui` types. `service_actions` routing is wildcard-free per action
+family, so a new variant — including the by-id ones only daemon clients
+send — cannot compile until it is given an owner. Remaining debt: those
+handlers still run on `App` rather than a domain-owned service type.
 See `docs/superpowers/specs/2026-07-21-daemon-split-design.md`.
 
 ## Daemon and client (daemon phase 2)
