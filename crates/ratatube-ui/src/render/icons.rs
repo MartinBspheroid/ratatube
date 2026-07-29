@@ -134,11 +134,56 @@ pub fn resolve_icon_mode(configured: IconMode) -> IconMode {
     }
 }
 
-/// Strip terminal control characters from untrusted strings (PRD 19).
+/// Unicode format characters that are invisible or that reorder the text
+/// around them, and that [`char::is_control`] does *not* cover (PRD 19).
+///
+/// Two attack classes, both reachable from any yt-dlp-supplied title, channel
+/// name, or description:
+///
+/// - Bidi embedding/override/isolate controls let a crafted title render in a
+///   deceptive order — the "Trojan Source" class of spoofing. In a track list
+///   this lets one row impersonate another.
+/// - Zero-width and invisible joiners let two distinct strings render
+///   identically, and pad text so width calculations disagree with what the
+///   terminal actually draws.
+///
+/// U+200E (LRM) and U+200F (RLM) are deliberately **not** in this set. They
+/// are plain directional *marks* that legitimately occur in Arabic and Hebrew
+/// text; stripping them corrupts the display of real RTL titles rather than
+/// protecting anyone. The spoofing risk is the override/embedding/isolate
+/// set, not the marks — do not "tidy" LRM/RLM into this list.
+fn is_deceptive_format_char(c: char) -> bool {
+    matches!(
+        c,
+        // Bidi embedding and override: LRE, RLE, PDF, LRO, RLO.
+        '\u{202a}'..='\u{202e}'
+        // Bidi isolates: LRI, RLI, FSI, PDI.
+        | '\u{2066}'..='\u{2069}'
+        // Zero-width space, ZWNJ, ZWJ, word joiner, BOM. These carry no ink
+        // in a terminal cell grid, so on this surface they only ever serve to
+        // hide or pad content.
+        | '\u{200b}' | '\u{200c}' | '\u{200d}' | '\u{2060}' | '\u{feff}'
+    )
+}
+
+/// Shared filter behind both public sanitizers, so they cannot drift apart.
+///
+/// Everything else — combining marks, non-Latin scripts, emoji — is
+/// legitimate content and passes through untouched. `keep_newlines` is the
+/// only intended difference between the two helpers.
+fn is_renderable_char(c: char, keep_newlines: bool) -> bool {
+    if is_deceptive_format_char(c) {
+        return false;
+    }
+    !c.is_control() || c == ' ' || (keep_newlines && c == '\n')
+}
+
+/// Strip terminal control characters and deceptive Unicode format characters
+/// from untrusted strings (PRD 19).
 pub fn sanitize_terminal_text(input: &str) -> String {
     input
         .chars()
-        .filter(|c| !c.is_control() || *c == ' ')
+        .filter(|c| is_renderable_char(*c, false))
         .collect()
 }
 
@@ -147,7 +192,7 @@ pub fn sanitize_terminal_text(input: &str) -> String {
 pub fn sanitize_multiline_text(input: &str) -> String {
     input
         .chars()
-        .filter(|c| !c.is_control() || *c == ' ' || *c == '\n')
+        .filter(|c| is_renderable_char(*c, true))
         .collect()
 }
 
@@ -171,6 +216,66 @@ mod tests {
     fn sanitizes_control_characters() {
         let dirty = "bad\u{1b}[2Jtitle\u{7}\u{0}";
         assert_eq!(sanitize_terminal_text(dirty), "bad[2Jtitle");
+    }
+
+    #[test]
+    fn multiline_keeps_newlines_and_collapses_crlf() {
+        let dirty = "line one\r\nline\u{7} two";
+        assert_eq!(sanitize_multiline_text(dirty), "line one\nline two");
+        // The single-line helper still drops every newline.
+        assert_eq!(sanitize_terminal_text(dirty), "line oneline two");
+    }
+
+    #[test]
+    fn strips_bidi_override_and_isolate_controls() {
+        // "Trojan Source"-style payload: RLO makes the visible order lie about
+        // the actual code points, so one row can impersonate another.
+        let spoof = "safe\u{202e}3pm.exe";
+        assert_eq!(sanitize_terminal_text(spoof), "safe3pm.exe");
+
+        for control in [
+            '\u{202a}', '\u{202b}', '\u{202c}', '\u{202d}', '\u{202e}', '\u{2066}', '\u{2067}',
+            '\u{2068}', '\u{2069}',
+        ] {
+            let dirty = format!("a{control}b");
+            assert_eq!(sanitize_terminal_text(&dirty), "ab", "control {control:?}");
+            assert_eq!(sanitize_multiline_text(&dirty), "ab", "control {control:?}");
+        }
+    }
+
+    #[test]
+    fn strips_zero_width_characters() {
+        for invisible in ['\u{200b}', '\u{200c}', '\u{200d}', '\u{2060}', '\u{feff}'] {
+            let dirty = format!("Ar{invisible}tist");
+            assert_eq!(
+                sanitize_terminal_text(&dirty),
+                "Artist",
+                "invisible {invisible:?}"
+            );
+            assert_eq!(
+                sanitize_multiline_text(&dirty),
+                "Artist",
+                "invisible {invisible:?}"
+            );
+        }
+
+        // Two distinct titles that render identically must not stay distinct.
+        assert_eq!(
+            sanitize_terminal_text("Rick Astley\u{200b}"),
+            sanitize_terminal_text("Rick Astley")
+        );
+    }
+
+    #[test]
+    fn keeps_directional_marks_and_rtl_text() {
+        // LRM/RLM are benign marks that real Arabic and Hebrew titles carry.
+        let rtl = "\u{200f}أم كلثوم - أنت عمري\u{200e} (live)";
+        assert_eq!(sanitize_terminal_text(rtl), rtl);
+        assert_eq!(sanitize_multiline_text(rtl), rtl);
+
+        // Combining marks, other scripts and emoji are legitimate content.
+        let mixed = "Nový\u{301} zpe\u{30c}v — 東京 — 🎵";
+        assert_eq!(sanitize_terminal_text(mixed), mixed);
     }
 
     #[test]
