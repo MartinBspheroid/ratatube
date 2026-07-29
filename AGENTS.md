@@ -68,11 +68,18 @@ build it with `/graphify .`.
 
 ## Conventions
 
-- `src/app/client_route.rs` and `src/app/service_actions/` match
-  wildcard-free on purpose: adding an action variant forces a routing
-  decision at compile time. Keep it that way — the catch-all that used to
-  end the playlist storage handler silently dropped every by-id playlist
-  command and shipped a real bug.
+- Action routing is wildcard-free on purpose, everywhere: adding a variant
+  must force a routing decision at compile time. That covers
+  `crates/ratatube/src/app/client_route.rs`,
+  `crates/ratatube/src/app/service_actions/`,
+  `crates/ratatube/src/app/reducer/` and `crates/ratatube-ui/src/reducer/`.
+  Keep it that way — the catch-all that used to end the playlist storage
+  handler silently dropped every by-id playlist command and shipped a real
+  bug. Do not "fix" an exhaustiveness error by adding `_ =>`, and do not
+  swap it for `unreachable!`: replacing a silent no-op with a crash is a
+  worse bug. Where a sub-reducer only handles part of an enum, give it a
+  narrowed input (a dedicated message type or a destructured payload) so the
+  invalid case cannot be expressed — see `TrackContextMsg`.
 - Daemon-side changes need a daemon restart to take effect in a live
   session: `./target/debug/ratatube quit --data-dir <data-dir>` — an
   attached TUI auto-respawns the daemon within seconds. Client-side changes
