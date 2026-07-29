@@ -204,6 +204,65 @@ fn push_next_keeps_play_history_on_the_same_tracks() {
 }
 
 #[test]
+fn previous_still_reaches_the_prior_track_after_shuffle_is_enabled() {
+    let mut queue = queue_with(&["a", "b", "c"]);
+    queue.advance();
+    queue.advance();
+    assert_eq!(queue.current().expect("current").id, "b");
+    assert_eq!(history_ids(&queue), vec!["a"]);
+    queue.set_shuffle(true);
+    // The chosen permutation is random; only the identities are asserted.
+    assert_eq!(queue.current().expect("current").id, "b");
+    assert_eq!(history_ids(&queue), vec!["a"]);
+    assert!(queue.validate().is_ok());
+    assert_eq!(queue.previous(0, 5), PreviousOutcome::PlayPrevious);
+    assert_eq!(queue.current().expect("current").id, "a");
+}
+
+#[test]
+fn previous_still_reaches_the_prior_track_after_a_shuffle_round_trip() {
+    let mut queue = queue_with(&["a", "b", "c"]);
+    queue.advance();
+    queue.advance();
+    queue.set_shuffle(true);
+    assert!(queue.validate().is_ok());
+    assert_eq!(history_ids(&queue), vec!["a"]);
+    queue.set_shuffle(false);
+    assert_eq!(order_ids(&queue), vec!["a", "b", "c"]);
+    assert_eq!(queue.current().expect("current").id, "b");
+    assert_eq!(history_ids(&queue), vec!["a"]);
+    assert!(queue.validate().is_ok());
+    assert_eq!(queue.previous(0, 5), PreviousOutcome::PlayPrevious);
+    assert_eq!(queue.current().expect("current").id, "a");
+}
+
+#[test]
+fn shuffle_keeps_the_whole_play_history_stack_in_order() {
+    let mut queue = queue_with(&["a", "b", "c", "d"]);
+    queue.advance();
+    queue.advance();
+    queue.advance();
+    assert_eq!(queue.current().expect("current").id, "c");
+    assert_eq!(history_ids(&queue), vec!["a", "b"]);
+    queue.set_shuffle(true);
+    assert_eq!(history_ids(&queue), vec!["a", "b"]);
+    assert!(queue.validate().is_ok());
+    assert_eq!(queue.previous(0, 5), PreviousOutcome::PlayPrevious);
+    assert_eq!(queue.current().expect("current").id, "b");
+    assert_eq!(queue.previous(0, 5), PreviousOutcome::PlayPrevious);
+    assert_eq!(queue.current().expect("current").id, "a");
+}
+
+#[test]
+fn shuffle_tolerates_an_out_of_range_position() {
+    let mut queue = queue_with(&["a", "b"]);
+    queue.position = Some(9);
+    queue.set_shuffle(true);
+    assert_eq!(queue.position, None);
+    assert!(queue.validate().is_ok());
+}
+
+#[test]
 fn unshuffle_restores_identity_order() {
     let mut queue = queue_with(&["a", "b", "c", "d"]);
     queue.position = Some(0);

@@ -95,6 +95,41 @@ impl Queue {
         }
     }
 
+    /// Rewrite the play order, carrying the cursor and play history to
+    /// wherever their tracks ended up.
+    ///
+    /// `order` is a permutation of distinct track indices, so track index ->
+    /// position is a bijection: every carried entry resolves to exactly one
+    /// new position, none is lost or duplicated. Shuffle toggles reorder the
+    /// whole queue, so remapping by identity is the only way `position` and
+    /// `play_history` keep pointing at the tracks they named.
+    fn permute_order(&mut self, permute: impl FnOnce(&mut Vec<usize>)) {
+        let current_track = self
+            .position
+            .and_then(|position| self.track_index_at(position));
+        let history_tracks = self
+            .play_history
+            .iter()
+            .filter_map(|&position| self.track_index_at(position))
+            .collect::<Vec<_>>();
+        permute(&mut self.order);
+        self.position = current_track.and_then(|track_index| self.position_of(track_index));
+        self.play_history = history_tracks
+            .into_iter()
+            .filter_map(|track_index| self.position_of(track_index))
+            .collect();
+    }
+
+    /// The track this play-order position names, if the position is in range.
+    fn track_index_at(&self, position: usize) -> Option<usize> {
+        self.order.get(position).copied()
+    }
+
+    /// The play-order position currently holding `track_index`.
+    fn position_of(&self, track_index: usize) -> Option<usize> {
+        self.order.iter().position(|&index| index == track_index)
+    }
+
     /// Remove all tracks.
     pub fn clear(&mut self) {
         self.tracks.clear();
@@ -119,23 +154,21 @@ impl Queue {
         if shuffle {
             self.shuffle_remaining();
         } else {
-            let current_track = self.position.map(|position| self.order[position]);
-            self.order = (0..self.tracks.len()).collect();
-            self.position =
-                current_track.and_then(|track| self.order.iter().position(|&x| x == track));
+            let track_count = self.tracks.len();
+            self.permute_order(|order| *order = (0..track_count).collect());
         }
     }
 
     fn shuffle_remaining(&mut self) {
         let mut rng = rand::rng();
-        match self.position {
-            Some(position) if !self.order.is_empty() => {
-                self.order.swap(0, position);
-                self.position = Some(0);
-                self.order[1..].shuffle(&mut rng);
+        let current = self.position;
+        self.permute_order(|order| match current {
+            Some(position) if position < order.len() => {
+                order.swap(0, position);
+                order[1..].shuffle(&mut rng);
             }
-            _ => self.order.shuffle(&mut rng),
-        }
+            _ => order.shuffle(&mut rng),
+        });
     }
 
     /// Advance to the next track while honoring repeat mode.
