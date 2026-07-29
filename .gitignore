@@ -2,3 +2,4 @@
 .DS_Store
 ruvector.db
 .plans/ruvector.db
+/graphify-out/

@@ -31,6 +31,23 @@ git diff --check
 - Snapshot tests (`tests/ui_snapshots/`) pin rendered copy verbatim; a copy
   or layout change requires a same-commit sweep of those assertions.
 
+## Knowledge graph (graphify)
+
+`graphify-out/graph.json` is a knowledge graph of the whole repo (code via
+AST, docs, and screenshots) with `GRAPH_REPORT.md` and a browsable
+`graph.html`. Prefer it over grepping for architecture, call-flow, and
+"what depends on what" questions:
+
+```sh
+/graphify query "How does a playlist rename flow from client to disk?"
+/graphify path "PlaybackController" "MpvIpc"
+/graphify explain "OperationRegistry"
+/graphify . --update      # re-extract changed files after a refactor
+```
+
+The output directory is gitignored; if `graphify-out/graph.json` is missing,
+build it with `/graphify .`.
+
 ## Conventions
 
 - New wire-reachable `PlaylistAction`/service actions must be routed
