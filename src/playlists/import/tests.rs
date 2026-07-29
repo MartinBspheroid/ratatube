@@ -79,7 +79,7 @@ fn pasted_json_reports_the_invalid_track_location() {
 
 #[test]
 fn checked_in_playlist_json_contains_all_specified_tracks() {
-    let playlists = parse_pasted_json(include_str!("../../../playlist.json"))
+    let playlists = parse_pasted_json(include_str!("../../../tests/fixtures/playlist.json"))
         .expect("checked-in playlist.json must remain importable");
     assert_eq!(playlists.len(), 7);
     assert_eq!(
