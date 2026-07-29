@@ -1,6 +1,5 @@
 use std::ffi::OsString;
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
@@ -8,16 +7,21 @@ use std::time::Duration;
 use super::*;
 use ratatube_domain::error::AppError;
 
+/// Shared with the sibling unit tests and the `yt_dlp` integration test — see
+/// the file's own header for why it is included by path. `duplicate_mod` is
+/// expected: `platform::child::tests` loads the same file, and neither test
+/// module can see the other's private items.
+#[path = "../../../tests/support/fake_executable.rs"]
+#[allow(clippy::duplicate_mod)]
+mod fake_executable;
+
 const VIDEO_URL: &str = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 const COMPLETION_TIMEOUT: Duration = Duration::from_secs(5);
 const TIMEOUT_TEST_BUDGET: Duration = Duration::from_secs(3);
 
 fn fake_clipboard(temp: &tempfile::TempDir, name: &str, body: &str) -> PathBuf {
     let path = temp.path().join(name);
-    fs::write(&path, format!("#!/bin/sh\n{body}\n")).expect("write fake executable");
-    let mut permissions = fs::metadata(&path).expect("fake metadata").permissions();
-    permissions.set_mode(0o755);
-    fs::set_permissions(&path, permissions).expect("make fake executable");
+    fake_executable::write_fake_executable(&path, "/bin/sh", body);
     path
 }
 

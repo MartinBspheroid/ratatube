@@ -1,5 +1,4 @@
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::process::Command;
 use std::time::Duration;
 
@@ -7,6 +6,14 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 use super::{ChildRequest, run_before};
+
+/// Shared with the sibling unit tests and the `yt_dlp` integration test — see
+/// the file's own header for why it is included by path. `duplicate_mod` is
+/// expected: `platform::clipboard::tests` loads the same file, and neither test
+/// module can see the other's private items.
+#[path = "../../../tests/support/fake_executable.rs"]
+#[allow(clippy::duplicate_mod)]
+mod fake_executable;
 
 fn assert_reaped(pid: u32) {
     let output = Command::new("ps")
@@ -24,17 +31,14 @@ async fn cancellation_kills_and_reaps_started_child_before_returning() {
     let temp = tempfile::tempdir().expect("tempdir");
     let pid_path = temp.path().join("pid");
     let executable = temp.path().join("slow-command");
-    fs::write(
+    fake_executable::write_fake_executable(
         &executable,
-        format!(
-            "#!/bin/sh\nprintf '%s' \"$$\" > '{}'\nexec sleep 30\n",
+        "/bin/sh",
+        &format!(
+            "printf '%s' \"$$\" > '{}'\nexec sleep 30",
             pid_path.display()
         ),
-    )
-    .expect("write fake executable");
-    let mut permissions = fs::metadata(&executable).expect("metadata").permissions();
-    permissions.set_mode(0o755);
-    fs::set_permissions(&executable, permissions).expect("make executable");
+    );
     let cancellation = CancellationToken::new();
     let cancel = cancellation.clone();
     tokio::spawn(async move {

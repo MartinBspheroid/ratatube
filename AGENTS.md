@@ -41,9 +41,19 @@ cargo test --locked --all-targets
 git diff --check
 ```
 
-- Run one `cargo test` invocation at a time — `tests/mpv_ipc.rs` drives a
-  real local mpv and flakes under parallel load; re-run a failure alone
-  before treating it as a regression.
+- The suite is expected to pass every time, so treat any failure as a real
+  regression instead of re-running it alone. The long-standing "different
+  test fails every other run with Text file busy (os error 26)" flake was an
+  `ETXTBSY` exec race in the script-based test doubles, not load sensitivity:
+  a sibling thread's fork transiently inherits the write fd of the script
+  another thread just wrote, and the owner's `exec` loses to it. Every fake
+  executable is now created through `write_fake_executable`
+  (`crates/ratatube-services/tests/support/fake_executable.rs`, twinned at
+  `crates/ratatube/src/app/tests/fake_executable.rs`), which exec-probes the
+  script until the window closes before the test uses it. Write new script
+  doubles with that helper, never with a bare `fs::write` + chmod.
+- `tests/mpv_ipc.rs` drives a real local mpv, so it needs `mpv` and `ffmpeg`
+  on `PATH`; it skips itself when they are missing.
 - Never pipe `cargo test` into `grep` in a `&&` chain without
   `set -o pipefail` — grep's exit code masks failures.
 - Snapshot tests (`tests/ui_snapshots/`) pin rendered copy verbatim; a copy

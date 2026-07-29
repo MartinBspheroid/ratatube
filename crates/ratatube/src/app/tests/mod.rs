@@ -2,6 +2,8 @@
 
 mod browser;
 mod command_path;
+#[cfg(unix)]
+mod fake_executable;
 mod mouse;
 mod playlist_workflows;
 mod selection;

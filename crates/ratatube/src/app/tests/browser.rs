@@ -1,7 +1,5 @@
 #[cfg(unix)]
 use std::fs;
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 #[cfg(unix)]
 use std::path::PathBuf;
@@ -9,6 +7,8 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
 
+#[cfg(unix)]
+use super::fake_executable::write_fake_executable;
 use crate::app::action::{Action, ExternalCommandKind, ExternalCommandTarget, NavigationAction};
 use crate::app::browser::{is_allowed_browser_url, open_browser_with_command};
 use crate::app::state::View;
@@ -25,10 +25,7 @@ const TIMEOUT_TEST_BUDGET: Duration = Duration::from_secs(3);
 #[cfg(unix)]
 fn fake_opener(temp: &tempfile::TempDir, name: &str, body: &str) -> PathBuf {
     let path = temp.path().join(name);
-    fs::write(&path, format!("#!/bin/sh\n{body}\n")).expect("write fake opener");
-    let mut permissions = fs::metadata(&path).expect("fake metadata").permissions();
-    permissions.set_mode(0o755);
-    fs::set_permissions(&path, permissions).expect("make fake executable");
+    write_fake_executable(&path, "/bin/sh", body);
     path
 }
 
